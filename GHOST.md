@@ -133,6 +133,9 @@ VERIFIED_REMOTE
 Message metadata:
 VERIFIED_REMOTE
 
+Memory intelligence:
+VERIFIED_LOCAL
+
 Production:
 NOT_DEPLOYED
 
@@ -179,6 +182,19 @@ Day 3.5 evidence from http://localhost:3001 and linked project `wzwrrleqfylhuxfb
 - Reload of the project page still showed "Grounded in 20 sources" and the same source list, including the current milestone, the two open blockers, DEC-001, and DEC-006.
 - A second founder signed in, received zero project, knowledge, conversation, message, and metadata rows, and was denied an insert with SQLSTATE 42501. The project page said not found and did not show the milestone, DEC-006, or the sources. The form was absent, so no question was posted. The provider invoke count stayed at the count from the authorized answer.
 - `npm test` passed 26 tests. `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed. Production was not deployed.
+
+Day 4 evidence from http://localhost:3001 and linked project `wzwrrleqfylhuxfbukfu`:
+
+- "Remember that I want Ghost to verify database migrations remotely before calling them complete." saved pending founder-rule proposal `e13c8a13-eabd-46f0-b8be-50c17a759037`. Approve on `/memory` set it APPROVED and created active founder rule `3ba9b742-0b11-4c05-a426-30fb13163869`. A later question cited that rule.
+- "Remember that GHOST must never use Vercel." did not create a founder rule. Ghost said the existing project proposal already covers it. Proposal `5b71b660-4369-45a0-8e3b-ef8b30ac9d90` stayed PENDING and PROJECT_KNOWLEDGE.
+- "Remember this rule: claims are not evidence." matched active RULE-004 and did not create another rule.
+- "Where did you learn that I want migrations verified remotely?" named conversation `bdc9e36d-df87-4890-89b6-f72c7906c7c8` and message `99047834-3cb5-4b50-bdf5-ba76788df02c`. RULE-001 still has incomplete provenance, and Ghost said it would not invent a conversation for that rule.
+- "Why?" after a migration question named the migration rule and RULE-001, including the conversation provenance for the new rule.
+- Disposable rule "Disposable day4 marker" was approved, selected in an answer, then retired. The next answer's sources did not include it. "Disposable secret instruction" was approved, treated as data rather than system authority, and then retired. Both rows remain RETIRED.
+- "Disposable reject marker" was rejected from `/memory`. The proposal is REJECTED and no founder rule was created. "That rule is wrong." did not retire a rule by itself.
+- A direct ACTIVE founder-rule insert returned `active founder rules must be created by review_memory_proposal`. User B received zero founder rules, proposals, and project knowledge. Approve, reject, and retire against User A's rows failed. A project-memory insert returned SQLSTATE 42501. User B's memory health showed 0 active rules and did not show the migration rule or conversation id. The project page said not found.
+- Assistant metadata `memoryApplications` records the founder rule ids that influenced answers, including message `44e433aa-e5c2-48c6-9b81-5aa49d0f2c70`.
+- `npm test` passed 33 tests. `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed. Production was not deployed.
 
 ## Last Updated
 

@@ -1,4 +1,5 @@
 import { isSupportedVerified } from "@/lib/brain/verification";
+import { memoryRelations } from "@/lib/memory/intelligence";
 import { applyBudget, boundConversation } from "./budget";
 import { claimItems, conflictItems } from "./claims";
 import { publicContext, sourceRefs } from "./provenance";
@@ -176,7 +177,7 @@ export function collectProjectItems(input: {
     }
   }
 
-  return items;
+  return [...items, ...memoryRelations(items)];
 }
 
 export function collectGlobalItems(input: {
@@ -227,7 +228,7 @@ export function collectGlobalItems(input: {
     });
   }
 
-  return items;
+  return [...items, ...memoryRelations(items)];
 }
 
 export function selectGrounding(input: {

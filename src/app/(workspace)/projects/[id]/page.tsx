@@ -4,6 +4,7 @@ import path from "node:path";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { GhostConversation } from "@/components/ghost/conversation";
+import { ActionForm } from "@/components/ui/action-form";
 import { EmptyState, ErrorState, Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { isModelConfigured } from "@/lib/ai/provider";
@@ -15,6 +16,7 @@ import { displayVerificationState, isSupportedVerified } from "@/lib/brain/verif
 import { loadLatestConversation } from "@/lib/conversation/queries";
 import type { KnowledgeKind } from "@/lib/domain/status";
 import { formatTimestamp } from "@/lib/format";
+import { createMemoryProposal } from "@/lib/memory/actions";
 import { loadFounderRules } from "@/lib/memory/queries";
 import {
   loadBlockers,
@@ -91,6 +93,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const requirements = knowledgeOf(knowledgeRows, "REQUIREMENT");
   const decisions = knowledgeOf(knowledgeRows, "DECISION");
   const constraints = knowledgeOf(knowledgeRows, "CONSTRAINT");
+  const otherKnowledge = knowledgeRows.filter((record) => record.kind === "FACT" || record.kind === "LESSON");
   const milestoneRows = milestones.status === "ok" ? milestones.data : [];
   const current =
     milestoneRows.find((milestone) => milestone.title === detail.currentMilestone) ?? milestoneRows[0] ?? null;
@@ -201,12 +204,22 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <li>Last known commit: {detail.repositoryCommit ?? "Not recorded"}</li>
         </ul>
         <p className="quiet">A missing URL or commit means remote repository state is not recorded.</p>
-        {constraints.map((item) => (
-          <article className="list-item" key={item.id}>
-            <h3>{item.title}</h3>
-            <p>{item.content}</p>
-          </article>
-        ))}
+      </Panel>
+
+      <Panel title="Remember something about this project">
+        <p className="quiet">This saves a pending project proposal. It does not become an active founder rule.</p>
+        <ActionForm action={createMemoryProposal} submitLabel="Save project proposal">
+          <input type="hidden" name="scope" value="PROJECT_KNOWLEDGE" />
+          <input type="hidden" name="projectId" value={detail.id} />
+          <label className="field">
+            <span>Title</span>
+            <input name="title" required maxLength={200} />
+          </label>
+          <label className="field">
+            <span>What to remember</span>
+            <textarea name="content" required />
+          </label>
+        </ActionForm>
       </Panel>
 
       <Panel title="Ask Ghost about this project">
@@ -277,6 +290,33 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <article className="list-item" key={item.id}>
             <h3>{item.title}</h3>
             <p>{item.content}</p>
+          </article>
+        ))}
+      </Panel>
+
+      <Panel title="Constraints">
+        {constraints.length === 0 ? <EmptyState>No constraints recorded.</EmptyState> : null}
+        {constraints.map((item) => (
+          <article className="list-item" key={item.id}>
+            <h3>{item.title}</h3>
+            <p>{item.content}</p>
+            <p className="quiet">Source: {item.source || "Not recorded"}</p>
+          </article>
+        ))}
+      </Panel>
+
+      <Panel title="Other knowledge">
+        {otherKnowledge.length === 0 ? <EmptyState>No other project knowledge recorded.</EmptyState> : null}
+        {otherKnowledge.map((item) => (
+          <article className="list-item" key={item.id}>
+            <h3>{item.title}</h3>
+            <p>{item.content}</p>
+            <ul className="meta">
+              <li>
+                <StatusBadge status={item.kind} />
+              </li>
+              <li>Source: {item.source || "Not recorded"}</li>
+            </ul>
           </article>
         ))}
       </Panel>

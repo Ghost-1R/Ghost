@@ -16,6 +16,7 @@ export type FounderRuleRecord = {
   status: FounderRuleStatus;
   originProjectId: string | null;
   approvedAt: string | null;
+  updatedAt: string;
 };
 
 export type ProjectKnowledgeRecord = {
@@ -52,7 +53,7 @@ export async function loadFounderRules(
 ): Promise<QueryResult<FounderRuleRecord[]>> {
   const { data, error } = await supabase
     .from("founder_rules")
-    .select("id, title, content, provenance, status, origin_project_id, approved_at")
+    .select("id, title, content, provenance, status, origin_project_id, approved_at, updated_at")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -69,6 +70,7 @@ export async function loadFounderRules(
       status: row.status,
       originProjectId: row.origin_project_id,
       approvedAt: row.approved_at,
+      updatedAt: row.updated_at,
     })),
   };
 }

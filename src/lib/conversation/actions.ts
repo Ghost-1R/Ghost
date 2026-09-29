@@ -9,11 +9,17 @@ import { getSession } from "@/lib/auth/session";
 import { assembleGlobalContext, assembleProjectContext } from "@/lib/brain/context";
 import { isSupportedVerified } from "@/lib/brain/verification";
 import { reuseUnansweredUserMessage } from "@/lib/conversation/idempotency";
-import { groundingMetadata, withSources } from "@/lib/conversation/queries";
+import { groundingMetadata, sourcesFromMetadata, withSources, type ConversationSource } from "@/lib/conversation/queries";
 import { collectGlobalItems, collectProjectItems, selectGrounding } from "@/lib/ghost-context/assemble";
 import { detectMemoryIntent } from "@/lib/ghost-context/memory-intent";
 import { resolveAuthorizedProject } from "@/lib/ghost-context/resolve";
-import { loadFounderRules } from "@/lib/memory/queries";
+import {
+  bestMemoryMatch,
+  describeProvenance,
+  findDuplicateMemory,
+  matchActiveRules,
+} from "@/lib/memory/intelligence";
+import { loadFounderRules, loadMemoryProposals } from "@/lib/memory/queries";
 import {
   loadBlockers,
   loadKnowledge,
@@ -162,6 +168,7 @@ export async function sendGhostMessage(
   if (session.status !== "authenticated") {
     return { error: "You are not signed in.", notice: null };
   }
+  const supabase = session.supabase;
 
   const message = readField(formData, "message");
   const requestedProjectId = readField(formData, "projectId");
@@ -314,7 +321,7 @@ export async function sendGhostMessage(
 
   const history = await session.supabase
     .from("ghost_messages")
-    .select("id, role, content")
+    .select("id, role, content, metadata")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
 
@@ -347,7 +354,87 @@ export async function sendGhostMessage(
     turns.push({ role: "user", content: message });
   }
 
+  async function storeAssistant(content: string, sources: ConversationSource[] = []): Promise<ActionState> {
+    const storedAssistant = await supabase.from("ghost_messages").insert({
+      conversation_id: conversationId,
+      role: "assistant",
+      content: withSources(content, sources),
+      metadata: groundingMetadata({
+        provider: "ghost",
+        model: "deterministic",
+        projectId: contextProjectId,
+        contextItemCount: sources.length,
+        sources,
+      }),
+    });
+    if (storedAssistant.error) {
+      return { error: storedAssistant.error.message, notice: null };
+    }
+    revalidatePath("/dashboard");
+    revalidatePath("/memory");
+    if (requestedProjectId) {
+      revalidatePath(`/projects/${requestedProjectId}`);
+    }
+    return { error: null, notice: null };
+  }
+
   const memory = detectMemoryIntent(message, projectName);
+  const activeRules = rules.data.filter((rule) => rule.status === "ACTIVE");
+
+  if (memory.kind === "where") {
+    const match = bestMemoryMatch(memory.content, activeRules);
+    const text = match
+      ? `${match.title}: ${match.content} ${describeProvenance(match.provenance ?? "").text}`
+      : "I do not have an active founder rule that matches that question. I will not invent a source conversation.";
+    return storeAssistant(text, match ? [{ id: match.id, type: "founder_rule", title: match.title }] : []);
+  }
+
+  if (memory.kind === "why") {
+    const lastAssistant = [...history.data].reverse().find((turn) => turn.role === "assistant");
+    const cited = sourcesFromMetadata(lastAssistant?.metadata).filter((source) => source.type === "founder_rule");
+    if (cited.length === 0) {
+      return storeAssistant("The previous answer did not record a founder rule in its sources. I will not invent one.");
+    }
+    const lines = cited.map((source) => {
+      const rule = activeRules.find((item) => item.id === source.id);
+      const provenance = describeProvenance(rule?.provenance ?? "").text;
+      return `${source.title}. ${provenance}`;
+    });
+    return storeAssistant(`I used these founder rules: ${lines.join(" ")}`, cited);
+  }
+
+  if (memory.kind === "retire") {
+    const matches = memory.target ? matchActiveRules(memory.target, activeRules) : [];
+    const rule = matches.length === 1 ? matches[0] : null;
+    if (!rule) {
+      const text =
+        matches.length === 0
+          ? "I did not retire a rule. Name the active rule to retire."
+          : `More than one rule matches. I did not retire any of them: ${matches.map((item) => item.title).join(", ")}.`;
+      return storeAssistant(text);
+    }
+    const retired = await session.supabase.rpc("retire_founder_rule", { rule_id: rule.id });
+    if (retired.error) {
+      return { error: retired.error.message, notice: null };
+    }
+    return storeAssistant(
+      `I retired ${rule.title}. It stays in memory history and leaves normal context. A separate retirement reason was not recorded.`,
+      [{ id: rule.id, type: "founder_rule", title: rule.title }],
+    );
+  }
+
+  if (memory.kind === "correct") {
+    const lastAssistant = [...history.data].reverse().find((turn) => turn.role === "assistant");
+    const cited = sourcesFromMetadata(lastAssistant?.metadata).filter((source) => source.type === "founder_rule");
+    const rule = cited.length === 1 ? cited[0] : null;
+    if (!rule) {
+      return storeAssistant(
+        "I did not change a rule. Name the rule and reply Retire followed by its title if you want it retired.",
+      );
+    }
+    return storeAssistant(`I did not retire ${rule.title}. Reply: Retire ${rule.title}`, [rule]);
+  }
+
   if (memory.kind === "ask-scope") {
     const storedAssistant = await session.supabase.from("ghost_messages").insert({
       conversation_id: conversationId,
@@ -371,6 +458,31 @@ export async function sendGhostMessage(
         error: null,
         notice: "Name the project this should apply to. I did not save a proposal.",
       };
+    }
+
+    const proposals = await loadMemoryProposals(session.supabase);
+    if (proposals.status === "error") {
+      return { error: proposals.message, notice: null };
+    }
+    const duplicate = findDuplicateMemory(memory.content, [
+      ...activeRules,
+      ...proposals.data.filter((item) => item.status === "PENDING"),
+      ...(loaded?.items
+        .filter((item) => item.sourceTable === "project_knowledge")
+        .map((item) => ({
+          id: item.sourceId,
+          title: item.title,
+          content: item.content,
+          status: item.status ?? undefined,
+        })) ?? []),
+    ]);
+    if (duplicate) {
+      const sourceType =
+        duplicate.status === "PENDING" ? "memory_proposal" : duplicate.status === "ACTIVE" ? "founder_rule" : "project_knowledge";
+      return storeAssistant(
+        `An existing memory already covers that: ${duplicate.title}. I did not create another proposal or an active rule.`,
+        [{ id: duplicate.id, type: sourceType, title: duplicate.title }],
+      );
     }
 
     const proposal = await session.supabase

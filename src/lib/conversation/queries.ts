@@ -91,6 +91,13 @@ export function groundingMetadata(input: {
       type: source.type,
       title: source.title,
     })),
+    ...(input.sources.some((source) => source.type === "founder_rule")
+      ? {
+          memoryApplications: input.sources
+            .filter((source) => source.type === "founder_rule")
+            .map((source) => ({ ruleId: source.id, title: source.title })),
+        }
+      : {}),
     ...(input.usage
       ? {
           usage: {
