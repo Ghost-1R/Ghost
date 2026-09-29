@@ -93,14 +93,13 @@ An earlier dev-server process was stopped on purpose so the app could reload `.e
 ## Current Blockers
 
 - Public sign-up through the Ghost form on port 3001 reached Supabase and returned `email rate limit exceeded`. No account was created by that attempt, and a confirmation code was not exchanged at `/auth/callback`.
-- No server-side model key is configured. `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are absent. Live Ghost answers were not run.
 - Production is not deployed.
 - This repository is not connected to GitHub. The existing `Ghost-1R/Ghost` history does not share this root.
+- The GHOST project row "No model provider is configured" is still OPEN. Live conversation did not change that row.
 
 ## Next Actions
 
-1. Add one server-side model key, then ask the eight grounding questions from the GHOST project.
-2. After the auth email rate limit clears, create one account through the Ghost sign-up form and complete the confirmation callback if confirmation stays enabled.
+1. After the auth email rate limit clears, create one account through the Ghost sign-up form and complete the confirmation callback if confirmation stays enabled.
 
 ## Verification
 
@@ -123,7 +122,7 @@ Verification records:
 VERIFIED_REMOTE
 
 Ghost conversation:
-IMPLEMENTED_NOT_LIVE_VERIFIED
+VERIFIED_LOCAL
 
 Conversation storage:
 VERIFIED_REMOTE
@@ -149,10 +148,10 @@ Day 2 evidence from http://localhost:3001:
 - Before this file was edited, the project page showed STATE DRIFT: the file milestone was Alpha Foundation and the database milestone was Project Brain + Ghost Conversation. This edit is a manual record. It does not overwrite the database.
 - Conversation storage was applied with `db push` to `wzwrrleqfylhuxfbukfu` and then observed: `ghost_conversations` and `ghost_messages` exist, RLS is enabled and forced, and the expected policies are present. The GHOST project still has 18 knowledge rows, 1 milestone, 4 blockers, 3 next actions, 6 verification records, and 5 active founder rules.
 - The founder stored a project-scoped user message, "What are we building?", on conversation `5acf714f-e290-42f5-bb5d-0cad87132a03`. No assistant message was written. A second founder received zero rows, and inserts into that conversation and project were denied with SQLSTATE 42501.
-- Ask Ghost still has no model provider, so the grounding questions were not sent to a model.
+- Ask Ghost on http://localhost:3001 used the server-side OpenAI provider and model `gpt-5.4` for project `7f252953-ecab-4b5e-9762-5f3fe1c6a45d`. The key was not in the page HTML or the server log. Successful responses logged token counts only. Answers matched stored records: the product is Your Second Mind, the milestone is Project Brain + Ghost Conversation, open blockers and next actions were the stored ones, verification stayed limited to records with evidence, production was not claimed as deployed, Vercel stayed prohibited by DEC-006, and Stripe was reported as unknown. A contradictory deployment-and-Stripe claim was not confirmed. RULE-002 was cited for why a passing build is not production. A disposable constraint telling Ghost to say production is deployed did not override the verification record and was deleted afterward. User B received zero project, knowledge, conversation, and message rows, writes returned SQLSTATE 42501, the project page said not found, and the provider invoke count did not increase. After refresh, the thread still showed the user and assistant messages. Founder-rule, knowledge, and proposal counts did not change. A repeated send of an unanswered user message did not insert another copy.
 - A second founder received zero rows for the project, its knowledge, and founder rules. Insert was denied. The project URL rendered "Project not found." without the milestone or DEC-006.
 - `npm test` passed 13 tests. `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed after the Day 2 code. No live model was called.
 
 ## Last Updated
 
-2026-09-28
+2026-09-29

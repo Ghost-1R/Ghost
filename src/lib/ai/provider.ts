@@ -12,12 +12,51 @@ function toChatMessages(request: ModelRequest): ChatMessage[] {
   ];
 }
 
+function readUsage(value: unknown): ModelResponse["usage"] | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const usage = value as {
+    prompt_tokens?: unknown;
+    completion_tokens?: unknown;
+    total_tokens?: unknown;
+  };
+  if (
+    typeof usage.prompt_tokens !== "number" ||
+    typeof usage.completion_tokens !== "number" ||
+    typeof usage.total_tokens !== "number"
+  ) {
+    return undefined;
+  }
+
+  return {
+    inputTokens: usage.prompt_tokens,
+    outputTokens: usage.completion_tokens,
+    totalTokens: usage.total_tokens,
+  };
+}
+
+function safeProviderDetail(value: unknown): string {
+  if (!value || typeof value !== "object") {
+    return "The provider returned an error.";
+  }
+
+  const error = (value as { error?: { type?: unknown; code?: unknown; message?: unknown } }).error;
+  const parts = [error?.type, error?.code, error?.message].filter(
+    (part): part is string => typeof part === "string" && part.trim().length > 0,
+  );
+  const detail = parts.join(": ") || "The provider returned an error.";
+  return detail.replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]").slice(0, 500);
+}
+
 function openAiProvider(apiKey: string): ModelProvider {
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4.1-mini";
+  const model = process.env.GHOST_AI_MODEL?.trim() || "gpt-4.1-mini";
 
   return {
     id: "openai",
     async complete(request): Promise<ModelResponse> {
+      console.info("ghost.model.invoke", { provider: "openai", model });
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -31,19 +70,27 @@ function openAiProvider(apiKey: string): ModelProvider {
         }),
       });
 
+      const body = (await response.json().catch(() => null)) as {
+        error?: { type?: string; code?: string; message?: string };
+        choices?: Array<{ message?: { content?: string } }>;
+        usage?: unknown;
+      } | null;
+
       if (!response.ok) {
-        throw new Error(`OpenAI request failed (${response.status}).`);
+        throw new Error(`OpenAI request failed (${response.status}). ${safeProviderDetail(body)}`);
       }
 
-      const body = (await response.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
-      const content = body.choices?.[0]?.message?.content?.trim();
+      const content = body?.choices?.[0]?.message?.content?.trim();
       if (!content) {
         throw new Error("OpenAI returned an empty response.");
       }
 
-      return { content, provider: "openai", model };
+      const usage = readUsage(body?.usage);
+      if (usage) {
+        console.info("ghost.model.usage", { provider: "openai", model, ...usage });
+      }
+
+      return { content, provider: "openai", model, usage };
     },
   };
 }

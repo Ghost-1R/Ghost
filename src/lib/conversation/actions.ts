@@ -7,6 +7,7 @@ import type { ConversationTurn } from "@/lib/ai/types";
 import type { ActionState } from "@/lib/action-state";
 import { getSession } from "@/lib/auth/session";
 import { assembleGlobalContext, assembleProjectContext, resolveProjectMention } from "@/lib/brain/context";
+import { reuseUnansweredUserMessage } from "@/lib/conversation/idempotency";
 import { loadFounderRules } from "@/lib/memory/queries";
 import {
   loadBlockers,
@@ -238,28 +239,43 @@ export async function sendGhostMessage(
     return { error: history.error.message, notice: null };
   }
 
-  const storedUser = await session.supabase.from("ghost_messages").insert({
-    conversation_id: conversationId,
-    role: "user",
-    content: message,
-  });
-
-  if (storedUser.error) {
-    return { error: storedUser.error.message, notice: null };
-  }
-
   const turns: ConversationTurn[] = history.data.flatMap((turn) =>
     turn.role === "user" || turn.role === "assistant" ? [{ role: turn.role, content: turn.content }] : [],
   );
-  turns.push({ role: "user", content: message });
+  const retryingFailedRequest = reuseUnansweredUserMessage(turns, message);
 
-  const reply = await prepareReply({
-    requestedProjectId: contextProjectId,
-    visibleProjectId: contextProjectId,
-    context,
-    messages: turns,
-    provider: getModelProvider(),
-  });
+  if (!retryingFailedRequest) {
+    const storedUser = await session.supabase.from("ghost_messages").insert({
+      conversation_id: conversationId,
+      role: "user",
+      content: message,
+    });
+
+    if (storedUser.error) {
+      return { error: storedUser.error.message, notice: null };
+    }
+
+    turns.push({ role: "user", content: message });
+  }
+
+  let reply: Awaited<ReturnType<typeof prepareReply>>;
+  try {
+    reply = await prepareReply({
+      requestedProjectId: contextProjectId,
+      visibleProjectId: contextProjectId,
+      context,
+      messages: turns,
+      provider: getModelProvider(),
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "The model provider failed.";
+    const notice = detail.replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]").slice(0, 500);
+    console.info("ghost.model.failure", { notice });
+    return {
+      error: null,
+      notice,
+    };
+  }
 
   if (!reply.ok) {
     await session.supabase

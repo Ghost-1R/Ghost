@@ -23,8 +23,8 @@
       "detail": "On http://localhost:3001 the Ghost sign-up form reached Supabase and showed email rate limit exceeded. No new account was created by that attempt, and no confirmation code was exchanged."
     },
     {
-      "title": "No model provider is configured",
-      "detail": "OPENAI_API_KEY and ANTHROPIC_API_KEY are absent. Ghost did not call a model."
+      "title": "Stored model-provider blocker was not rewritten",
+      "detail": "The GHOST project blocker No model provider is configured is still OPEN. Live conversation did not change project records."
     },
     {
       "title": "GitHub histories are unrelated",
@@ -32,7 +32,6 @@
     }
   ],
   "nextActions": [
-    "Add one server-side model key and ask the grounding questions from the GHOST project",
     "Complete one Ghost form sign-up after the auth email rate limit clears"
   ],
   "verification": {
@@ -42,7 +41,7 @@
     "rls": "VERIFIED_REMOTE",
     "memoryApproval": "VERIFIED_REMOTE",
     "verificationRecords": "VERIFIED_REMOTE",
-    "ghostConversation": "IMPLEMENTED_NOT_LIVE_VERIFIED",
+    "ghostConversation": "VERIFIED_LOCAL",
     "conversationStorage": "VERIFIED_REMOTE",
     "production": "NOT_DEPLOYED"
   },
@@ -53,7 +52,7 @@
     "memoryApproval": "Direct ACTIVE insert was denied with the review_memory_proposal error. Day 2 created five ACTIVE rules through that function.",
     "verificationRecords": "VERIFIED with empty evidence was denied. VERIFIED with evidence and checked_at succeeded. The GHOST project records production and Ghost conversation as NOT_VERIFIED.",
     "conversationStorage": "db push applied 20260929043000 on wzwrrleqfylhuxfbukfu. Both tables have RLS enabled and forced. Founder message What are we building persisted on project 7f252953-ecab-4b5e-9762-5f3fe1c6a45d. User B reads returned zero rows and writes returned 42501.",
-    "ghostConversation": "No model provider is configured. Grounding questions were not sent to a model. No assistant message was stored."
+    "ghostConversation": "On http://localhost:3001 the OpenAI provider and model gpt-5.4 answered from project 7f252953-ecab-4b5e-9762-5f3fe1c6a45d. Answers followed stored records, including NOT_VERIFIED production, DEC-006, unknown Stripe, and RULE-002. A disposable injection row did not override verification and was removed. User B could not read the project or conversation, and the provider was not invoked for that access. Refresh kept the thread, project, and owner. Knowledge, founder-rule, and proposal counts stayed unchanged."
   },
   "deployment": {
     "provider": null,
