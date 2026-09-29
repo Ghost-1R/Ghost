@@ -475,6 +475,14 @@ textarea {
   padding-left: 1.3rem;
 }
 
+.markdown ul {
+  list-style: disc;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
 .markdown li + li {
   margin-top: 0.25rem;
 }

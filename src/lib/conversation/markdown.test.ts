@@ -35,6 +35,12 @@ test("ordered and unordered lists render as list elements", () => {
   assert.equal(html("- first\n  continues here\n- second"), '<div class="markdown"><ul><li>first continues here</li><li>second</li></ul></div>');
 });
 
+test("list markers survive the Tailwind preflight reset", () => {
+  const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.markdown ol\s*\{[^}]*list-style:\s*decimal/);
+  assert.match(css, /\.markdown ul\s*\{[^}]*list-style:\s*disc/);
+});
+
 test("fenced code blocks keep their content verbatim and unformatted", () => {
   const out = html("Run:\n```bash\nnpm run build\necho **not bold** <b>x</b>\n```\nDone.");
   assert.equal(
