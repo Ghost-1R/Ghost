@@ -23,10 +23,6 @@
       "detail": "On http://localhost:3001 the Ghost sign-up form reached Supabase and showed email rate limit exceeded. No new account was created by that attempt, and no confirmation code was exchanged."
     },
     {
-      "title": "Message metadata migration is not on the remote database",
-      "detail": "supabase/migrations/20260929053000_message_metadata.sql is local. db push returned 403 because the current CLI account cannot see wzwrrleqfylhuxfbukfu. Selected sources are stored in the assistant message until that migration is applied."
-    },
-    {
       "title": "GitHub histories are unrelated",
       "detail": "No origin is configured. Ghost-1R/Ghost has a separate initial commit. Do not force-push."
     }
@@ -44,6 +40,7 @@
     "ghostConversation": "VERIFIED_LOCAL",
     "contextEngine": "VERIFIED_LOCAL",
     "conversationStorage": "VERIFIED_REMOTE",
+    "messageMetadata": "VERIFIED_REMOTE",
     "production": "NOT_DEPLOYED"
   },
   "evidence": {
@@ -53,6 +50,7 @@
     "memoryApproval": "Direct ACTIVE insert was denied with the review_memory_proposal error. Day 2 created five ACTIVE rules through that function.",
     "verificationRecords": "VERIFIED with empty evidence was denied. VERIFIED with evidence and checked_at succeeded. The GHOST project records production and Ghost conversation as NOT_VERIFIED.",
     "conversationStorage": "db push applied 20260929043000 on wzwrrleqfylhuxfbukfu. Both tables have RLS enabled and forced. Founder message What are we building persisted on project 7f252953-ecab-4b5e-9762-5f3fe1c6a45d. User B reads returned zero rows and writes returned 42501.",
+    "messageMetadata": "db push applied 20260929053000 on wzwrrleqfylhuxfbukfu. ghost_messages.metadata is jsonb, not null, default {}. Assistant message f3f269a7-e300-4a45-9ffa-f4ac1764e708 stores openai, gpt-5.4, project 7f252953-ecab-4b5e-9762-5f3fe1c6a45d, 20 sources, and token usage. Reload still showed Grounded in 20 sources. User B metadata reads returned zero rows and the provider invoke count did not increase.",
     "ghostConversation": "On http://localhost:3001 the OpenAI provider and model gpt-5.4 answered from project 7f252953-ecab-4b5e-9762-5f3fe1c6a45d. Answers followed stored records, including NOT_VERIFIED production, DEC-006, unknown Stripe, and RULE-002.",
     "contextEngine": "Selected context, not the full brain, was sent. Continuity, the Stripe claim, the deployment conflict, the pending GHOST Vercel proposal, the IVOIRE SHOP refusal, and the injection regression were observed. User B could not read project data or create a proposal. Sources shown on answers were the records selected for that reply."
   },

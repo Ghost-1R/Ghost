@@ -9,7 +9,7 @@ import { getSession } from "@/lib/auth/session";
 import { assembleGlobalContext, assembleProjectContext } from "@/lib/brain/context";
 import { isSupportedVerified } from "@/lib/brain/verification";
 import { reuseUnansweredUserMessage } from "@/lib/conversation/idempotency";
-import { withSources } from "@/lib/conversation/queries";
+import { groundingMetadata, withSources } from "@/lib/conversation/queries";
 import { collectGlobalItems, collectProjectItems, selectGrounding } from "@/lib/ghost-context/assemble";
 import { detectMemoryIntent } from "@/lib/ghost-context/memory-intent";
 import { resolveAuthorizedProject } from "@/lib/ghost-context/resolve";
@@ -469,6 +469,14 @@ export async function sendGhostMessage(
     conversation_id: conversationId,
     role: "assistant",
     content: withSources(reply.content, grounding.sources),
+    metadata: groundingMetadata({
+      provider: reply.provider,
+      model: reply.model,
+      projectId: contextProjectId,
+      contextItemCount: grounding.count,
+      sources: grounding.sources,
+      usage: reply.usage,
+    }),
   });
 
   if (storedAssistant.error) {

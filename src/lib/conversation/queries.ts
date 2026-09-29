@@ -1,4 +1,5 @@
 import type { GhostClient } from "@/lib/auth/session";
+import type { Json } from "@/lib/database.types";
 import { fromError, type QueryResult } from "@/lib/result";
 
 export type ConversationSource = {
@@ -45,6 +46,63 @@ function readSources(content: string): ConversationSource[] {
     });
 }
 
+function isSource(value: unknown): value is ConversationSource {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const source = value as { id?: unknown; type?: unknown; title?: unknown };
+  return typeof source.id === "string" && typeof source.type === "string" && typeof source.title === "string";
+}
+
+export function sourcesFromMetadata(metadata: Json | null | undefined): ConversationSource[] {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return [];
+  }
+  const sources = metadata.sources;
+  if (!Array.isArray(sources)) {
+    return [];
+  }
+  return sources.filter(isSource);
+}
+
+export function sourcesForMessage(content: string, metadata: Json | null | undefined): ConversationSource[] {
+  const stored = sourcesFromMetadata(metadata);
+  if (stored.length > 0) {
+    return stored;
+  }
+  return readSources(content);
+}
+
+export function groundingMetadata(input: {
+  provider: string;
+  model: string;
+  projectId: string | null;
+  contextItemCount: number;
+  sources: ConversationSource[];
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+}): Json {
+  return {
+    provider: input.provider,
+    model: input.model,
+    projectId: input.projectId,
+    contextItemCount: input.contextItemCount,
+    sources: input.sources.map((source) => ({
+      id: source.id,
+      type: source.type,
+      title: source.title,
+    })),
+    ...(input.usage
+      ? {
+          usage: {
+            inputTokens: input.usage.inputTokens,
+            outputTokens: input.usage.outputTokens,
+            totalTokens: input.usage.totalTokens,
+          },
+        }
+      : {}),
+  };
+}
+
 export function withSources(content: string, sources: ConversationSource[]): string {
   if (sources.length === 0) {
     return content;
@@ -86,7 +144,7 @@ export async function loadLatestConversation(
 
   const messages = await supabase
     .from("ghost_messages")
-    .select("id, role, content, created_at")
+    .select("id, role, content, metadata, created_at")
     .eq("conversation_id", conversation.data.id)
     .order("created_at", { ascending: true });
 
@@ -108,7 +166,7 @@ export async function loadLatestConversation(
                 role: message.role,
                 content: message.content,
                 createdAt: message.created_at,
-                sources: readSources(message.content),
+                sources: sourcesForMessage(message.content, message.metadata),
               },
             ]
           : [],
