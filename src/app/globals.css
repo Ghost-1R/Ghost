@@ -49,6 +49,18 @@ a {
   color: inherit;
 }
 
+p,
+li,
+h1,
+h2,
+h3,
+pre,
+code,
+.bubble,
+.thread {
+  overflow-wrap: anywhere;
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
@@ -250,7 +262,16 @@ h1 {
 
 .content {
   width: min(1100px, 100%);
+  min-width: 0;
+  max-width: 100%;
   padding: 1.5rem 1.25rem 3rem;
+}
+
+.content *,
+.page-head,
+.page-head * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .page-head {
@@ -269,6 +290,7 @@ h1 {
 .stack {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
 .panel {
@@ -306,6 +328,7 @@ h1 {
 
 .card,
 .list-item {
+  min-width: 0;
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 0.95rem;
@@ -319,6 +342,7 @@ h1 {
 
 .quiet {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .meta {
@@ -443,6 +467,8 @@ textarea {
 
 .prose {
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
   font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 0.86rem;
   line-height: 1.6;

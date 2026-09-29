@@ -3,12 +3,15 @@
 import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/lib/action-state";
 import { getSession } from "@/lib/auth/session";
+import { listEvidence, presentationRoot } from "@/lib/presentation/ledger";
+import { prepareApproval, rejectedClientEvidence } from "@/lib/presentation/records";
+import { persistApproval } from "@/lib/presentation/remote";
+import { hashWorkingTree } from "@/lib/presentation/tree";
+import { executeTrustedInspection } from "./trusted-inspection";
 import { loadProjectDetail } from "@/lib/projects/queries";
 import { canExecute } from "./approval";
-import { SAFE_CHECKS } from "./checks";
 import { classifyRisk } from "./risk";
-import { runSafeCheck } from "./runner";
-import { decideApproval, defaultRuntimeRoot, listApprovals, proposeApproval, saveInspection } from "./store";
+import { decideApproval, defaultRuntimeRoot, listApprovals, proposeApproval } from "./store";
 import type { ActionRequest } from "./types";
 
 const UUID_PATTERN =
@@ -51,23 +54,29 @@ export async function runInspection(_previous: ActionState, formData: FormData):
     return { error: "You are not signed in.", notice: null };
   }
   const projectId = readField(formData, "projectId");
+  const forged = rejectedClientEvidence(formData.keys());
+  if (forged) {
+    return { error: forged, notice: null };
+  }
   const denied = await visibleProject(projectId);
   if (denied) {
     return denied;
   }
-  const root = defaultRuntimeRoot();
-  for (const check of SAFE_CHECKS) {
-    const result = await runSafeCheck(check.id, {
-      ownerId: session.user.id,
-      projectId: projectId || null,
-      cwd: process.cwd(),
-    });
-    if (result) {
-      await saveInspection(root, result);
-    }
+  if (!projectId) {
+    return { error: "That project is not visible.", notice: null };
   }
+  const outcome = await executeTrustedInspection({
+    ownerId: session.user.id,
+    projectId,
+    cwd: process.cwd(),
+    supabase: session.supabase,
+  });
   revalidatePath("/inspector");
-  return { error: null, notice: "Inspection finished. Results are bound to the repository state that was checked." };
+  revalidatePath("/presentation");
+  if (outcome.error) {
+    return { error: outcome.error, notice: null };
+  }
+  return { error: null, notice: `Inspection finished. Presentation result: ${outcome.reviewResult}.` };
 }
 
 export async function proposeHighRiskAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
@@ -118,6 +127,35 @@ export async function reviewAction(_previous: ActionState, formData: FormData): 
   const updated = await decideApproval(defaultRuntimeRoot(), session.user.id, readField(formData, "approvalId"), decision);
   if (!updated) {
     return { error: "That approval is not visible.", notice: null };
+  }
+  if (decision === "APPROVED" && updated.projectId) {
+    const tree = await hashWorkingTree(process.cwd()).catch(() => null);
+    const knownEvidenceIds = tree
+      ? (await listEvidence(presentationRoot(), session.user.id))
+          .filter((row) => row.projectId === updated.projectId)
+          .map((row) => row.id)
+      : [];
+    if (tree) {
+      const approvedAt = new Date().toISOString();
+      const prepared = prepareApproval({
+        ownerId: session.user.id,
+        projectId: updated.projectId,
+        operation: updated.actionType,
+        target: updated.target,
+        commitSha: tree.commitSha,
+        parameters: updated.parameters,
+        suppliedRisk: updated.risk,
+        evidenceIdsShown: knownEvidenceIds,
+        knownEvidenceIds,
+        approvedBy: session.user.id,
+        approvedAt,
+        expiresAt: new Date(Date.parse(approvedAt) + 24 * 60 * 60 * 1000).toISOString(),
+        suppliedFingerprint: updated.fingerprint,
+      });
+      if (prepared.ok) {
+        await persistApproval(prepared.value).catch(() => null);
+      }
+    }
   }
   revalidatePath("/inspector");
   return { error: null, notice: decision === "APPROVED" ? "Approval recorded. Execution is still a separate step." : "Approval rejected." };

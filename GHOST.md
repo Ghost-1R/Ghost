@@ -154,6 +154,12 @@ VERIFIED_LOCAL
 Approval engine:
 VERIFIED_LOCAL
 
+Presentation gate:
+VERIFIED_LOCAL
+
+Customer presentation:
+A fresh review of the current commit decides this. An earlier dirty-tree review does not transfer.
+
 Production:
 NOT_DEPLOYED
 
@@ -238,8 +244,15 @@ Day 6 evidence from http://localhost:3000:
 - An approved migration proposal did not authorize a changed parameter. Attempting the changed parameter returned "Not executed: FINGERPRINT_MISMATCH."
 - Remote database reset was CRITICAL. Approving it still returned "Not executed: UNSUPPORTED."
 - User B's inspector page did not show User A's approvals or inspection targets. User B had zero local inspection and approval rows, the GHOST project URL said not found, and the ask form was absent.
-- Inspection and approval records are local owner files under `.ghost/runtime/`, which is gitignored. No new Supabase migration was created or applied. Patterns remain DRAFT.
+- Inspection and approval records are local owner files under `.ghost/runtime/`, which is gitignored. That inspector work did not apply a migration. Patterns remain DRAFT.
 - The recorded build verification is historical for the tree that was checked. It does not automatically cover later commits.
+
+Day 6 presentation-gate evidence from http://localhost:3000:
+
+- A pre-presentation review is derived from evidence. It does not become READY because a build exists.
+- A disposable failing requirement produced NOT_READY and named that requirement. Removing it and rerunning produced NOT_READY because lint, typecheck, test, build, security, customer-flow, and responsive evidence rows are missing. The disposable requirement was not in the second review.
+- "Is this ready to show the customer?" answered from that review: Result NOT_READY, commit `e271572`. It did not guess.
+- Migration `supabase/migrations/20260929180000_presentation_gate.sql` was applied to Ghost-1R `wzwrrleqfylhuxfbukfu` after explicit founder approval. Evidence is append-only. A review is fresh only for its commit and tree hash.
 
 ## Last Updated
 
