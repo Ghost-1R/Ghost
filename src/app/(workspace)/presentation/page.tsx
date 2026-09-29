@@ -7,6 +7,8 @@ import { listReviews, presentationRoot } from "@/lib/presentation/ledger";
 import { presentationCoreState } from "@/lib/experience/core-state";
 import { reviewFreshness } from "@/lib/presentation/freshness";
 import { hashWorkingTree } from "@/lib/presentation/tree";
+import { loadRecordedReview } from "@/lib/presentation/recorded";
+import { HOSTED_REVIEW_REFUSAL, isHostedRuntime, releaseCommit } from "@/lib/inspector/runtime";
 import { loadProjectSummaries } from "@/lib/projects/queries";
 import { CoreSignal } from "@/components/ghost/experience";
 import { PresentationReviewForm } from "./presentation-actions";
@@ -20,14 +22,20 @@ export default async function PresentationPage() {
   if (session.status !== "authenticated") {
     redirect("/login");
   }
-  const [projects, reviews, tree] = await Promise.all([
+  const hosted = isHostedRuntime();
+  const [projects, reviews, tree, deployed] = await Promise.all([
     loadProjectSummaries(session.supabase),
-    listReviews(presentationRoot(), session.user.id),
-    hashWorkingTree(process.cwd()),
+    hosted ? Promise.resolve([]) : listReviews(presentationRoot(), session.user.id),
+    hosted ? Promise.resolve(null) : hashWorkingTree(process.cwd()),
+    hosted ? releaseCommit() : Promise.resolve(null),
   ]);
   const ghost = projects.status === "ok" ? projects.data.find((project) => project.name.toLocaleLowerCase() === "ghost") : null;
-  const latest = ghost ? reviews.filter((review) => review.projectId === ghost.id).at(-1) ?? null : null;
-  const freshness = latest ? reviewFreshness(latest, tree) : null;
+  const latest = !ghost
+    ? null
+    : hosted
+      ? await loadRecordedReview(session.supabase, session.user.id, ghost.id, "production")
+      : reviews.filter((review) => review.projectId === ghost.id).at(-1) ?? null;
+  const freshness = !latest ? null : tree ? reviewFreshness(latest, tree) : latest.commitSha === deployed ? "fresh" : "stale";
   const coreState = presentationCoreState(latest?.result ?? null, freshness);
 
   return (
@@ -44,7 +52,13 @@ export default async function PresentationPage() {
           The result is derived from evidence, requirements, and findings. A completed build does not create READY.
           Production is not claimed from a local build.
         </p>
-        {ghost ? <PresentationReviewForm projectId={ghost.id} /> : <p className="notice">No visible GHOST project.</p>}
+        {!ghost ? (
+          <p className="notice">No visible GHOST project.</p>
+        ) : hosted ? (
+          <p className="notice">{HOSTED_REVIEW_REFUSAL}</p>
+        ) : (
+          <PresentationReviewForm projectId={ghost.id} />
+        )}
       </Panel>
       {!latest ? <EmptyState>No presentation review has been recorded.</EmptyState> : null}
       {latest ? (
@@ -53,7 +67,16 @@ export default async function PresentationPage() {
             <li>
               <StatusBadge status={latest.result} />
             </li>
-            <li>{freshness === "fresh" ? "Fresh for this tree" : "Historical for an earlier tree"}</li>
+            <li>
+              {hosted
+                ? freshness === "fresh"
+                  ? "Fresh for this deployment"
+                  : "Historical for an earlier deployment"
+                : freshness === "fresh"
+                  ? "Fresh for this tree"
+                  : "Historical for an earlier tree"}
+            </li>
+            <li>Environment {latest.environment}</li>
             <li>Commit {latest.commitSha.slice(0, 7)}</li>
             <li>Checked {latest.createdAt}</li>
           </ul>

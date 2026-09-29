@@ -457,6 +457,52 @@ textarea {
   background: rgba(125, 211, 252, 0.08);
 }
 
+.bubble-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.markdown > * {
+  margin: 0 0 0.6rem;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.3rem;
+}
+
+.markdown li + li {
+  margin-top: 0.25rem;
+}
+
+.markdown code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.86em;
+  padding: 0.08rem 0.32rem;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.markdown pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.45);
+}
+
+.markdown pre code {
+  padding: 0;
+  background: none;
+  font-size: 0.84rem;
+  white-space: pre;
+}
+
 .sources {
   margin-top: 0.7rem;
   color: var(--muted);

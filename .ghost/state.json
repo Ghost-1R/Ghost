@@ -6,9 +6,16 @@
     "product": "Your Second Mind"
   },
   "milestone": {
-    "name": "Project Brain + Ghost Conversation",
-    "status": "BUILDING"
+    "name": "Ghost Experience production verification",
+    "status": "DEPLOYED"
   },
+  "completedMilestones": [
+    {
+      "name": "Project Brain + Ghost Conversation",
+      "status": "COMPLETED",
+      "detail": "Ghost Alpha. Frozen on branch ghost-alpha at 1c22b26fc4759798f613932fd1d130a773b4879e."
+    }
+  ],
   "stack": [
     "nextjs",
     "typescript",
@@ -17,18 +24,19 @@
     "postgresql",
     "tailwind"
   ],
-  "blockers": [
+  "blockers": [],
+  "resolvedBlockers": [
     {
-      "title": "Public sign-up email is not confirmed",
-      "detail": "On http://localhost:3000 Create account was accepted. Auth user d1b38554-5dae-4112-9e14-8baaa05181cf exists and profile display name Day5 Signup exists. email confirmation is false, no session was created, and /auth/callback was not completed. The earlier rate limit did not recur."
+      "title": "Public sign-up rate limit",
+      "detail": "Originally: the Ghost sign-up form returned email rate limit exceeded. Resolved because the Day 5 sign-up on http://localhost:3000 was accepted on 2026-09-29 and created auth user d1b38554-5dae-4112-9e14-8baaa05181cf. The rate limit did not recur. The Inspector re-checks this from auth records and does not send a live sign-up. The /auth/callback exchange from a sign-up email is still NOT_VERIFIED."
     },
     {
       "title": "GitHub histories are unrelated",
-      "detail": "No origin is configured. Day 6 rechecked GitHub authentication and it is still absent, so the inspection is BLOCKED. Ghost-1R/Ghost was not inspected. No pull, push, or merge was performed. Do not force-push. Reconciliation was not executed."
+      "detail": "Originally: no origin was configured and Ghost-1R/Ghost had a separate history. Resolved because origin is github.com/Ghost-1R/Ghost, ghost-alpha was pushed at 1c22b26 and ghost-experience was pushed normally. No force-push, merge, or history rewrite was used."
     }
   ],
   "nextActions": [
-    "Confirm the Day 5 sign-up email and finish /auth/callback, then sign in"
+    "Complete production Inspector and production Presentation Gate"
   ],
   "verification": {
     "application": "VERIFIED_LOCAL",
@@ -44,13 +52,16 @@
     "memoryIntelligence": "VERIFIED_LOCAL",
     "repositoryContext": "VERIFIED_LOCAL",
     "patternLibrary": "VERIFIED_LOCAL",
-    "githubRemote": "NOT_INSPECTED",
+    "githubRemote": "VERIFIED_REMOTE",
+    "modelRouter": "VERIFIED_LOCAL",
+    "signupConfirmation": "NOT_VERIFIED",
     "inspector": "VERIFIED_LOCAL",
     "riskEngine": "VERIFIED_LOCAL",
     "approvalEngine": "VERIFIED_LOCAL",
     "presentationGate": "VERIFIED_LOCAL",
     "customerPresentation": "A fresh review of the current commit decides the result. A review of an earlier dirty tree does not transfer.",
-    "production": "NOT_DEPLOYED"
+    "production": "DEPLOYED",
+    "productionPresentation": "Decided only by the production Presentation Gate recorded in presentation_reviews for the deployed commit. Local READY does not transfer."
   },
   "evidence": {
     "database": "Against linked project wzwrrleqfylhuxfbukfu, User A inserts succeeded and User B received zero rows. The ACTIVE founder-rule guard and VERIFIED evidence check both rejected invalid writes.",
@@ -63,17 +74,26 @@
     "memoryIntelligence": "Explicit remember created pending founder rule e13c8a13-eabd-46f0-b8be-50c17a759037, approved through review into active rule 3ba9b742-0b11-4c05-a426-30fb13163869. GHOST Vercel stayed a pending project proposal. RULE-004 blocked a duplicate. Provenance named conversation bdc9e36d-df87-4890-89b6-f72c7906c7c8. Disposable rules were retired and left later answers. Direct ACTIVE insert stayed denied. User B saw zero database rules. A disposable provider-acme founder rule and project constraint were both shown, with a project exception, and then the disposable rows were retired or removed.",
     "repositoryContext": "On http://localhost:3000 Ghost answered the branch as ghost-alpha and the working tree as dirty at b00dc39, named src/lib/memory/actions.ts for memory approval, refused src/payments/stripe.ts, and kept production NOT_DEPLOYED. A disposable injection file was quoted as repository data and then removed. The API key was not returned, stored, or logged.",
     "patternLibrary": "Four patterns remain DRAFT. The RLS question identified Supabase Owner-Scoped RLS as draft. Assistant message ce807b43-76f2-4edb-b9c2-e837abbadec9 stores that pattern source and does not store patternApplications. /patterns listed all four drafts.",
-    "githubRemote": "Day 6 rechecked. No GitHub token was available and gh is not installed. The inspection status is BLOCKED. Ghost-1R/Ghost was not inspected and no remote write was performed.",
+    "githubRemote": "origin is github.com/Ghost-1R/Ghost. ls-remote lists ghost-alpha and ghost-experience. The Inspector re-checks this on every run.",
     "inspector": "On http://localhost:3000 allowlisted tests, lint, TypeScript, build, and git status were VERIFIED at commit 8d30cfc with a dirty working tree. GitHub was BLOCKED. Deployment was NOT_VERIFIED. A disposable command stayed FAILED. A later tree change was not treated as build verified.",
     "riskEngine": "SAFE checks run from the allowlist. Remote migration is HIGH. Remote database reset is CRITICAL and unsupported. Chat text cannot approve an action.",
     "approvalEngine": "Approvals are local owner records, not a remote table. A rejected migration did not execute. A changed parameter did not match the approved fingerprint. An approved remote reset stayed unsupported. Founder approval applied 20260929180000_presentation_gate.sql to wzwrrleqfylhuxfbukfu.",
     "presentationGate": "The presentation tables are on Ghost-1R. Evidence is append-only. The result is computed from fresh evidence for one commit and one tree hash.",
-    "customerPresentation": "Production is not deployed. A review bound to an earlier dirty tree does not cover a later commit.",
+    "customerPresentation": "Day 6: production was not deployed. Day 7: production is deployed on Render and is presentation-ready only when the production Presentation Gate is READY for the deployed commit. A review bound to an earlier tree does not cover a later commit.",
     "ghostConversation": "On http://localhost:3001 the OpenAI provider and model gpt-5.4 answered from project 7f252953-ecab-4b5e-9762-5f3fe1c6a45d. Answers followed stored records, including NOT_VERIFIED production, DEC-006, unknown Stripe, and RULE-002.",
+    "githubRemoteHistory": "Day 6: no GitHub token was available and gh was not installed, so the inspection was BLOCKED. Day 7: origin github.com/Ghost-1R/Ghost lists ghost-alpha and ghost-experience.",
+    "modelRouter": "Groq is the free default with model openai/gpt-oss-120b. A Groq failure made 0 paid-provider calls in the provider regression. Settings shows Cost policy Free-first and Paid fallback Disabled.",
+    "release": "Ghost Alpha is frozen on ghost-alpha at 1c22b26. Ghost Experience was built on ghost-experience. At 0f593ae the local Inspector passed and the local Presentation Gate was READY (review 5d6503ab-6f83-49dd-91f1-07ac5c68e45d). ghost-experience was pushed normally.",
+    "production": "Render service Ghost at https://ghost-nkk0.onrender.com deploys ghost-experience. Deploy dep-dau3116gekts73cok8l0 served 0f593ae. Production sign-in worked, and production answers used groq openai/gpt-oss-120b with grounding: message 8b09876e-3240-42b5-bcbc-04395e5060c0 had 26 sources and message c8dcdd55-f589-4288-a6d9-95390a6f1873 had 5.",
+    "liveInspectorIncident": "Two Inspector runs started on the live server were OOM-killed by Render at the 512Mi limit (2026-09-29 21:48:51 and 21:53:49 UTC) and the service restarted. The live server now refuses inspections. The trusted runner inspects production over https and records environment production.",
+    "signupConfirmation": "A sign-up email confirmation through /auth/callback has not been observed. The account's confirmed flag is not evidence, because magic-link regression checks also confirm accounts.",
     "contextEngine": "Selected context, not the full brain, was sent. Continuity, the Stripe claim, the deployment conflict, the pending GHOST Vercel proposal, the IVOIRE SHOP refusal, and the injection regression were observed. User B could not read project data or create a proposal. Sources shown on answers were the records selected for that reply."
   },
   "deployment": {
-    "provider": null,
-    "vercelAllowed": false
+    "provider": "render",
+    "vercelAllowed": false,
+    "service": "Ghost",
+    "url": "https://ghost-nkk0.onrender.com",
+    "branch": "ghost-experience"
   }
 }

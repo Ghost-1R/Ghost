@@ -116,7 +116,11 @@ export default async function SettingsPage() {
           <li>Provider: {deployment.provider ?? "none selected"}</li>
           <li>Vercel allowed: {deployment.vercelAllowed ? "yes" : "no"}</li>
         </ul>
-        <p className="quiet">No deployment provider is registered. A local build is not a deployment.</p>
+        <p className="quiet">
+          {deployment.hosted
+            ? "This page is served by the Render deployment. Being deployed does not make it presentation-ready; the production Presentation Gate decides that."
+            : "This page is served by a local build. A local build is not a deployment."}
+        </p>
       </Panel>
 
       <Panel title="Risk handling">

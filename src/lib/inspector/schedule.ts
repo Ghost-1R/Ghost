@@ -8,6 +8,9 @@ export const PARALLEL_PROBES = [
   "conversation-migration-regression",
   "model-provider-regression",
   "requirement-trace",
+  "production-health",
+  "repository-regression",
+  "signup-regression",
 ] as const;
 
 export type InspectionStage =

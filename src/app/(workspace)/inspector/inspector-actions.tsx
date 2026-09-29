@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useActionState } from "react";
 import { useExperience } from "@/components/ghost/experience";
 import { initialActionState } from "@/lib/action-state";
+import type { InspectionTarget } from "@/lib/inspector/runtime";
 import { overallStage, type InspectionProgress } from "@/lib/inspector/schedule";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { attemptAction, proposeHighRiskAction, reviewAction } from "@/lib/inspector/actions";
@@ -13,7 +14,7 @@ function formatElapsed(ms: number): string {
   return `${(Math.max(0, ms) / 1000).toFixed(1)}s`;
 }
 
-export function RunInspectionForm({ projectId }: { projectId: string }) {
+export function RunInspectionForm({ projectId, targets }: { projectId: string; targets: InspectionTarget[] }) {
   const router = useRouter();
   const { play, setActivity } = useExperience();
   const [events, setEvents] = useState<InspectionProgress[]>([]);
@@ -31,6 +32,8 @@ export function RunInspectionForm({ projectId }: { projectId: string }) {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const target: InspectionTarget = submitter?.getAttribute("value") === "production" ? "production" : "local";
     const began = Date.now();
     setStarted(began);
     setClock(0);
@@ -41,7 +44,7 @@ export function RunInspectionForm({ projectId }: { projectId: string }) {
       const response = await fetch("/api/inspector/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ projectId }),
+        body: JSON.stringify(target === "production" ? { projectId, target } : { projectId }),
       });
       if (!response.ok || !response.body) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -122,9 +125,13 @@ export function RunInspectionForm({ projectId }: { projectId: string }) {
 
   return (
     <form onSubmit={onSubmit} className="stack">
-      <button className="button" type="submit" disabled={busy}>
-        {busy ? "Inspection running" : "Run inspection"}
-      </button>
+      <div className="inline-form">
+        {targets.map((target) => (
+          <button className={target === "local" ? "button" : "button button-secondary"} type="submit" name="target" value={target} disabled={busy} key={target}>
+            {busy ? "Inspection running" : target === "local" ? "Run inspection" : "Inspect production"}
+          </button>
+        ))}
+      </div>
       {latest ? (
         <div className="inspection-live" aria-live="polite">
           <p>

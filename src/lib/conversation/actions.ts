@@ -16,7 +16,10 @@ import { detectMemoryIntent } from "@/lib/ghost-context/memory-intent";
 import { explainInspections, inspectionContextItems, inspectionQuestion } from "@/lib/inspector/evidence";
 import { explainPresentation, presentationQuestion } from "@/lib/presentation/explain";
 import { listReviews, presentationRoot } from "@/lib/presentation/ledger";
+import { loadRecordedReview } from "@/lib/presentation/recorded";
 import { hashWorkingTree } from "@/lib/presentation/tree";
+import type { PresentationReview } from "@/lib/presentation/types";
+import { isHostedRuntime, releaseCommit } from "@/lib/inspector/runtime";
 import { defaultRuntimeRoot, listInspections } from "@/lib/inspector/store";
 import { treeStamp } from "@/lib/inspector/status";
 import { resolveAuthorizedProject } from "@/lib/ghost-context/resolve";
@@ -538,9 +541,16 @@ export async function sendGhostMessage(
   }
 
   if (presentationQuestion(message)) {
-    const current = await hashWorkingTree(process.cwd());
-    const reviews = await listReviews(presentationRoot(), session.user.id).catch(() => []);
-    const latest = reviews.filter((review) => !contextProjectId || review.projectId === contextProjectId).at(-1) ?? null;
+    let latest: PresentationReview | null;
+    let current: { commitSha: string; treeHash: string };
+    if (isHostedRuntime()) {
+      latest = contextProjectId ? await loadRecordedReview(session.supabase, session.user.id, contextProjectId, "production") : null;
+      current = { commitSha: (await releaseCommit()) ?? "", treeHash: latest?.treeHash ?? "" };
+    } else {
+      current = await hashWorkingTree(process.cwd());
+      const reviews = await listReviews(presentationRoot(), session.user.id).catch(() => []);
+      latest = reviews.filter((review) => !contextProjectId || review.projectId === contextProjectId).at(-1) ?? null;
+    }
     const explained = explainPresentation({ review: latest, current });
     return storeAssistant(explained.text, latest ? [{ id: latest.id, type: "presentation", title: explained.title, status: latest.result }] : []);
   }

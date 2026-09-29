@@ -4,6 +4,7 @@ import { EmptyState, Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getSession } from "@/lib/auth/session";
 import { latestInspections } from "@/lib/inspector/evidence";
+import { HOSTED_INSPECTION_REFUSAL, inspectionTargets } from "@/lib/inspector/runtime";
 import { defaultRuntimeRoot, listApprovals, listInspections } from "@/lib/inspector/store";
 import { loadProjectSummaries } from "@/lib/projects/queries";
 import { ApprovalDecision, ProposeActionForm, RunInspectionForm } from "./inspector-actions";
@@ -27,6 +28,7 @@ export default async function InspectorPage() {
   const ghost = projects.status === "ok" ? projects.data.find((project) => project.name.toLocaleLowerCase() === "ghost") : null;
   const projectId = ghost?.id ?? "";
   const latest = latestInspections(inspections);
+  const targets = inspectionTargets();
   const pending = approvals.filter((approval) => approval.status === "PENDING" || approval.status === "APPROVED" || approval.status === "REJECTED");
 
   return (
@@ -42,7 +44,13 @@ export default async function InspectorPage() {
           Runs the allowlisted test, lint, TypeScript, build, and read-only inspections. Commands are fixed. A build
           result does not mean the app is deployed.
         </p>
-        {projectId ? <RunInspectionForm projectId={projectId} /> : <p className="notice">No visible GHOST project.</p>}
+        {!projectId ? (
+          <p className="notice">No visible GHOST project.</p>
+        ) : targets.length === 0 ? (
+          <p className="notice">{HOSTED_INSPECTION_REFUSAL}</p>
+        ) : (
+          <RunInspectionForm projectId={projectId} targets={targets} />
+        )}
       </Panel>
       {latest.length === 0 ? <EmptyState>No inspection has been run for this account.</EmptyState> : null}
       {latest.map((result) => (

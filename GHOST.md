@@ -14,11 +14,15 @@ Turn ideas into real products while learning how the founder builds.
 
 ## Current Milestone
 
-Project Brain + Ghost Conversation
+Ghost Experience production verification
 
 ## Status
 
-BUILDING
+DEPLOYED
+
+## Completed Milestones
+
+- Project Brain + Ghost Conversation (Ghost Alpha). Frozen on `ghost-alpha` at `1c22b26`.
 
 ## Stack
 
@@ -70,12 +74,19 @@ Verification must eventually rely on external evidence rather than AI self-repor
 
 Ghost will NOT use Vercel for deployment.
 Deployment remains provider-independent until another provider is selected.
+Render was later selected for production. Vercel stays prohibited.
 
 ## Repository
 
-Git root is this directory, on branch `ghost-alpha`.
-The parent `Documents` folder is a separate Ivoire Shop checkout and was not modified.
-No git remote is configured. `Ghost-1R/Ghost` on GitHub contains an unrelated initial commit, so this history was not pushed.
+Git root is this directory. The parent `Documents` folder is a separate Ivoire Shop checkout and was not modified.
+Origin is `github.com/Ghost-1R/Ghost`. `ghost-alpha` is frozen at `1c22b26`. Ghost Experience work is on `ghost-experience`, which was pushed normally. No force-push, merge, or history rewrite was used.
+Before Day 7 no remote was configured, and `Ghost-1R/Ghost` held an unrelated initial commit.
+
+## Production
+
+Render service `Ghost` at https://ghost-nkk0.onrender.com deploys `ghost-experience`.
+Deployed is not the same as presentation-ready. Only the production Presentation Gate, recorded in `presentation_reviews` for the deployed commit, decides production readiness. A local READY does not transfer.
+The live server never runs inspections. The trusted runner inspects production over https, and the production evidence requires the live `/api/health` commit to equal the runner's clean commit.
 
 ## Supabase
 
@@ -92,14 +103,18 @@ An earlier dev-server process was stopped on purpose so the app could reload `.e
 
 ## Current Blockers
 
-- Public sign-up on http://localhost:3000 was accepted on 2026-09-29. Auth user `d1b38554-5dae-4112-9e14-8baaa05181cf` has profile display name Day5 Signup. The email is not confirmed, no session was created, and `/auth/callback` was not completed.
-- Production is not deployed.
-- This repository is not connected to GitHub. Day 6 rechecked: `GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_PAT` are absent and `gh` is not installed. The GitHub inspection is BLOCKED — GITHUB_AUTH_REQUIRED. No pull, push, or merge was performed.
-- The GHOST project row "No model provider is configured" was marked RESOLVED. The original text was kept, with a note that OpenAI and gpt-5.4 completed live grounding and Ghost Conversation is VERIFIED_LOCAL.
+None open.
+
+Resolved, with the original text kept on the project rows:
+
+- Public sign-up rate limit. The Day 5 sign-up on http://localhost:3000 was accepted on 2026-09-29 and created auth user `d1b38554-5dae-4112-9e14-8baaa05181cf`. The rate limit did not recur. A sign-up email exchange through `/auth/callback` is still NOT_VERIFIED.
+- GitHub remote is not connected. Origin is now `github.com/Ghost-1R/Ghost` and `ghost-experience` is on the remote.
+- No model provider is configured. Resolved on Day 3. Groq is now the free default.
+- Conversation migration is not on the remote database. Resolved on Day 3.5.
 
 ## Next Actions
 
-1. Confirm the Day 5 sign-up email and finish `/auth/callback`, then sign in. The rate limit did not recur on this attempt.
+1. Complete production Inspector and production Presentation Gate.
 
 ## Verification
 
@@ -143,7 +158,13 @@ Pattern library:
 VERIFIED_LOCAL
 
 GitHub remote:
-NOT_INSPECTED
+VERIFIED_REMOTE
+
+Model router:
+VERIFIED_LOCAL
+
+Sign-up confirmation:
+NOT_VERIFIED
 
 Inspector:
 VERIFIED_LOCAL
@@ -161,7 +182,10 @@ Customer presentation:
 A fresh review of the current commit decides this. An earlier dirty-tree review does not transfer.
 
 Production:
-NOT_DEPLOYED
+DEPLOYED
+
+Production presentation:
+Decided only by the production Presentation Gate for the deployed commit.
 
 Evidence from the running app at http://localhost:3001:
 
@@ -253,6 +277,16 @@ Day 6 presentation-gate evidence from http://localhost:3000:
 - A disposable failing requirement produced NOT_READY and named that requirement. Removing it and rerunning produced NOT_READY because lint, typecheck, test, build, security, customer-flow, and responsive evidence rows are missing. The disposable requirement was not in the second review.
 - "Is this ready to show the customer?" answered from that review: Result NOT_READY, commit `e271572`. It did not guess.
 - Migration `supabase/migrations/20260929180000_presentation_gate.sql` was applied to Ghost-1R `wzwrrleqfylhuxfbukfu` after explicit founder approval. Evidence is append-only. A review is fresh only for its commit and tree hash.
+
+Day 7 release evidence:
+
+- Ghost Alpha is complete and frozen on `ghost-alpha` at `1c22b26`.
+- Ghost Experience was built on `ghost-experience`: Ghost Core states, motion, sound, and live Inspector stages.
+- The model router is free-first. Groq with `openai/gpt-oss-120b` is the default. In the provider regression, a Groq failure made 0 paid-provider calls, and Settings shows Paid fallback Disabled.
+- At `0f593ae` the local Inspector passed and the local Presentation Gate was READY (review `5d6503ab-6f83-49dd-91f1-07ac5c68e45d`). `ghost-experience` was then pushed normally.
+- Render deploy `dep-dau3116gekts73cok8l0` served `0f593ae`. Production sign-in worked. Production answers used `groq` / `openai/gpt-oss-120b` with grounding: message `8b09876e-3240-42b5-bcbc-04395e5060c0` had 26 sources and message `c8dcdd55-f589-4288-a6d9-95390a6f1873` had 5.
+- Two Inspector runs started on the live server were OOM-killed at Render's 512Mi limit (21:48:51 and 21:53:49 UTC), and the service restarted. The live server now refuses inspections, and those runs' `git-status` rows, recorded as `local`, are historical.
+- Production readiness is not claimed here. See Production above.
 
 ## Last Updated
 

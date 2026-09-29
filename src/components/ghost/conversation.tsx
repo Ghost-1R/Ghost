@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { useExperience } from "@/components/ghost/experience";
+import { Markdown } from "@/components/ghost/markdown";
 import { sendGhostMessage } from "@/lib/conversation/actions";
 import { initialActionState } from "@/lib/action-state";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -51,7 +52,7 @@ export function GhostConversation({
           {messages.map((message) => (
             <article className={message.role === "user" ? "bubble bubble-user" : "bubble"} key={message.id}>
               <p className="eyebrow">{message.role === "user" ? "You" : "Ghost"}</p>
-              <p>{message.role === "assistant" ? splitAnswer(message.content).answer : message.content}</p>
+              {message.role === "assistant" ? <Markdown source={splitAnswer(message.content).answer} /> : <p className="bubble-text">{message.content}</p>}
               {message.role === "assistant" && message.sources.length > 0 ? (
                 <details className="sources">
                   <summary>Grounded in {message.sources.length} sources</summary>

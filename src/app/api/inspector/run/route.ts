@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/session";
+import { HOSTED_INSPECTION_REFUSAL, isHostedRuntime, parseInspectionTarget, productionUrl } from "@/lib/inspector/runtime";
 import { executeTrustedInspection } from "@/lib/inspector/trusted-inspection";
 import type { InspectionProgress } from "@/lib/inspector/schedule";
 import { rejectedClientEvidence } from "@/lib/presentation/records";
@@ -15,14 +16,21 @@ export async function POST(request: Request) {
   if (session.status !== "authenticated") {
     return Response.json({ error: "You are not signed in." }, { status: 401 });
   }
+  if (isHostedRuntime()) {
+    return Response.json({ error: HOSTED_INSPECTION_REFUSAL }, { status: 409 });
+  }
   const body: unknown = await request.json().catch(() => null);
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return Response.json({ error: "That request is not an inspection." }, { status: 400 });
   }
   const record = body as Record<string, unknown>;
   const forged = rejectedClientEvidence(Object.keys(record));
-  if (forged || Object.keys(record).some((key) => key !== "projectId")) {
+  if (forged || Object.keys(record).some((key) => key !== "projectId" && key !== "target")) {
     return Response.json({ error: forged ?? "That request is not an inspection." }, { status: 400 });
+  }
+  const target = parseInspectionTarget(record.target);
+  if (!target || (target === "production" && !productionUrl())) {
+    return Response.json({ error: "That inspection target is not available." }, { status: 400 });
   }
   const projectId = record.projectId;
   if (typeof projectId !== "string" || !UUID_PATTERN.test(projectId)) {
@@ -44,6 +52,7 @@ export async function POST(request: Request) {
           ownerId: session.user.id,
           projectId,
           cwd: process.cwd(),
+          target,
           supabase: session.supabase,
           onProgress: send,
         });

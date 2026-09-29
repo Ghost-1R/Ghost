@@ -24,6 +24,20 @@ function pair(implementation: string, verification: string): Pick<TracedRequirem
   return { implementationEvidence: implementation, verificationEvidence: verification };
 }
 
+export function deploymentRequirement(
+  deployment: { provider?: unknown; vercelAllowed?: unknown },
+  production: string,
+): { ok: boolean; provider: string | null } {
+  const named = typeof deployment.provider === "string" && deployment.provider.trim() ? deployment.provider.trim().toLowerCase() : null;
+  const shapeOk = deployment.provider == null || named !== null;
+  const ok =
+    shapeOk &&
+    deployment.vercelAllowed === false &&
+    named !== "vercel" &&
+    (named === null ? production === "NOT_DEPLOYED" : production === "DEPLOYED");
+  return { ok, provider: named };
+}
+
 export async function evaluateRequirementTrace(supabase: GhostClient, projectId: string, cwd: string): Promise<ProbeResult & { requirements: TracedRequirement[] }> {
   const [project, knowledge, blockers, milestones, actions, verification, rules, proposals, conversation, proposalsOnly] = await Promise.all([
     loadProjectDetail(supabase, projectId),
@@ -145,10 +159,10 @@ export async function evaluateRequirementTrace(supabase: GhostClient, projectId:
       continue;
     }
     if (requirement.title === "Provider-independent deployment") {
-      const ok = deployment.provider == null && deployment.vercelAllowed === false && production === "NOT_DEPLOYED";
+      const { ok, provider } = deploymentRequirement(deployment, production);
       traced.push({
         ...base,
-        ...pair("DEC-006; .ghost/state.json deployment", ok ? "provider unset; vercelAllowed false; production NOT_DEPLOYED" : ""),
+        ...pair("DEC-006; .ghost/state.json deployment", ok ? `provider ${provider ?? "unset"}; vercelAllowed false; production ${production}` : ""),
         failed: !ok,
       });
       continue;

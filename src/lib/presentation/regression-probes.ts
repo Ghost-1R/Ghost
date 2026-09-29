@@ -1,5 +1,7 @@
+import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import { createClient } from "@supabase/supabase-js";
 import type { GhostClient } from "@/lib/auth/session";
 import { prepareReply } from "@/lib/ai/reply";
@@ -9,6 +11,58 @@ import type { ProbeResult } from "./security-probe";
 
 const CONVERSATION_BUG = "Conversation migration is not on the remote database";
 const PROVIDER_BUG = "No model provider is configured";
+const REPOSITORY_BUG = "GitHub remote is not connected";
+const SIGNUP_BUG = "Public sign-up rate limit";
+
+const execFileAsync = promisify(execFile);
+
+export async function evaluateRepositoryRegression(cwd: string): Promise<ProbeResult> {
+  const lines = [REPOSITORY_BUG];
+  try {
+    const git = (args: string[]) => execFileAsync("git", args, { cwd, windowsHide: true, timeout: 20_000 }).then((result) => result.stdout.trim());
+    const origin = await git(["remote", "get-url", "origin"]);
+    const repository = /github\.com[/:]([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+?)(?:\.git)?$/i.exec(origin)?.[1] ?? null;
+    lines.push(`origin: ${repository ? `github.com/${repository}` : "not a GitHub repository"}`);
+    const heads = (await git(["ls-remote", "--heads", "origin"]))
+      .split("\n")
+      .map((line) => line.split("\t")[1]?.replace("refs/heads/", ""))
+      .filter((name): name is string => Boolean(name));
+    lines.push(`remote branches: ${heads.length}`);
+    lines.push(`ghost-experience on remote: ${heads.includes("ghost-experience") ? "present" : "missing"}`);
+    const connected = repository?.toLowerCase() === "ghost-1r/ghost" && heads.includes("ghost-experience");
+    lines.push(`remote connected: ${connected ? "yes" : "no"}`);
+    return { status: connected ? "passed" : "failed", exitCode: connected ? 0 : 1, output: redactSecrets(lines.join("\n")) };
+  } catch (error) {
+    lines.push(`remote read: ${error instanceof Error ? error.message.split("\n")[0] : "failed"}`);
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+}
+
+export async function evaluateSignupRegression(supabase: GhostClient, projectId: string): Promise<ProbeResult> {
+  const lines = [SIGNUP_BUG, "live sign-up sent by this probe: none"];
+  const blocker = await supabase.from("blockers").select("created_at").eq("project_id", projectId).eq("title", SIGNUP_BUG).maybeSingle();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+  if (blocker.error || !blocker.data || !serviceKey) {
+    lines.push("sign-up records: unavailable");
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const current = await supabase.auth.getUser();
+  const users = await admin.auth.admin.listUsers({ page: 1, perPage: 100 });
+  if (users.error) {
+    lines.push("sign-up records: unavailable");
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  const since = Date.parse(blocker.data.created_at);
+  const accepted = users.data.users.filter(
+    (user) => user.id !== current.data.user?.id && user.app_metadata?.provider === "email" && Date.parse(user.created_at) > since,
+  );
+  lines.push(`blocker recorded: ${blocker.data.created_at}`);
+  lines.push(`accepted public sign-ups since the blocker: ${accepted.length}`);
+  const passed = accepted.length > 0;
+  return { status: passed ? "passed" : "failed", exitCode: passed ? 0 : 1, output: redactSecrets(lines.join("\n")) };
+}
 
 export async function evaluateConversationRegression(supabase: GhostClient, projectId: string): Promise<ProbeResult> {
   const lines = [CONVERSATION_BUG];

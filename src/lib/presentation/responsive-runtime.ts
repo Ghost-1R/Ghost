@@ -101,7 +101,7 @@ async function openSocket(url: string): Promise<{ send: (method: string, params?
   };
 }
 
-async function sessionCookies(baseUrl: string, email: string, password: string): Promise<Array<{ name: string; value: string; path: string; httpOnly: boolean; sameSite: "Strict" | "Lax" | "None" }>> {
+export async function sessionCookies(baseUrl: string, email: string, password: string): Promise<Array<{ name: string; value: string; path: string; httpOnly: boolean; sameSite: "Strict" | "Lax" | "None" }>> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
   const publishable = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
   const jar: Array<{ name: string; value: string; options?: { path?: string; httpOnly?: boolean; sameSite?: string | boolean } }> = [];

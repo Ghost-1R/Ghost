@@ -16,4 +16,5 @@ export type DeploymentProvider = {
 export type DeploymentSelection = {
   provider: string | null;
   vercelAllowed: false;
+  hosted: boolean;
 };

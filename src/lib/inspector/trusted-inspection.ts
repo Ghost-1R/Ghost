@@ -6,13 +6,22 @@ import { customerHandoff } from "@/lib/presentation/gate";
 import { computePresentationReview } from "@/lib/presentation/records";
 import { persistEvidence, persistReview } from "@/lib/presentation/remote";
 import { evaluateRequirementTrace } from "@/lib/presentation/requirement-trace";
-import { evaluateResponsiveSurfaces } from "@/lib/presentation/responsive-runtime";
-import { evaluateConversationRegression, evaluateModelProviderRegression } from "@/lib/presentation/regression-probes";
+import { evaluateProductionHealth } from "@/lib/presentation/production-probe";
+import { evaluateResponsiveSurfaces, sessionCookies } from "@/lib/presentation/responsive-runtime";
+import { isExcludedRepositoryPath } from "@/lib/repository/exclude";
+import { readGitState } from "@/lib/repository/local-git";
+import {
+  evaluateConversationRegression,
+  evaluateModelProviderRegression,
+  evaluateRepositoryRegression,
+  evaluateSignupRegression,
+} from "@/lib/presentation/regression-probes";
 import { evaluateSecurityBoundary } from "@/lib/presentation/security-probe";
 import { hashWorkingTree } from "@/lib/presentation/tree";
 import { loadBlockers } from "@/lib/projects/queries";
 import { SAFE_CHECKS } from "./checks";
 import { runSafeCheck } from "./runner";
+import { productionUrl, type InspectionTarget } from "./runtime";
 import { commandWaves, PARALLEL_PROBES, type InspectionProgress } from "./schedule";
 import type { EvidenceCheckType, EvidenceRecord, EvidenceStatus } from "@/lib/presentation/types";
 
@@ -47,6 +56,7 @@ async function persistCheck(input: {
   durationMs: number;
   output: string;
   status: EvidenceStatus;
+  environment: "local" | "production";
   createdAt: string;
 }): Promise<EvidenceRecord | null> {
   const draft = {
@@ -61,7 +71,7 @@ async function persistCheck(input: {
     exitCode: input.exitCode,
     durationMs: input.durationMs,
     output: input.output,
-    environment: "local" as const,
+    environment: input.environment,
     status: input.status,
     createdAt: input.createdAt,
   };
@@ -83,6 +93,7 @@ export async function executeTrustedInspection(input: {
   ownerId: string;
   projectId: string;
   cwd: string;
+  target?: InspectionTarget;
   supabase: GhostClient;
   onProgress?: (event: InspectionProgress) => void;
 }): Promise<TrustedInspectionResult> {
@@ -90,7 +101,15 @@ export async function executeTrustedInspection(input: {
   const emit = (event: Omit<InspectionProgress, "elapsedMs">) => {
     input.onProgress?.({ ...event, elapsedMs: Date.now() - runStarted });
   };
-  emit({ stage: "PREPARING", check: null, status: "running", detail: "Reading the working tree" });
+  const production = input.target === "production";
+  const environment = production ? ("production" as const) : ("local" as const);
+  const baseUrl = production ? productionUrl() : process.env.GHOST_RESPONSIVE_BASE_URL?.trim() || "http://127.0.0.1:3000";
+  if (!baseUrl) {
+    throw new Error("No production URL is configured for the runner.");
+  }
+  const founderEmail = process.env.GHOST_LOCAL_FOUNDER_EMAIL?.trim() ?? "";
+  const founderPassword = process.env.GHOST_LOCAL_FOUNDER_PASSWORD?.trim() ?? "";
+  emit({ stage: "PREPARING", check: null, status: "running", detail: production ? `Reading the working tree for ${baseUrl}` : "Reading the working tree" });
   const before = await hashWorkingTree(input.cwd);
   const runId = randomUUID();
   const records: EvidenceRecord[] = [];
@@ -140,6 +159,7 @@ export async function executeTrustedInspection(input: {
         durationMs: Math.max(0, Date.now() - started),
         output: `${result.stdout}\n${result.stderr}\n${result.summary}`,
         status,
+        environment,
         createdAt: result.completedAt,
       }),
     );
@@ -173,6 +193,7 @@ export async function executeTrustedInspection(input: {
         durationMs: Math.max(0, Date.now() - started),
         output: result.output,
         status: result.status,
+        environment,
         createdAt: new Date().toISOString(),
       }),
     );
@@ -188,19 +209,48 @@ export async function executeTrustedInspection(input: {
     await runProbe("regression", PARALLEL_PROBES[3], () => evaluateConversationRegression(input.supabase, input.projectId));
   };
 
+  const productionProbe = async () => {
+    if (!production) {
+      return;
+    }
+    const git = await readGitState(input.cwd);
+    const runnerClean = git.commit === before.commitSha && git.changedFiles.every((file) => isExcludedRepositoryPath(file));
+    await runProbe("prod_health", PARALLEL_PROBES[6], () =>
+      evaluateProductionHealth({
+        baseUrl,
+        runnerCommit: before.commitSha,
+        runnerClean,
+        projectId: input.projectId,
+        cookieHeader: async () =>
+          (await sessionCookies(baseUrl, founderEmail, founderPassword)).map((cookie) => `${cookie.name}=${cookie.value}`).join("; "),
+        secrets: [
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+          process.env.GROQ_API_KEY,
+          process.env.OPENAI_API_KEY,
+          process.env.XAI_API_KEY,
+          process.env.ANTHROPIC_API_KEY,
+          founderPassword,
+        ].filter((value): value is string => Boolean(value?.trim())),
+      }),
+    );
+  };
+
   const [, , responsive, , requirements] = await Promise.all([
     crossUserProbes(),
     runProbe("customer_flows", PARALLEL_PROBES[1], () => evaluateCustomerFlows(input.supabase, input.projectId, input.cwd)),
     runProbe("responsive", PARALLEL_PROBES[2], () =>
       evaluateResponsiveSurfaces({
-        baseUrl: process.env.GHOST_RESPONSIVE_BASE_URL?.trim() || "http://127.0.0.1:3000",
+        baseUrl,
         projectId: input.projectId,
-        email: process.env.GHOST_LOCAL_FOUNDER_EMAIL?.trim() ?? "",
-        password: process.env.GHOST_LOCAL_FOUNDER_PASSWORD?.trim() ?? "",
+        email: founderEmail,
+        password: founderPassword,
       }),
     ),
     runProbe("regression", PARALLEL_PROBES[4], () => evaluateModelProviderRegression()),
     runProbe("requirements", PARALLEL_PROBES[5], () => evaluateRequirementTrace(input.supabase, input.projectId, input.cwd)),
+    productionProbe(),
+    runProbe("regression", PARALLEL_PROBES[7], () => evaluateRepositoryRegression(input.cwd)),
+    runProbe("regression", PARALLEL_PROBES[8], () => evaluateSignupRegression(input.supabase, input.projectId)),
   ]);
 
   const after = await hashWorkingTree(input.cwd);
@@ -225,8 +275,8 @@ export async function executeTrustedInspection(input: {
     projectId: input.projectId,
     commitSha: before.commitSha,
     treeHash: before.treeHash,
-    environment: "local",
-    presentingProduction: false,
+    environment,
+    presentingProduction: production,
     evidence: records,
     requirements: requirements.requirements,
     resolvedBugs: blockers.status === "ok" ? blockers.data.filter((item) => item.status === "RESOLVED").map((item) => ({ title: item.title })) : [],
@@ -239,7 +289,7 @@ export async function executeTrustedInspection(input: {
     completedRequirements: review.traceability.filter((row) => row.status === "PASS").map((row) => row.requirement),
     flows: ["sign-in", "project brain", "conversation", "memory", "inspector", "presentation"],
     responsive: responsive.status === "passed" ? ["mobile", "tablet", "desktop"] : [],
-    deployment: null,
+    deployment: production ? baseUrl : null,
     limitations: review.traceability.filter((row) => row.status === "FUTURE_SCOPE").map((row) => `Future scope: ${row.requirement}`),
     demo: ["Sign in and open the GHOST project."],
   });
