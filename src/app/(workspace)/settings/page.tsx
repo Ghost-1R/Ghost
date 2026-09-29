@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { redirect } from "next/navigation";
 import { SoundSettings } from "@/components/ghost/experience";
+import { VoiceSettings } from "@/components/ghost/voice";
 import { ActionForm } from "@/components/ui/action-form";
 import { ErrorState, Panel } from "@/components/ui/panel";
 import { describeProviderPolicy } from "@/lib/ai/provider";
@@ -54,6 +55,10 @@ export default async function SettingsPage() {
 
       <Panel title="Sound">
         <SoundSettings />
+      </Panel>
+
+      <Panel title="Voice">
+        <VoiceSettings />
       </Panel>
 
       <Panel title="Session">

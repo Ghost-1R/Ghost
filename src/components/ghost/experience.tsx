@@ -90,7 +90,16 @@ export function CoreSignal({ state }: { state: CoreState }) {
   return null;
 }
 
-export function GhostCore({ state, size = "mark" }: { state?: CoreState; size?: "mark" | "stage" }) {
+export function CoreStateLabel() {
+  const { state } = useExperience();
+  return (
+    <span className="core-state" data-state={state} aria-live="polite">
+      {state}
+    </span>
+  );
+}
+
+export function GhostCore({ state, size = "mark" }: { state?: CoreState; size?: "mark" | "stage" | "title" }) {
   const experience = useExperience();
   const resolved = state ?? experience.state;
   return (

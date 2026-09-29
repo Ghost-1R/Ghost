@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GhostConversation } from "@/components/ghost/conversation";
+import { DashboardHero } from "@/components/ghost/hero";
 import { EmptyState, ErrorState, Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { isModelConfigured } from "@/lib/ai/provider";
@@ -33,18 +34,10 @@ export default async function DashboardPage() {
     proposals.status === "ok" ? proposals.data.filter((item) => item.status === "PENDING").length : null;
 
   return (
-    <div className="stack">
-      <div className="page-head">
-        <div>
-          <p className="eyebrow">Dashboard</p>
-          <h1>Continue from the real state.</h1>
-        </div>
-        <Link className="button" href="/projects/new">
-          New project
-        </Link>
-      </div>
+    <div className="stack dashboard">
+      <DashboardHero />
 
-      <Panel title="Ask Ghost">
+      <section className="command-dock" aria-label="Ask Ghost">
         {conversation.status === "error" ? <ErrorState message={conversation.message} /> : null}
         <GhostConversation
           projectId={null}
@@ -52,8 +45,19 @@ export default async function DashboardPage() {
           conversationId={conversation.status === "ok" ? conversation.data?.id ?? null : null}
           messages={conversation.status === "ok" ? conversation.data?.messages ?? [] : []}
           providerConfigured={isModelConfigured()}
+          variant="command"
         />
-      </Panel>
+      </section>
+
+      <div className="page-head section-head">
+        <div>
+          <p className="eyebrow">Dashboard</p>
+          <h2>Continue from the real state.</h2>
+        </div>
+        <Link className="button" href="/projects/new">
+          New project
+        </Link>
+      </div>
 
       <Panel title="Continue building" action={<Link href="/projects">All projects</Link>}>
         {projects.status === "error" ? <ErrorState message={projects.message} /> : null}
