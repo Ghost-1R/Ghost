@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AskGhost } from "@/app/(workspace)/dashboard/ask-ghost";
+import { GhostConversation } from "@/components/ghost/conversation";
 import { EmptyState, ErrorState, Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { isModelConfigured } from "@/lib/ai/provider";
 import { getSession } from "@/lib/auth/session";
+import { loadLatestConversation } from "@/lib/conversation/queries";
 import { loadDecisionQueue, loadFounderRules, loadMemoryProposals, loadProjectKnowledge } from "@/lib/memory/queries";
 import { loadProjectSummaries } from "@/lib/projects/queries";
 
@@ -18,12 +20,13 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const [projects, decisions, rules, knowledge, proposals] = await Promise.all([
+  const [projects, decisions, rules, knowledge, proposals, conversation] = await Promise.all([
     loadProjectSummaries(session.supabase),
     loadDecisionQueue(session.supabase),
     loadFounderRules(session.supabase),
     loadProjectKnowledge(session.supabase),
     loadMemoryProposals(session.supabase),
+    loadLatestConversation(session.supabase, null),
   ]);
 
   const pendingCount =
@@ -42,7 +45,14 @@ export default async function DashboardPage() {
       </div>
 
       <Panel title="Ask Ghost">
-        <AskGhost />
+        {conversation.status === "error" ? <ErrorState message={conversation.message} /> : null}
+        <GhostConversation
+          projectId={null}
+          projectName={null}
+          conversationId={conversation.status === "ok" ? conversation.data?.id ?? null : null}
+          messages={conversation.status === "ok" ? conversation.data?.messages ?? [] : []}
+          providerConfigured={isModelConfigured()}
+        />
       </Panel>
 
       <Panel title="Continue building" action={<Link href="/projects">All projects</Link>}>

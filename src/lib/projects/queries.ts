@@ -28,6 +28,9 @@ export type ProjectDetail = {
   currentMilestone: string;
   status: ProjectStatus;
   repositoryUrl: string | null;
+  repositoryProvider: string | null;
+  repositoryBranch: string | null;
+  repositoryCommit: string | null;
   updatedAt: string;
 };
 
@@ -155,6 +158,9 @@ export async function loadProjectDetail(
       currentMilestone: data.current_milestone,
       status: data.status,
       repositoryUrl: data.repository_url,
+      repositoryProvider: null,
+      repositoryBranch: null,
+      repositoryCommit: null,
       updatedAt: data.updated_at,
     },
   };

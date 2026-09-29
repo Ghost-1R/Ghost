@@ -6,7 +6,7 @@
     "product": "Your Second Mind"
   },
   "milestone": {
-    "name": "Alpha Foundation",
+    "name": "Project Brain + Ghost Conversation",
     "status": "BUILDING"
   },
   "stack": [
@@ -23,13 +23,22 @@
       "detail": "On http://localhost:3001 the Ghost sign-up form reached Supabase and showed email rate limit exceeded. No new account was created by that attempt, and no confirmation code was exchanged."
     },
     {
+      "title": "Conversation migration is not remote",
+      "detail": "20260929043000_project_brain_conversation.sql is local. db push returned 403 because the CLI account does not list project wzwrrleqfylhuxfbukfu."
+    },
+    {
+      "title": "No model provider is configured",
+      "detail": "OPENAI_API_KEY and ANTHROPIC_API_KEY are absent. Ghost did not call a model."
+    },
+    {
       "title": "GitHub histories are unrelated",
       "detail": "No origin is configured. Ghost-1R/Ghost has a separate initial commit. Do not force-push."
     }
   ],
   "nextActions": [
-    "Complete one Ghost form sign-up after the auth email rate limit clears",
-    "Add Ghost conversation against verified project records"
+    "Apply the conversation migration with the Ghost Supabase account",
+    "Add a server-side model key and ask from the GHOST project",
+    "Complete one Ghost form sign-up after the auth email rate limit clears"
   ],
   "verification": {
     "application": "VERIFIED_LOCAL",
@@ -38,14 +47,17 @@
     "rls": "VERIFIED_REMOTE",
     "memoryApproval": "VERIFIED_REMOTE",
     "verificationRecords": "VERIFIED_REMOTE",
+    "ghostConversation": "IMPLEMENTED_NOT_LIVE_VERIFIED",
+    "conversationStorage": "IMPLEMENTED_NOT_REMOTE_VERIFIED",
     "production": "NOT_DEPLOYED"
   },
   "evidence": {
     "database": "Against linked project wzwrrleqfylhuxfbukfu, User A inserts succeeded and User B received zero rows. The ACTIVE founder-rule guard and VERIFIED evidence check both rejected invalid writes.",
     "authentication": "On http://localhost:3001, sign-in, session persistence, sign-out, and protected-route redirect were observed. Sign-up returned email rate limit exceeded. Confirmation-code exchange was not observed.",
-    "rls": "User B selects returned zero rows. Update and delete changed zero rows. Cross-inserts were denied. User B's project page showed not found and omitted the project name.",
-    "memoryApproval": "Direct ACTIVE insert was denied with the review_memory_proposal error. Own approval created an ACTIVE rule. The other founder's review was denied.",
-    "verificationRecords": "VERIFIED with empty evidence was denied. VERIFIED with evidence and checked_at succeeded."
+    "rls": "User B selects of the GHOST project, its knowledge, and founder rules returned zero rows. Insert was denied. The project page showed not found and omitted the milestone and DEC-006.",
+    "memoryApproval": "Direct ACTIVE insert was denied with the review_memory_proposal error. Day 2 created five ACTIVE rules through that function.",
+    "verificationRecords": "VERIFIED with empty evidence was denied. VERIFIED with evidence and checked_at succeeded. The GHOST project records production and Ghost conversation as NOT_VERIFIED.",
+    "ghostConversation": "Ask Ghost showed the missing-provider notice for Are we deployed and did not claim a deployment. No model was called. ghost_conversations is not on the remote database."
   },
   "deployment": {
     "provider": null,

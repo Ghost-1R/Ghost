@@ -409,6 +409,23 @@ textarea {
   color: var(--muted);
 }
 
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.bubble {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0.8rem 1rem;
+  background: var(--bg-sunken);
+}
+
+.bubble-user {
+  background: rgba(125, 211, 252, 0.08);
+}
+
 .prose {
   white-space: pre-wrap;
   font-family: var(--font-mono), ui-monospace, monospace;

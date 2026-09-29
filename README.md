@@ -57,12 +57,21 @@ These files are the project record. The database does not replace them.
 
 Ground truth means a label such as `VERIFIED_REMOTE` is used only after an outside check, not because the code exists. `IMPLEMENTED` is not evidence. Production stays `NOT_DEPLOYED` until a provider is chosen. Ghost does not use Vercel.
 
+## Ghost conversation
+
+Ask Ghost from the dashboard or from a project page. The server loads that founder's records, checks project access, and only then calls a model.
+
+No model key is required to run the app. Without `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`, Ghost stores the question and says that no provider is configured. It does not invent an answer. Keys stay server-side.
+
+Conversation does not create founder rules or project knowledge.
+
 ## Checks
 
 ```bash
+npm test
 npm run lint
 npm run typecheck
 npm run build
 ```
 
-There is no automated test suite.
+`npm test` covers context assembly, verification interpretation, state drift, and the rule that a hidden project is not sent to a model.

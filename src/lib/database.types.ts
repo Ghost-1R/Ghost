@@ -72,6 +72,9 @@ export type Database = {
           current_milestone: string;
           status: ProjectStatus;
           repository_url: string | null;
+          repository_provider: string | null;
+          repository_branch: string | null;
+          repository_commit: string | null;
           created_at: string;
           updated_at: string;
         },
@@ -84,6 +87,9 @@ export type Database = {
           current_milestone?: string;
           status?: ProjectStatus;
           repository_url?: string | null;
+          repository_provider?: string | null;
+          repository_branch?: string | null;
+          repository_commit?: string | null;
           created_at?: string;
           updated_at?: string;
         }
@@ -223,6 +229,40 @@ export type Database = {
           state?: VerificationState;
           evidence?: Json;
           checked_at?: string | null;
+          created_at?: string;
+        }
+      >;
+      ghost_conversations: Table<
+        {
+          id: string;
+          owner_id: string;
+          project_id: string | null;
+          title: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          owner_id: string;
+          project_id?: string | null;
+          title?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      ghost_messages: Table<
+        {
+          id: string;
+          conversation_id: string;
+          role: "user" | "assistant";
+          content: string;
+          created_at: string;
+        },
+        {
+          id?: string;
+          conversation_id: string;
+          role: "user" | "assistant";
+          content: string;
           created_at?: string;
         }
       >;
