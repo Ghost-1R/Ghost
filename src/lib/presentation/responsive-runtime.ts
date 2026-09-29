@@ -53,6 +53,7 @@ const LAYOUT_EXPRESSION = `(() => {
     password: Boolean(document.querySelector("input[name=password]") && !hidden(document.querySelector("input[name=password]"))),
     signIn: [...document.querySelectorAll("button")].some((el) => (el.textContent || "").includes("Sign in") && !hidden(el)),
     ask: Boolean(ask && !hidden(ask)),
+    heading: document.querySelector('h1')?.textContent || '',
   };
 })()`;
 
@@ -237,12 +238,16 @@ export async function evaluateResponsiveSurfaces(input: { baseUrl: string; proje
         for (let attempt = 0; attempt < 25; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 200));
           const evaluated = await socket.send("Runtime.evaluate", { expression: LAYOUT_EXPRESSION, returnByValue: true });
-          const value = evaluated.result?.result?.value as Omit<LayoutSample, "viewport" | "path"> | undefined;
-          if (value && value.textLength > 0 && value.landed) {
-            sample = { ...value, viewport: viewport.name, path: page.path, clipped: value.clipped ?? [] };
-            if (value.landed === page.path || (page.kind !== "login" && !value.landed.startsWith("/login"))) {
-              break;
-            }
+          const value = evaluated.result?.result?.value as (Omit<LayoutSample, "viewport" | "path"> & { heading?: string }) | undefined;
+          if (!value || value.textLength === 0 || !value.landed) {
+            continue;
+          }
+          sample = { ...value, viewport: viewport.name, path: page.path, clipped: value.clipped ?? [] };
+          const routed = value.landed === page.path || (page.kind !== "login" && !value.landed.startsWith("/login"));
+          const pastSkeleton = Boolean(value.heading && value.heading !== "Loading");
+          const projectReady = page.kind !== "project" || value.ask;
+          if (routed && pastSkeleton && projectReady) {
+            break;
           }
         }
         if (!sample) {

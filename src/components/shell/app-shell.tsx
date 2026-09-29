@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore, useState, type ReactNode } from "react";
 import { signOut } from "@/lib/auth/actions";
+import { GhostCore } from "@/components/ghost/experience";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home" },
@@ -54,8 +55,10 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [openPath, setOpenPath] = useState<string | null>(null);
+  const [pendingNav, setPendingNav] = useState<{ href: string; from: string } | null>(null);
   const mobile = useSyncExternalStore(subscribeToMobile, getMobileSnapshot, getMobileServerSnapshot);
   const open = openPath === pathname;
+  const pending = pendingNav?.from === pathname ? pendingNav.href : null;
 
   return (
     <div className="shell">
@@ -64,7 +67,7 @@ export function AppShell({
       ) : null}
       <aside id="app-nav" className="sidebar" data-open={open} inert={mobile && !open ? true : undefined}>
         <Link className="wordmark" href="/dashboard">
-          <span className="mark" aria-hidden="true" />
+          <GhostCore size="mark" />
           GHOST
         </Link>
         <nav aria-label="Primary">
@@ -75,6 +78,12 @@ export function AppShell({
                   className="nav-link"
                   href={item.href}
                   aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
+                  aria-busy={pending === item.href}
+                  onClick={() => {
+                    if (!isCurrent(pathname, item.href)) {
+                      setPendingNav({ href: item.href, from: pathname });
+                    }
+                  }}
                 >
                   {item.label}
                 </Link>

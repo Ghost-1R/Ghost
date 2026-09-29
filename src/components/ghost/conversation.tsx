@@ -1,10 +1,23 @@
 "use client";
 
+import { useEffect } from "react";
 import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
+import { useExperience } from "@/components/ghost/experience";
 import { sendGhostMessage } from "@/lib/conversation/actions";
 import { initialActionState } from "@/lib/action-state";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { splitAnswer, type ConversationMessage } from "@/lib/conversation/queries";
+
+function ConversationActivity() {
+  const { pending } = useFormStatus();
+  const { setActivity } = useExperience();
+  useEffect(() => {
+    setActivity(pending ? "THINKING" : null);
+    return () => setActivity(null);
+  }, [pending, setActivity]);
+  return null;
+}
 
 export function GhostConversation({
   projectId,
@@ -56,6 +69,7 @@ export function GhostConversation({
         </div>
       ) : null}
       <form action={formAction} className="stack">
+        <ConversationActivity />
         <input type="hidden" name="projectId" value={projectId ?? ""} />
         <input type="hidden" name="conversationId" value={conversationId ?? ""} />
         <label className="field">

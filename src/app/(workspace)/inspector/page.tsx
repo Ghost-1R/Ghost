@@ -18,14 +18,14 @@ export default async function InspectorPage() {
     redirect("/login");
   }
 
-  const projects = await loadProjectSummaries(session.supabase);
-  const ghost = projects.status === "ok" ? projects.data.find((project) => project.name.toLocaleLowerCase() === "ghost") : null;
-  const projectId = ghost?.id ?? "";
   const root = defaultRuntimeRoot();
-  const [inspections, approvals] = await Promise.all([
+  const [projects, inspections, approvals] = await Promise.all([
+    loadProjectSummaries(session.supabase),
     listInspections(root, session.user.id),
     listApprovals(root, session.user.id),
   ]);
+  const ghost = projects.status === "ok" ? projects.data.find((project) => project.name.toLocaleLowerCase() === "ghost") : null;
+  const projectId = ghost?.id ?? "";
   const latest = latestInspections(inspections);
   const pending = approvals.filter((approval) => approval.status === "PENDING" || approval.status === "APPROVED" || approval.status === "REJECTED");
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
+import { ExperienceProvider } from "@/components/ghost/experience";
 import "./globals.css";
 
 const sans = Instrument_Sans({
@@ -28,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <a className="skip-link" href="#main">
           Skip to content
         </a>
-        {children}
+        <ExperienceProvider>{children}</ExperienceProvider>
       </body>
     </html>
   );

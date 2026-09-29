@@ -64,7 +64,17 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     redirect("/login");
   }
 
-  const project = await loadProjectDetail(session.supabase, id);
+  const [project, milestones, knowledge, blockers, actions, verification, rules, conversation, repositoryFile] = await Promise.all([
+    loadProjectDetail(session.supabase, id),
+    loadMilestones(session.supabase, id),
+    loadKnowledge(session.supabase, id),
+    loadBlockers(session.supabase, id),
+    loadNextActions(session.supabase, id),
+    loadVerification(session.supabase, id),
+    loadFounderRules(session.supabase),
+    loadLatestConversation(session.supabase, id),
+    repositorySnapshot(),
+  ]);
   if (project.status === "error") {
     return (
       <div className="stack">
@@ -77,16 +87,6 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   if (!project.data) {
     notFound();
   }
-
-  const [milestones, knowledge, blockers, actions, verification, rules, conversation] = await Promise.all([
-    loadMilestones(session.supabase, id),
-    loadKnowledge(session.supabase, id),
-    loadBlockers(session.supabase, id),
-    loadNextActions(session.supabase, id),
-    loadVerification(session.supabase, id),
-    loadFounderRules(session.supabase),
-    loadLatestConversation(session.supabase, id),
-  ]);
 
   const detail = project.data;
   const knowledgeRows = knowledge.status === "ok" ? knowledge.data : [];
@@ -103,7 +103,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const openActions = actionRows.filter((action) => action.status === "OPEN");
   const verificationRows = verification.status === "ok" ? verification.data : [];
   const comparesRepository = detail.slug === "ghost" || detail.name.toLocaleLowerCase() === "ghost";
-  const repositoryState = comparesRepository ? await repositorySnapshot() : null;
+  const repositoryState = comparesRepository ? repositoryFile : null;
   const drift =
     repositoryState == null
       ? null

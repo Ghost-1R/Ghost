@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { redirect } from "next/navigation";
+import { SoundSettings } from "@/components/ghost/experience";
 import { ActionForm } from "@/components/ui/action-form";
 import { ErrorState, Panel } from "@/components/ui/panel";
 import { createOwnProfile, updateProfile } from "@/lib/auth/actions";
@@ -35,12 +36,10 @@ export default async function SettingsPage() {
 
   const deployment = getDeploymentSelection();
   const configured = getSupabaseEnv() !== null;
-  const portable = await readPortableState();
-  const profileResult = await session.supabase
-    .from("profiles")
-    .select("display_name, updated_at")
-    .eq("id", session.user.id)
-    .maybeSingle();
+  const [portable, profileResult] = await Promise.all([
+    readPortableState(),
+    session.supabase.from("profiles").select("display_name, updated_at").eq("id", session.user.id).maybeSingle(),
+  ]);
 
   return (
     <div className="stack">
@@ -50,6 +49,10 @@ export default async function SettingsPage() {
           <h1>Account and truth.</h1>
         </div>
       </div>
+
+      <Panel title="Sound">
+        <SoundSettings />
+      </Panel>
 
       <Panel title="Session">
         <ul className="meta">

@@ -13,6 +13,7 @@ import { hashWorkingTree } from "@/lib/presentation/tree";
 import { loadBlockers } from "@/lib/projects/queries";
 import { SAFE_CHECKS } from "./checks";
 import { runSafeCheck } from "./runner";
+import { commandWaves, PARALLEL_PROBES, type InspectionProgress } from "./schedule";
 import type { EvidenceCheckType, EvidenceRecord, EvidenceStatus } from "@/lib/presentation/types";
 
 const EVIDENCE_CHECKS: Record<string, EvidenceCheckType> = {
@@ -83,15 +84,34 @@ export async function executeTrustedInspection(input: {
   projectId: string;
   cwd: string;
   supabase: GhostClient;
+  onProgress?: (event: InspectionProgress) => void;
 }): Promise<TrustedInspectionResult> {
+  const runStarted = Date.now();
+  const emit = (event: Omit<InspectionProgress, "elapsedMs">) => {
+    input.onProgress?.({ ...event, elapsedMs: Date.now() - runStarted });
+  };
+  emit({ stage: "PREPARING", check: null, status: "running", detail: "Reading the working tree" });
   const before = await hashWorkingTree(input.cwd);
   const runId = randomUUID();
   const records: EvidenceRecord[] = [];
-  for (const check of SAFE_CHECKS) {
-    const checkType = EVIDENCE_CHECKS[check.id];
-    if (!checkType) {
-      continue;
+  let ledger = Promise.resolve();
+  const enqueue = <T,>(task: () => Promise<T>): Promise<T> => {
+    const run = ledger.then(task, task);
+    ledger = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  };
+  const evidenceIds = SAFE_CHECKS.map((check) => check.id).filter((id) => EVIDENCE_CHECKS[id]);
+
+  async function runCommand(checkId: string) {
+    const check = SAFE_CHECKS.find((item) => item.id === checkId);
+    const checkType = check ? EVIDENCE_CHECKS[check.id] : undefined;
+    if (!check || !checkType) {
+      return;
     }
+    emit({ stage: "RUNNING", check: check.name, status: "running", detail: check.name });
     const started = Date.now();
     const result = await runSafeCheck(check.id, {
       ownerId: input.ownerId,
@@ -99,73 +119,94 @@ export async function executeTrustedInspection(input: {
       cwd: input.cwd,
     });
     if (!result) {
-      continue;
+      return;
     }
     const status: EvidenceStatus | null =
       result.status === "VERIFIED" ? "passed" : result.status === "FAILED" ? "failed" : result.status === "BLOCKED" ? "blocked" : null;
     if (!status) {
-      continue;
+      return;
     }
-    const record = await persistCheck({
-      ownerId: input.ownerId,
-      projectId: input.projectId,
-      runId,
-      checkType,
-      commitSha: before.commitSha,
-      treeHash: before.treeHash,
-      command: (check.command ?? [check.id]).join(" "),
-      exitCode: result.exitCode,
-      durationMs: Math.max(0, Date.now() - started),
-      output: `${result.stdout}\n${result.stderr}\n${result.summary}`,
-      status,
-      createdAt: result.completedAt,
-    });
+    emit({ stage: "COLLECTING_EVIDENCE", check: check.name, status, durationMs: Date.now() - started, detail: check.name });
+    const record = await enqueue(() =>
+      persistCheck({
+        ownerId: input.ownerId,
+        projectId: input.projectId,
+        runId,
+        checkType,
+        commitSha: before.commitSha,
+        treeHash: before.treeHash,
+        command: (check.command ?? [check.id]).join(" "),
+        exitCode: result.exitCode,
+        durationMs: Math.max(0, Date.now() - started),
+        output: `${result.stdout}\n${result.stderr}\n${result.summary}`,
+        status,
+        createdAt: result.completedAt,
+      }),
+    );
     if (record) {
       records.push(record);
     }
   }
 
-  const security = await evaluateSecurityBoundary(input.cwd);
-  const flows = await evaluateCustomerFlows(input.supabase, input.projectId, input.cwd);
-  const responsive = await evaluateResponsiveSurfaces({
-    baseUrl: process.env.GHOST_RESPONSIVE_BASE_URL?.trim() || "http://127.0.0.1:3000",
-    projectId: input.projectId,
-    email: process.env.GHOST_LOCAL_FOUNDER_EMAIL?.trim() ?? "",
-    password: process.env.GHOST_LOCAL_FOUNDER_PASSWORD?.trim() ?? "",
-  });
-  const conversationRegression = await evaluateConversationRegression(input.supabase, input.projectId);
-  const providerRegression = await evaluateModelProviderRegression();
-  const requirements = await evaluateRequirementTrace(input.supabase, input.projectId, input.cwd);
-  for (const probe of [
-    { checkType: "security" as const, command: "security-boundary", ...security },
-    { checkType: "customer_flows" as const, command: "customer-flows", ...flows },
-    { checkType: "responsive" as const, command: "responsive-viewports", ...responsive },
-    { checkType: "regression" as const, command: "conversation-migration-regression", ...conversationRegression },
-    { checkType: "regression" as const, command: "model-provider-regression", ...providerRegression },
-    { checkType: "requirements" as const, command: "requirement-trace", status: requirements.status, exitCode: requirements.exitCode, output: requirements.output },
-  ]) {
-    const record = await persistCheck({
-      ownerId: input.ownerId,
-      projectId: input.projectId,
-      runId,
-      checkType: probe.checkType,
-      commitSha: before.commitSha,
-      treeHash: before.treeHash,
-      command: probe.command,
-      exitCode: probe.exitCode,
-      durationMs: 1,
-      output: probe.output,
-      status: probe.status,
-      createdAt: new Date().toISOString(),
-    });
+  for (const wave of commandWaves(evidenceIds)) {
+    await Promise.all(wave.map((checkId) => runCommand(checkId)));
+  }
+
+  async function runProbe<T extends { status: EvidenceStatus; exitCode: number | null; output: string }>(
+    checkType: EvidenceCheckType,
+    command: string,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    emit({ stage: "VERIFYING", check: command, status: "running", detail: command });
+    const started = Date.now();
+    const result = await run();
+    const record = await enqueue(() =>
+      persistCheck({
+        ownerId: input.ownerId,
+        projectId: input.projectId,
+        runId,
+        checkType,
+        commitSha: before.commitSha,
+        treeHash: before.treeHash,
+        command,
+        exitCode: result.exitCode,
+        durationMs: Math.max(0, Date.now() - started),
+        output: result.output,
+        status: result.status,
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    emit({ stage: "VERIFYING", check: command, status: result.status, durationMs: Date.now() - started, detail: command });
     if (record) {
       records.push(record);
     }
+    return result;
   }
+
+  const crossUserProbes = async () => {
+    await runProbe("security", PARALLEL_PROBES[0], () => evaluateSecurityBoundary(input.cwd));
+    await runProbe("regression", PARALLEL_PROBES[3], () => evaluateConversationRegression(input.supabase, input.projectId));
+  };
+
+  const [, , responsive, , requirements] = await Promise.all([
+    crossUserProbes(),
+    runProbe("customer_flows", PARALLEL_PROBES[1], () => evaluateCustomerFlows(input.supabase, input.projectId, input.cwd)),
+    runProbe("responsive", PARALLEL_PROBES[2], () =>
+      evaluateResponsiveSurfaces({
+        baseUrl: process.env.GHOST_RESPONSIVE_BASE_URL?.trim() || "http://127.0.0.1:3000",
+        projectId: input.projectId,
+        email: process.env.GHOST_LOCAL_FOUNDER_EMAIL?.trim() ?? "",
+        password: process.env.GHOST_LOCAL_FOUNDER_PASSWORD?.trim() ?? "",
+      }),
+    ),
+    runProbe("regression", PARALLEL_PROBES[4], () => evaluateModelProviderRegression()),
+    runProbe("requirements", PARALLEL_PROBES[5], () => evaluateRequirementTrace(input.supabase, input.projectId, input.cwd)),
+  ]);
 
   const after = await hashWorkingTree(input.cwd);
   const stable = before.commitSha === after.commitSha && before.treeHash === after.treeHash;
   if (!stable) {
+    emit({ stage: "FAILED", check: null, status: "failed", detail: "The tree changed during inspection, so this evidence is not fresh." });
     return {
       error: "The tree changed during inspection, so this evidence is not fresh.",
       treeBefore: before.treeHash,
@@ -204,6 +245,12 @@ export async function executeTrustedInspection(input: {
   });
   await appendReview(presentationRoot(), review);
   await persistReview(review);
+  emit({
+    stage: "COMPLETE",
+    check: null,
+    status: null,
+    detail: `Presentation result: ${review.result}`,
+  });
   return {
     error: null,
     treeBefore: before.treeHash,

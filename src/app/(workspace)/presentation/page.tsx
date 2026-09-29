@@ -4,9 +4,11 @@ import { EmptyState, Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getSession } from "@/lib/auth/session";
 import { listReviews, presentationRoot } from "@/lib/presentation/ledger";
+import { presentationCoreState } from "@/lib/experience/core-state";
 import { reviewFreshness } from "@/lib/presentation/freshness";
 import { hashWorkingTree } from "@/lib/presentation/tree";
 import { loadProjectSummaries } from "@/lib/projects/queries";
+import { CoreSignal } from "@/components/ghost/experience";
 import { PresentationReviewForm } from "./presentation-actions";
 
 export const metadata: Metadata = {
@@ -18,15 +20,19 @@ export default async function PresentationPage() {
   if (session.status !== "authenticated") {
     redirect("/login");
   }
-  const projects = await loadProjectSummaries(session.supabase);
+  const [projects, reviews, tree] = await Promise.all([
+    loadProjectSummaries(session.supabase),
+    listReviews(presentationRoot(), session.user.id),
+    hashWorkingTree(process.cwd()),
+  ]);
   const ghost = projects.status === "ok" ? projects.data.find((project) => project.name.toLocaleLowerCase() === "ghost") : null;
-  const reviews = ghost ? (await listReviews(presentationRoot(), session.user.id)).filter((review) => review.projectId === ghost.id) : [];
-  const latest = reviews.at(-1) ?? null;
-  const tree = await hashWorkingTree(process.cwd());
+  const latest = ghost ? reviews.filter((review) => review.projectId === ghost.id).at(-1) ?? null : null;
   const freshness = latest ? reviewFreshness(latest, tree) : null;
+  const coreState = presentationCoreState(latest?.result ?? null, freshness);
 
   return (
     <div className="stack">
+      <CoreSignal state={coreState} />
       <div className="page-head">
         <div>
           <p className="eyebrow">Presentation</p>
