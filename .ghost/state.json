@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "name": "GHOST",
+    "slug": "ghost",
+    "product": "Your Second Mind"
+  },
+  "milestone": {
+    "name": "Alpha Foundation",
+    "status": "BUILDING"
+  },
+  "stack": [
+    "nextjs",
+    "typescript",
+    "react",
+    "supabase",
+    "postgresql",
+    "tailwind"
+  ],
+  "blockers": [
+    {
+      "title": "Public sign-up confirmation was not completed",
+      "detail": "The Ghost sign-up form reached Supabase and showed email rate limit exceeded. No new account was created by that attempt, and no confirmation code was exchanged."
+    },
+    {
+      "title": "GitHub histories are unrelated",
+      "detail": "No origin is configured. Ghost-1R/Ghost has a separate initial commit. Do not force-push."
+    }
+  ],
+  "nextActions": [
+    "Complete one Ghost form sign-up after the auth email rate limit clears",
+    "Add Ghost conversation against verified project records"
+  ],
+  "verification": {
+    "application": "VERIFIED_LOCAL",
+    "database": "VERIFIED_REMOTE",
+    "authentication": "VERIFIED_REMOTE",
+    "rls": "VERIFIED_REMOTE",
+    "memoryApproval": "VERIFIED_REMOTE",
+    "verificationRecords": "VERIFIED_REMOTE",
+    "production": "NOT_DEPLOYED"
+  },
+  "evidence": {
+    "database": "Alpha tables, forced RLS, policies, and the founder-rule activation guard were observed on linked project wzwrrleqfylhuxfbukfu after db push.",
+    "authentication": "Browser sign-in, session persistence, sign-out, protected routes, and a profile row were observed. Confirmation-code exchange was not.",
+    "rls": "A second founder could not read or mutate the first founder's project data. The foreign project page showed not found and omitted the project name.",
+    "memoryApproval": "Direct ACTIVE founder-rule insert was denied. Cross-founder proposal review was denied. Own approval created an ACTIVE rule.",
+    "verificationRecords": "VERIFIED without evidence and checked_at was denied. A complete VERIFIED row succeeded."
+  },
+  "deployment": {
+    "provider": null,
+    "vercelAllowed": false
+  }
+}
