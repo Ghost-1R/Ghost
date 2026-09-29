@@ -23,10 +23,6 @@
       "detail": "On http://localhost:3001 the Ghost sign-up form reached Supabase and showed email rate limit exceeded. No new account was created by that attempt, and no confirmation code was exchanged."
     },
     {
-      "title": "Conversation migration is not remote",
-      "detail": "20260929043000_project_brain_conversation.sql is local. db push returned 403 because the CLI account does not list project wzwrrleqfylhuxfbukfu."
-    },
-    {
       "title": "No model provider is configured",
       "detail": "OPENAI_API_KEY and ANTHROPIC_API_KEY are absent. Ghost did not call a model."
     },
@@ -36,8 +32,7 @@
     }
   ],
   "nextActions": [
-    "Apply the conversation migration with the Ghost Supabase account",
-    "Add a server-side model key and ask from the GHOST project",
+    "Add one server-side model key and ask the grounding questions from the GHOST project",
     "Complete one Ghost form sign-up after the auth email rate limit clears"
   ],
   "verification": {
@@ -48,7 +43,7 @@
     "memoryApproval": "VERIFIED_REMOTE",
     "verificationRecords": "VERIFIED_REMOTE",
     "ghostConversation": "IMPLEMENTED_NOT_LIVE_VERIFIED",
-    "conversationStorage": "IMPLEMENTED_NOT_REMOTE_VERIFIED",
+    "conversationStorage": "VERIFIED_REMOTE",
     "production": "NOT_DEPLOYED"
   },
   "evidence": {
@@ -57,7 +52,8 @@
     "rls": "User B selects of the GHOST project, its knowledge, and founder rules returned zero rows. Insert was denied. The project page showed not found and omitted the milestone and DEC-006.",
     "memoryApproval": "Direct ACTIVE insert was denied with the review_memory_proposal error. Day 2 created five ACTIVE rules through that function.",
     "verificationRecords": "VERIFIED with empty evidence was denied. VERIFIED with evidence and checked_at succeeded. The GHOST project records production and Ghost conversation as NOT_VERIFIED.",
-    "ghostConversation": "Ask Ghost showed the missing-provider notice for Are we deployed and did not claim a deployment. No model was called. ghost_conversations is not on the remote database."
+    "conversationStorage": "db push applied 20260929043000 on wzwrrleqfylhuxfbukfu. Both tables have RLS enabled and forced. Founder message What are we building persisted on project 7f252953-ecab-4b5e-9762-5f3fe1c6a45d. User B reads returned zero rows and writes returned 42501.",
+    "ghostConversation": "No model provider is configured. Grounding questions were not sent to a model. No assistant message was stored."
   },
   "deployment": {
     "provider": null,

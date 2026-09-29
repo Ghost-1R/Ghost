@@ -93,16 +93,14 @@ An earlier dev-server process was stopped on purpose so the app could reload `.e
 ## Current Blockers
 
 - Public sign-up through the Ghost form on port 3001 reached Supabase and returned `email rate limit exceeded`. No account was created by that attempt, and a confirmation code was not exchanged at `/auth/callback`.
-- `supabase/migrations/20260929043000_project_brain_conversation.sql` is not on the remote database. `db push` returned 403. The current CLI account does not list Ghost project `wzwrrleqfylhuxfbukfu`. It was not relinked to another project.
-- No server-side model key is configured. `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are absent.
+- No server-side model key is configured. `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are absent. Live Ghost answers were not run.
 - Production is not deployed.
 - This repository is not connected to GitHub. The existing `Ghost-1R/Ghost` history does not share this root.
 
 ## Next Actions
 
-1. Sign in to the Supabase CLI with the Ghost project account and apply the conversation migration. Do not reset the database.
-2. Add a server-side model key, then ask Ghost from the GHOST project and check that answers follow the records.
-3. After the auth email rate limit clears, create one account through the Ghost sign-up form and complete the confirmation callback if confirmation stays enabled.
+1. Add one server-side model key, then ask the eight grounding questions from the GHOST project.
+2. After the auth email rate limit clears, create one account through the Ghost sign-up form and complete the confirmation callback if confirmation stays enabled.
 
 ## Verification
 
@@ -128,7 +126,7 @@ Ghost conversation:
 IMPLEMENTED_NOT_LIVE_VERIFIED
 
 Conversation storage:
-IMPLEMENTED_NOT_REMOTE_VERIFIED
+VERIFIED_REMOTE
 
 Production:
 NOT_DEPLOYED
@@ -149,7 +147,9 @@ Day 2 evidence from http://localhost:3001:
 
 - A GHOST project row exists for the local founder: status BUILDING, milestone Project Brain + Ghost Conversation, with requirements, DEC-001 through DEC-006, open blockers, ordered next actions, and verification records. Production and Ghost conversation are NOT_VERIFIED. Five ACTIVE founder rules were created through `review_memory_proposal` from FOUNDER.md.
 - Before this file was edited, the project page showed STATE DRIFT: the file milestone was Alpha Foundation and the database milestone was Project Brain + Ghost Conversation. This edit is a manual record. It does not overwrite the database.
-- Ask Ghost on the project page displayed the missing-provider notice for "Are we deployed?" and did not claim a deployment. The remote database has no `ghost_conversations` table, so the question was not stored.
+- Conversation storage was applied with `db push` to `wzwrrleqfylhuxfbukfu` and then observed: `ghost_conversations` and `ghost_messages` exist, RLS is enabled and forced, and the expected policies are present. The GHOST project still has 18 knowledge rows, 1 milestone, 4 blockers, 3 next actions, 6 verification records, and 5 active founder rules.
+- The founder stored a project-scoped user message, "What are we building?", on conversation `5acf714f-e290-42f5-bb5d-0cad87132a03`. No assistant message was written. A second founder received zero rows, and inserts into that conversation and project were denied with SQLSTATE 42501.
+- Ask Ghost still has no model provider, so the grounding questions were not sent to a model.
 - A second founder received zero rows for the project, its knowledge, and founder rules. Insert was denied. The project URL rendered "Project not found." without the milestone or DEC-006.
 - `npm test` passed 13 tests. `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed after the Day 2 code. No live model was called.
 
