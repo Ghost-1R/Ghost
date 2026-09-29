@@ -13,6 +13,9 @@ import { groundingMetadata, sourcesFromMetadata, withSources, type ConversationS
 import { collectGlobalItems, collectProjectItems, selectGrounding } from "@/lib/ghost-context/assemble";
 import type { ContextItem } from "@/lib/ghost-context/types";
 import { detectMemoryIntent } from "@/lib/ghost-context/memory-intent";
+import { explainInspections, inspectionContextItems, inspectionQuestion } from "@/lib/inspector/evidence";
+import { defaultRuntimeRoot, listInspections } from "@/lib/inspector/store";
+import { treeStamp } from "@/lib/inspector/status";
 import { resolveAuthorizedProject } from "@/lib/ghost-context/resolve";
 import {
   bestMemoryMatch,
@@ -24,6 +27,7 @@ import { loadFounderRules, loadMemoryProposals } from "@/lib/memory/queries";
 import path from "node:path";
 import { loadPatterns } from "@/lib/patterns/library";
 import { repositoryContextItems } from "@/lib/repository/evidence";
+import { readGitState } from "@/lib/repository/local-git";
 import { captureRepositorySnapshot, missingExplicitPaths, shouldAttachRepository } from "@/lib/repository/snapshot";
 import {
   loadBlockers,
@@ -530,6 +534,25 @@ export async function sendGhostMessage(
     return { error: null, notice: null };
   }
 
+  const inspections = await listInspections(defaultRuntimeRoot(), session.user.id).catch(() => []);
+  const inspectionIntent = inspectionQuestion(message);
+  if (inspectionIntent) {
+    const git = await readGitState(process.cwd());
+    const explained = explainInspections({
+      question: inspectionIntent,
+      results: inspections,
+      current: {
+        commit: git.commit,
+        workingTree: git.workingTree,
+        treeStamp: treeStamp(git.commit, git.changedFiles),
+      },
+      verificationLines: contextItems
+        .filter((item) => item.type === "verification")
+        .map((item) => `${item.title}: ${item.status ?? "unknown"}`),
+    });
+    return storeAssistant(explained.text, explained.sources);
+  }
+
   const repositoryItems: ContextItem[] = [];
   if (shouldAttachRepository(projectName)) {
     const missing = await missingExplicitPaths(message, process.cwd());
@@ -544,7 +567,7 @@ export async function sendGhostMessage(
   }
 
   const grounding = selectGrounding({
-    items: [...contextItems, ...repositoryItems],
+    items: [...contextItems, ...repositoryItems, ...inspectionContextItems(message, inspections)],
     messages: turns,
     projectId: contextProjectId,
     productionVerified: loaded?.productionVerified ?? false,

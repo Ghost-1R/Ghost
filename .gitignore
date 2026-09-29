@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local inspector and approval records. These are owner-scoped runtime evidence, not project truth.
+.ghost/runtime/

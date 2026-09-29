@@ -94,7 +94,7 @@ An earlier dev-server process was stopped on purpose so the app could reload `.e
 
 - Public sign-up on http://localhost:3000 was accepted on 2026-09-29. Auth user `d1b38554-5dae-4112-9e14-8baaa05181cf` has profile display name Day5 Signup. The email is not confirmed, no session was created, and `/auth/callback` was not completed.
 - Production is not deployed.
-- This repository is not connected to GitHub. No GitHub token was available and the `gh` CLI is not installed, so `Ghost-1R/Ghost` was not inspected. No pull, push, or merge was performed. The histories stay unrelated.
+- This repository is not connected to GitHub. Day 6 rechecked: `GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_PAT` are absent and `gh` is not installed. The GitHub inspection is BLOCKED — GITHUB_AUTH_REQUIRED. No pull, push, or merge was performed.
 - The GHOST project row "No model provider is configured" was marked RESOLVED. The original text was kept, with a note that OpenAI and gpt-5.4 completed live grounding and Ghost Conversation is VERIFIED_LOCAL.
 
 ## Next Actions
@@ -144,6 +144,15 @@ VERIFIED_LOCAL
 
 GitHub remote:
 NOT_INSPECTED
+
+Inspector:
+VERIFIED_LOCAL
+
+Risk engine:
+VERIFIED_LOCAL
+
+Approval engine:
+VERIFIED_LOCAL
 
 Production:
 NOT_DEPLOYED
@@ -219,6 +228,18 @@ Day 5 evidence from http://localhost:3000 and linked project `wzwrrleqfylhuxfbuk
 - Create account was accepted for auth user `d1b38554-5dae-4112-9e14-8baaa05181cf`. The profile row exists. Email confirmation is still false.
 - `GITHUB_TOKEN`, `GH_TOKEN`, and `GITHUB_PAT` were absent. Remote inspection returned unavailable. No GitHub write was implemented or performed.
 - `npm test` passed 40 tests. `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed. Production was not deployed.
+
+Day 6 evidence from http://localhost:3000:
+
+- Safe inspection ran the allowlisted checks. Tests, lint, TypeScript, build, and Git status were VERIFIED at commit `8d30cfc` with a dirty working tree. GitHub remote was BLOCKED — GITHUB_AUTH_REQUIRED. Production deployment was NOT_VERIFIED. Database migration files were OBSERVED and the check did not query or change the remote database. Auth sign-up stayed NOT_VERIFIED because email confirmation is still false. Model grounding stayed NOT_VERIFIED and did not call a model.
+- A disposable failing command was recorded as FAILED. "What has actually been verified?" said the disposable check stayed failed and did not call it verified. That result was then removed.
+- After a temporary file change, "Is the current code build verified?" said the build was VERIFIED at commit `8d30cfc` and does not verify the current tree. The temporary file was removed.
+- A proposed remote migration was HIGH and PENDING, then rejected. Attempting it returned "Not executed: REJECTED." No migration was applied.
+- An approved migration proposal did not authorize a changed parameter. Attempting the changed parameter returned "Not executed: FINGERPRINT_MISMATCH."
+- Remote database reset was CRITICAL. Approving it still returned "Not executed: UNSUPPORTED."
+- User B's inspector page did not show User A's approvals or inspection targets. User B had zero local inspection and approval rows, the GHOST project URL said not found, and the ask form was absent.
+- Inspection and approval records are local owner files under `.ghost/runtime/`, which is gitignored. No new Supabase migration was created or applied. Patterns remain DRAFT.
+- The recorded build verification is historical for the tree that was checked. It does not automatically cover later commits.
 
 ## Last Updated
 

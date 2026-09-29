@@ -24,7 +24,7 @@
     },
     {
       "title": "GitHub histories are unrelated",
-      "detail": "No origin is configured. GITHUB_TOKEN, GH_TOKEN, and GITHUB_PAT were absent and gh is not installed, so Ghost-1R/Ghost was not inspected on Day 5. No pull, push, or merge was performed. Do not force-push. Reconciliation was not executed."
+      "detail": "No origin is configured. Day 6 rechecked GitHub authentication and it is still absent, so the inspection is BLOCKED. Ghost-1R/Ghost was not inspected. No pull, push, or merge was performed. Do not force-push. Reconciliation was not executed."
     }
   ],
   "nextActions": [
@@ -45,6 +45,9 @@
     "repositoryContext": "VERIFIED_LOCAL",
     "patternLibrary": "VERIFIED_LOCAL",
     "githubRemote": "NOT_INSPECTED",
+    "inspector": "VERIFIED_LOCAL",
+    "riskEngine": "VERIFIED_LOCAL",
+    "approvalEngine": "VERIFIED_LOCAL",
     "production": "NOT_DEPLOYED"
   },
   "evidence": {
@@ -58,7 +61,10 @@
     "memoryIntelligence": "Explicit remember created pending founder rule e13c8a13-eabd-46f0-b8be-50c17a759037, approved through review into active rule 3ba9b742-0b11-4c05-a426-30fb13163869. GHOST Vercel stayed a pending project proposal. RULE-004 blocked a duplicate. Provenance named conversation bdc9e36d-df87-4890-89b6-f72c7906c7c8. Disposable rules were retired and left later answers. Direct ACTIVE insert stayed denied. User B saw zero database rules. A disposable provider-acme founder rule and project constraint were both shown, with a project exception, and then the disposable rows were retired or removed.",
     "repositoryContext": "On http://localhost:3000 Ghost answered the branch as ghost-alpha and the working tree as dirty at b00dc39, named src/lib/memory/actions.ts for memory approval, refused src/payments/stripe.ts, and kept production NOT_DEPLOYED. A disposable injection file was quoted as repository data and then removed. The API key was not returned, stored, or logged.",
     "patternLibrary": "Four patterns remain DRAFT. The RLS question identified Supabase Owner-Scoped RLS as draft. Assistant message ce807b43-76f2-4edb-b9c2-e837abbadec9 stores that pattern source and does not store patternApplications. /patterns listed all four drafts.",
-    "githubRemote": "No GitHub token was available and gh is not installed. Ghost-1R/Ghost was not inspected and no remote write was performed.",
+    "githubRemote": "Day 6 rechecked. No GitHub token was available and gh is not installed. The inspection status is BLOCKED. Ghost-1R/Ghost was not inspected and no remote write was performed.",
+    "inspector": "On http://localhost:3000 allowlisted tests, lint, TypeScript, build, and git status were VERIFIED at commit 8d30cfc with a dirty working tree. GitHub was BLOCKED. Deployment was NOT_VERIFIED. A disposable command stayed FAILED. A later tree change was not treated as build verified.",
+    "riskEngine": "SAFE checks run from the allowlist. Remote migration is HIGH. Remote database reset is CRITICAL and unsupported. Chat text cannot approve an action.",
+    "approvalEngine": "Approvals are local owner records, not a remote table. A rejected migration did not execute. A changed parameter did not match the approved fingerprint. An approved remote reset stayed unsupported. No Supabase migration was created or applied.",
     "ghostConversation": "On http://localhost:3001 the OpenAI provider and model gpt-5.4 answered from project 7f252953-ecab-4b5e-9762-5f3fe1c6a45d. Answers followed stored records, including NOT_VERIFIED production, DEC-006, unknown Stripe, and RULE-002.",
     "contextEngine": "Selected context, not the full brain, was sent. Continuity, the Stripe claim, the deployment conflict, the pending GHOST Vercel proposal, the IVOIRE SHOP refusal, and the injection regression were observed. User B could not read project data or create a proposal. Sources shown on answers were the records selected for that reply."
   },
