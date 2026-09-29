@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { sendGhostMessage } from "@/lib/conversation/actions";
 import { initialActionState } from "@/lib/action-state";
 import { SubmitButton } from "@/components/ui/submit-button";
-import type { ConversationMessage } from "@/lib/conversation/queries";
+import { splitAnswer, type ConversationMessage } from "@/lib/conversation/queries";
 
 export function GhostConversation({
   projectId,
@@ -38,7 +38,19 @@ export function GhostConversation({
           {messages.map((message) => (
             <article className={message.role === "user" ? "bubble bubble-user" : "bubble"} key={message.id}>
               <p className="eyebrow">{message.role === "user" ? "You" : "Ghost"}</p>
-              <p>{message.content}</p>
+              <p>{message.role === "assistant" ? splitAnswer(message.content).answer : message.content}</p>
+              {message.role === "assistant" && message.sources.length > 0 ? (
+                <details className="sources">
+                  <summary>Grounded in {message.sources.length} sources</summary>
+                  <ul>
+                    {message.sources.map((source) => (
+                      <li key={`${source.type}-${source.id}`}>
+                        {source.type}: {source.title}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
             </article>
           ))}
         </div>

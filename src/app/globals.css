@@ -426,6 +426,21 @@ textarea {
   background: rgba(125, 211, 252, 0.08);
 }
 
+.sources {
+  margin-top: 0.7rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.sources summary {
+  cursor: pointer;
+}
+
+.sources ul {
+  margin: 0.45rem 0 0;
+  padding-left: 1.1rem;
+}
+
 .prose {
   white-space: pre-wrap;
   font-family: var(--font-mono), ui-monospace, monospace;

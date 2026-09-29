@@ -1,18 +1,19 @@
 import { authorizeProjectContext } from "../brain/authorize";
 import type { GhostContext } from "../brain/types";
 import { buildModelRequest } from "./request";
-import { UNCONFIGURED_NOTICE, type ConversationTurn, type ModelProvider } from "./types";
+import { UNCONFIGURED_NOTICE, type ConversationTurn, type ModelProvider, type ModelResponse } from "./types";
 
 export async function prepareReply(input: {
   requestedProjectId: string | null;
   visibleProjectId: string | null;
   context: GhostContext | null;
+  grounding?: string | null;
   messages: ConversationTurn[];
   provider: ModelProvider | null;
 }): Promise<
   | { ok: false; called: false; reason: "not-visible" }
   | { ok: false; called: false; reason: "unconfigured"; notice: string }
-  | { ok: true; called: true; content: string; provider: string; model: string }
+  | { ok: true; called: true; content: string; provider: string; model: string; usage?: ModelResponse["usage"] }
 > {
   const access = authorizeProjectContext({
     requestedProjectId: input.requestedProjectId,
@@ -27,12 +28,15 @@ export async function prepareReply(input: {
     return { ok: false, called: false, reason: "unconfigured", notice: UNCONFIGURED_NOTICE };
   }
 
-  const response = await input.provider.complete(buildModelRequest(input.context, input.messages));
+  const response = await input.provider.complete(
+    buildModelRequest(input.context, input.messages, input.grounding),
+  );
   return {
     ok: true,
     called: true,
     content: response.content,
     provider: response.provider,
     model: response.model,
+    usage: response.usage,
   };
 }

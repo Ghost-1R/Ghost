@@ -1,11 +1,18 @@
 import type { GhostClient } from "@/lib/auth/session";
 import { fromError, type QueryResult } from "@/lib/result";
 
+export type ConversationSource = {
+  id: string;
+  type: string;
+  title: string;
+};
+
 export type ConversationMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  sources: ConversationSource[];
 };
 
 export type ConversationThread = {
@@ -17,6 +24,43 @@ export type ConversationThread = {
 
 function isRole(value: string): value is "user" | "assistant" {
   return value === "user" || value === "assistant";
+}
+
+function readSources(content: string): ConversationSource[] {
+  const marker = "\n\nSources:\n";
+  const index = content.lastIndexOf(marker);
+  if (index === -1) {
+    return [];
+  }
+
+  return content
+    .slice(index + marker.length)
+    .split("\n")
+    .flatMap((line) => {
+      const match = line.match(/^- ([^:]+): (.+) \(([^)]+)\)$/);
+      if (!match?.[1] || !match[2] || !match[3]) {
+        return [];
+      }
+      return [{ type: match[1], title: match[2], id: match[3] }];
+    });
+}
+
+export function withSources(content: string, sources: ConversationSource[]): string {
+  if (sources.length === 0) {
+    return content;
+  }
+
+  const lines = sources.map((source) => `- ${source.type}: ${source.title} (${source.id})`).join("\n");
+  return `${content}\n\nSources:\n${lines}`;
+}
+
+export function splitAnswer(content: string): { answer: string; sources: ConversationSource[] } {
+  const marker = "\n\nSources:\n";
+  const index = content.lastIndexOf(marker);
+  if (index === -1) {
+    return { answer: content, sources: [] };
+  }
+  return { answer: content.slice(0, index), sources: readSources(content) };
 }
 
 export async function loadLatestConversation(
@@ -64,6 +108,7 @@ export async function loadLatestConversation(
                 role: message.role,
                 content: message.content,
                 createdAt: message.created_at,
+                sources: readSources(message.content),
               },
             ]
           : [],

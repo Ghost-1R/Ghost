@@ -256,6 +256,7 @@ export type Database = {
           conversation_id: string;
           role: "user" | "assistant";
           content: string;
+          metadata: Json;
           created_at: string;
         },
         {
@@ -263,6 +264,7 @@ export type Database = {
           conversation_id: string;
           role: "user" | "assistant";
           content: string;
+          metadata?: Json;
           created_at?: string;
         }
       >;
