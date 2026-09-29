@@ -6,6 +6,7 @@ export const AUTHORITY_ORDER = [
   "PROJECT_REQUIREMENT",
   "PROJECT_STATE",
   "PROJECT_NOTE",
+  "REPOSITORY_EVIDENCE",
   "CONVERSATION_CLAIM",
 ] as const;
 
@@ -30,6 +31,7 @@ export type SourceRef = {
   id: string;
   type: string;
   title: string;
+  status?: string | null;
 };
 
 export type ProjectName = {

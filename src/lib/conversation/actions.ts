@@ -11,6 +11,7 @@ import { isSupportedVerified } from "@/lib/brain/verification";
 import { reuseUnansweredUserMessage } from "@/lib/conversation/idempotency";
 import { groundingMetadata, sourcesFromMetadata, withSources, type ConversationSource } from "@/lib/conversation/queries";
 import { collectGlobalItems, collectProjectItems, selectGrounding } from "@/lib/ghost-context/assemble";
+import type { ContextItem } from "@/lib/ghost-context/types";
 import { detectMemoryIntent } from "@/lib/ghost-context/memory-intent";
 import { resolveAuthorizedProject } from "@/lib/ghost-context/resolve";
 import {
@@ -20,6 +21,10 @@ import {
   matchActiveRules,
 } from "@/lib/memory/intelligence";
 import { loadFounderRules, loadMemoryProposals } from "@/lib/memory/queries";
+import path from "node:path";
+import { loadPatterns } from "@/lib/patterns/library";
+import { repositoryContextItems } from "@/lib/repository/evidence";
+import { captureRepositorySnapshot, missingExplicitPaths, shouldAttachRepository } from "@/lib/repository/snapshot";
 import {
   loadBlockers,
   loadKnowledge,
@@ -525,8 +530,21 @@ export async function sendGhostMessage(
     return { error: null, notice: null };
   }
 
+  const repositoryItems: ContextItem[] = [];
+  if (shouldAttachRepository(projectName)) {
+    const missing = await missingExplicitPaths(message, process.cwd());
+    if (missing.length > 0) {
+      return storeAssistant(
+        `Ghost cannot find that repository source: ${missing.join(", ")}. I will not invent its contents.`,
+      );
+    }
+    const snapshot = await captureRepositorySnapshot(process.cwd(), message);
+    const patterns = await loadPatterns(path.join(process.cwd(), "ghost-patterns"));
+    repositoryItems.push(...repositoryContextItems(message, snapshot, patterns));
+  }
+
   const grounding = selectGrounding({
-    items: contextItems,
+    items: [...contextItems, ...repositoryItems],
     messages: turns,
     projectId: contextProjectId,
     productionVerified: loaded?.productionVerified ?? false,

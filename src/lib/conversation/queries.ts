@@ -6,6 +6,7 @@ export type ConversationSource = {
   id: string;
   type: string;
   title: string;
+  status?: string | null;
 };
 
 export type ConversationMessage = {
@@ -96,6 +97,13 @@ export function groundingMetadata(input: {
           memoryApplications: input.sources
             .filter((source) => source.type === "founder_rule")
             .map((source) => ({ ruleId: source.id, title: source.title })),
+        }
+      : {}),
+    ...(input.sources.some((source) => source.type === "pattern" && source.status === "APPROVED")
+      ? {
+          patternApplications: input.sources
+            .filter((source) => source.type === "pattern" && source.status === "APPROVED")
+            .map((source) => ({ patternId: source.id, title: source.title })),
         }
       : {}),
     ...(input.usage

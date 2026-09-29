@@ -17,5 +17,6 @@ export function sourceRefs(items: ContextItem[]): SourceRef[] {
     id: item.sourceId,
     type: item.type,
     title: item.title,
+    status: item.status,
   }));
 }
