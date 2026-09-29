@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/lib/brain/context.test.ts src/lib/brain/verification.test.ts src/lib/brain/drift.test.ts src/lib/ai/reply.test.ts src/lib/conversation/idempotency.test.ts src/lib/ghost-context/engine.test.ts src/lib/memory/intelligence.test.ts src/lib/repository/repository.test.ts src/lib/inspector/inspector.test.ts src/lib/presentation/presentation.test.ts src/lib/inspector/schedule.test.ts src/lib/experience/sound.test.ts src/lib/experience/core-state.test.ts"
+    "test": "tsx --test src/lib/brain/context.test.ts src/lib/brain/verification.test.ts src/lib/brain/drift.test.ts src/lib/ai/reply.test.ts src/lib/ai/provider.test.ts src/lib/security/redact.test.ts src/lib/conversation/idempotency.test.ts src/lib/ghost-context/engine.test.ts src/lib/memory/intelligence.test.ts src/lib/repository/repository.test.ts src/lib/inspector/inspector.test.ts src/lib/presentation/presentation.test.ts src/lib/inspector/schedule.test.ts src/lib/experience/sound.test.ts src/lib/experience/core-state.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

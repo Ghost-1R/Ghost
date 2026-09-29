@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getModelProvider } from "@/lib/ai/provider";
+import { describeProviderStatus, getModelProvider, ProviderError, resolveModelProvider } from "@/lib/ai/provider";
 import { prepareReply } from "@/lib/ai/reply";
 import type { ConversationTurn } from "@/lib/ai/types";
 import type { ActionState } from "@/lib/action-state";
@@ -584,6 +584,7 @@ export async function sendGhostMessage(
     productionVerified: loaded?.productionVerified ?? false,
   });
 
+  const selection = resolveModelProvider();
   let reply: Awaited<ReturnType<typeof prepareReply>>;
   try {
     reply = await prepareReply({
@@ -594,15 +595,26 @@ export async function sendGhostMessage(
       messages: grounding.messages.flatMap((turn) =>
         turn.role === "user" || turn.role === "assistant" ? [{ role: turn.role, content: turn.content }] : [],
       ),
-      provider: getModelProvider(),
+      provider: selection.provider,
     });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : "The model provider failed.";
-    const notice = detail.replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]").slice(0, 500);
-    console.info("ghost.model.failure", { notice });
+    const notice =
+      error instanceof ProviderError
+        ? describeProviderStatus({ status: error.status, providerId: error.providerId, model: error.model, detail: error.message })
+        : describeProviderStatus({
+            status: "PROVIDER_UNAVAILABLE",
+            providerId: selection.providerId,
+            model: selection.model,
+            detail: "The model provider failed.",
+          });
+    console.info("ghost.model.failure", {
+      provider: selection.providerId,
+      model: selection.model,
+      status: error instanceof ProviderError ? error.status : "PROVIDER_UNAVAILABLE",
+    });
     return {
       error: null,
-      notice,
+      notice: notice.slice(0, 600),
     };
   }
 
@@ -617,7 +629,12 @@ export async function sendGhostMessage(
     }
     return {
       error: null,
-      notice: reply.reason === "unconfigured" ? reply.notice : "That project is not visible.",
+      notice:
+        reply.reason === "unconfigured"
+          ? selection.status === "NOT_CONFIGURED"
+            ? describeProviderStatus(selection)
+            : reply.notice
+          : "That project is not visible.",
     };
   }
 

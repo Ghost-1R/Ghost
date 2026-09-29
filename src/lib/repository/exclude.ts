@@ -21,7 +21,7 @@ export function isExcludedRepositoryPath(filePath: string): boolean {
 }
 
 const SECRET_TEXT =
-  /(?:sk-[A-Za-z0-9_-]{12,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]+|OPENAI_API_KEY\s*=\s*\S+|SUPABASE_SERVICE_ROLE\s*=\s*\S+)/;
+  /(?:sk-[A-Za-z0-9_-]{12,}|gsk_[A-Za-z0-9]{20,}|xai-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]+|(?:OPENAI|GROQ|XAI|ANTHROPIC)_API_KEY\s*=\s*\S+|SUPABASE_SERVICE_ROLE\s*=\s*\S+)/;
 
 export function containsSecretMaterial(value: string): boolean {
   return SECRET_TEXT.test(value);

@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createServerClient } from "@supabase/ssr";
+import { redactSecrets } from "../security/redact";
 import { layoutIssues, type LayoutSample } from "./layout-issues";
 import type { ProbeResult } from "./security-probe";
 
@@ -56,10 +57,6 @@ const LAYOUT_EXPRESSION = `(() => {
     heading: document.querySelector('h1')?.textContent || '',
   };
 })()`;
-
-function redact(value: string): string {
-  return value.replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[redacted]").replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]");
-}
 
 async function chromePath(): Promise<string | null> {
   const { access } = await import("node:fs/promises");
@@ -260,10 +257,10 @@ export async function evaluateResponsiveSurfaces(input: { baseUrl: string; proje
       }
     }
     const output = [`viewports=mobile,tablet,desktop`, `issues=${issues.length}`, ...issues, ...lines].join("\n");
-    return { status: issues.length === 0 ? "passed" : "failed", exitCode: issues.length === 0 ? 0 : 1, output: redact(output) };
+    return { status: issues.length === 0 ? "passed" : "failed", exitCode: issues.length === 0 ? 0 : 1, output: redactSecrets(output) };
   } catch (error) {
     const message = error instanceof Error ? error.message : "responsive runtime failed";
-    return { status: "blocked", exitCode: 1, output: redact(message) };
+    return { status: "blocked", exitCode: 1, output: redactSecrets(message) };
   } finally {
     socket?.close();
     browserSocket?.close();

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { SoundSettings } from "@/components/ghost/experience";
 import { ActionForm } from "@/components/ui/action-form";
 import { ErrorState, Panel } from "@/components/ui/panel";
+import { describeProviderPolicy } from "@/lib/ai/provider";
 import { createOwnProfile, updateProfile } from "@/lib/auth/actions";
 import { getSession } from "@/lib/auth/session";
 import { getDeploymentSelection } from "@/lib/deployment/provider";
@@ -35,6 +36,7 @@ export default async function SettingsPage() {
   }
 
   const deployment = getDeploymentSelection();
+  const intelligence = describeProviderPolicy();
   const configured = getSupabaseEnv() !== null;
   const [portable, profileResult] = await Promise.all([
     readPortableState(),
@@ -92,6 +94,21 @@ export default async function SettingsPage() {
             </label>
           </ActionForm>
         ) : null}
+      </Panel>
+
+      <Panel title="Intelligence">
+        <ul className="meta">
+          <li>Provider: {intelligence.provider}</li>
+          <li>Model: {intelligence.model}</li>
+          <li>Status: {intelligence.status === "READY" ? "Ready" : "Not configured"}</li>
+          <li>Cost policy: {intelligence.costPolicy}</li>
+          <li>Paid fallback: {intelligence.paidFallback}</li>
+        </ul>
+        <p className="quiet">
+          {intelligence.paidSelected
+            ? "A paid provider is selected explicitly. Ghost still never switches providers on failure."
+            : "Ghost never switches to a paid provider on its own. A provider failure is reported, not rerouted."}
+        </p>
       </Panel>
 
       <Panel title="Deployment">
