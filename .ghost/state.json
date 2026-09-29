@@ -20,7 +20,7 @@
   "blockers": [
     {
       "title": "Public sign-up confirmation was not completed",
-      "detail": "The Ghost sign-up form reached Supabase and showed email rate limit exceeded. No new account was created by that attempt, and no confirmation code was exchanged."
+      "detail": "On http://localhost:3001 the Ghost sign-up form reached Supabase and showed email rate limit exceeded. No new account was created by that attempt, and no confirmation code was exchanged."
     },
     {
       "title": "GitHub histories are unrelated",
@@ -41,11 +41,11 @@
     "production": "NOT_DEPLOYED"
   },
   "evidence": {
-    "database": "Alpha tables, forced RLS, policies, and the founder-rule activation guard were observed on linked project wzwrrleqfylhuxfbukfu after db push.",
-    "authentication": "Browser sign-in, session persistence, sign-out, protected routes, and a profile row were observed. Confirmation-code exchange was not.",
-    "rls": "A second founder could not read or mutate the first founder's project data. The foreign project page showed not found and omitted the project name.",
-    "memoryApproval": "Direct ACTIVE founder-rule insert was denied. Cross-founder proposal review was denied. Own approval created an ACTIVE rule.",
-    "verificationRecords": "VERIFIED without evidence and checked_at was denied. A complete VERIFIED row succeeded."
+    "database": "Against linked project wzwrrleqfylhuxfbukfu, User A inserts succeeded and User B received zero rows. The ACTIVE founder-rule guard and VERIFIED evidence check both rejected invalid writes.",
+    "authentication": "On http://localhost:3001, sign-in, session persistence, sign-out, and protected-route redirect were observed. Sign-up returned email rate limit exceeded. Confirmation-code exchange was not observed.",
+    "rls": "User B selects returned zero rows. Update and delete changed zero rows. Cross-inserts were denied. User B's project page showed not found and omitted the project name.",
+    "memoryApproval": "Direct ACTIVE insert was denied with the review_memory_proposal error. Own approval created an ACTIVE rule. The other founder's review was denied.",
+    "verificationRecords": "VERIFIED with empty evidence was denied. VERIFIED with evidence and checked_at succeeded."
   },
   "deployment": {
     "provider": null,

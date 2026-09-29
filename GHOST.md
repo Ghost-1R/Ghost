@@ -84,9 +84,15 @@ Ivoire Shop's Supabase project was not used.
 Migration `20260929015943_alpha_foundation.sql` was inspected and applied with `db push`. `db reset` was not used.
 An activation guard was added before apply so a client cannot insert an ACTIVE founder rule. Only `review_memory_proposal` may set that state.
 
+## Development server
+
+The app used for this check is http://localhost:3001.
+Port 3000 is occupied by another process, so Next.js chose 3001.
+An earlier dev-server process was stopped on purpose so the app could reload `.env.local`. That stop is not an application crash and is not a blocker.
+
 ## Current Blockers
 
-- Public sign-up through the Ghost form reached Supabase and returned `email rate limit exceeded`. A new account was not created by that attempt, and a confirmation code was not exchanged at `/auth/callback`.
+- Public sign-up through the Ghost form on port 3001 reached Supabase and returned `email rate limit exceeded`. No account was created by that attempt, and a confirmation code was not exchanged at `/auth/callback`.
 - Production is not deployed.
 - This repository is not connected to GitHub. The existing `Ghost-1R/Ghost` history does not share this root.
 
@@ -118,16 +124,17 @@ VERIFIED_REMOTE
 Production:
 NOT_DEPLOYED
 
-Evidence:
+Evidence from the running app at http://localhost:3001:
 
-- Database: the Alpha tables, forced RLS, policies, and the founder-rule activation guard were observed on the linked project after `db push`.
-- Authentication: a browser signed in through `/login`, kept a session across `/dashboard`, `/projects`, `/projects/new`, `/projects/[id]`, `/memory`, and `/settings`, reloaded a project, signed out, and was sent back to `/login` when opening `/dashboard`. The profile trigger had created a profile row for that user. Missing `/auth/callback` codes redirect to `/login?reason=confirm-failed`. A successful confirmation exchange was not observed.
-- RLS: a second founder could not read or mutate the first founder's company, project, knowledge, milestones, blockers, next actions, verification records, proposals, or founder rules. The other founder's project URL rendered "Project not found." and did not include the project name.
-- Memory approval: a direct ACTIVE founder-rule insert was denied. Approving one's own proposal created an ACTIVE rule. Reviewing another founder's proposal was denied.
-- Verification records: inserting VERIFIED without evidence and `checked_at` was denied by the database. A record with both fields succeeded.
-- Disposable auth users and their rows were removed after these checks.
+- Connectivity: `/login` returned 200 with the sign-in form and without the unconfigured notice. The page is aimed at `wzwrrleqfylhuxfbukfu.supabase.co`. Unsigned `/dashboard` returned 307 to `/login`.
+- Authentication: the sign-up form displayed `email rate limit exceeded` and created no user. Confirmed test users signed in through `/login`, stayed signed in across `/dashboard`, `/projects`, `/projects/[id]`, `/memory`, and `/settings`, remained signed in after a settings reload, signed out to `/login`, and were returned to `/login` when opening `/dashboard`. User A's profile display name was `Recheck A`. `/auth/callback` with no code redirected to `/login?reason=confirm-failed`. A confirmation code was not exchanged.
+- RLS: User A created a company, project, requirement, decision, milestone, blocker, next action, and proposal, and could read that project. User B's selects on those resources returned zero rows. User B's update and delete changed zero project rows, and the name stayed `Project A`. User B's inserts into User A's knowledge, blockers, and next actions were denied. User B could insert User B's own company.
+- Memory approval: a direct ACTIVE founder-rule insert was denied with `active founder rules must be created by review_memory_proposal`. User A's own approval created an ACTIVE rule. User B's review was denied and the proposal stayed `APPROVED`.
+- Verification records: VERIFIED with empty evidence was denied. VERIFIED with evidence and `checked_at` succeeded.
+- Signed-in UI: those workspace routes rendered for User A. User B's browser opened User A's project URL and showed "Project not found." without the project name or a mention of another account. At 390px width the menu opened and the dashboard did not scroll horizontally.
+- Disposable auth users were deleted. Auth users, profiles, companies, projects, proposals, founder rules, and verification records were then counted at zero. The Supabase CLI query role returned 403 on this pass; those counts came from the service-role API.
 
-After these fixes, `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed on this machine. No automated test suite exists. No production host was contacted.
+`npm run lint`, `npx tsc --noEmit`, and `npm run build` passed on this machine after that check. No automated test suite exists. No production host was contacted.
 
 ## Last Updated
 
