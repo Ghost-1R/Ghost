@@ -96,6 +96,7 @@ test("founder-facing wording keeps every grounding rule and hardcodes no project
   assert.match(GHOST_SYSTEM_INSTRUCTIONS, /Do not show raw field names, enum values, record ids/);
   assert.match(GHOST_SYSTEM_INSTRUCTIONS, /no next action is recorded yet, so I won't invent one/);
   assert.match(GHOST_SYSTEM_INSTRUCTIONS, /Do not end with a Sources, References, or Citations section/);
+  assert.match(GHOST_SYSTEM_INSTRUCTIONS, /Do not name a future milestone, version, phase, or feature set unless the context records it/);
   for (const specific of ["Ghost Experience", "GHOST", "DEC-", "RULE-", "%", "Render", "Groq"]) {
     assert.ok(!GHOST_SYSTEM_INSTRUCTIONS.includes(specific), `system prompt hardcodes ${specific}`);
   }
