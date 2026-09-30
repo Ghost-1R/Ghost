@@ -1,24 +1,39 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useId, useOptimistic, useRef, useState, type KeyboardEvent } from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { useExperience } from "@/components/ghost/experience";
+import { GhostCore, useExperience } from "@/components/ghost/experience";
 import { Markdown } from "@/components/ghost/markdown";
 import { useVoiceReader, VoiceControls } from "@/components/ghost/voice";
+import { MicButton, useVoiceInput } from "@/components/ghost/voice-input";
 import { sendGhostMessage } from "@/lib/conversation/actions";
-import { initialActionState } from "@/lib/action-state";
+import { initialActionState, type ActionState } from "@/lib/action-state";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { splitAnswer, type ConversationMessage } from "@/lib/conversation/queries";
+import { getSoundPreference, playSound } from "@/lib/experience/sound";
+import { isLongAnswer, latestExchange, READY_HOLD_MS } from "@/lib/conversation/latest";
 
-function ConversationActivity() {
-  const { pending } = useFormStatus();
+function useCoreActivity(pending: boolean, latestAnswerId: string | null) {
   const { setActivity } = useExperience();
+  const seen = useRef(latestAnswerId);
+
   useEffect(() => {
-    setActivity(pending ? "THINKING" : null);
-    return () => setActivity(null);
-  }, [pending, setActivity]);
-  return null;
+    if (pending) {
+      setActivity("THINKING");
+      return;
+    }
+    if (latestAnswerId && latestAnswerId !== seen.current) {
+      seen.current = latestAnswerId;
+      setActivity("READY");
+      playSound("ghost.notification", getSoundPreference());
+      const timer = window.setTimeout(() => setActivity(null), READY_HOLD_MS);
+      return () => window.clearTimeout(timer);
+    }
+    setActivity(null);
+  }, [pending, latestAnswerId, setActivity]);
+
+  useEffect(() => () => setActivity(null), [setActivity]);
 }
 
 function Bubble({ message }: { message: ConversationMessage }) {
@@ -45,13 +60,161 @@ function Bubble({ message }: { message: ConversationMessage }) {
   );
 }
 
-function Thread({ messages }: { messages: ConversationMessage[] }) {
+function Thinking() {
+  return (
+    <div className="ghost-thinking" role="status">
+      <span className="thinking-dots" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+      Ghost is thinking…
+    </div>
+  );
+}
+
+function Thread({ messages, pendingQuestion = null }: { messages: ConversationMessage[]; pendingQuestion?: string | null }) {
   return (
     <div className="thread">
       {messages.map((message) => (
         <Bubble message={message} key={message.id} />
       ))}
+      {pendingQuestion ? (
+        <>
+          <article className="bubble bubble-user">
+            <div className="bubble-head">
+              <p className="eyebrow">You</p>
+            </div>
+            <p className="bubble-text">{pendingQuestion}</p>
+          </article>
+          <Thinking />
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function SendButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button className="command-action command-send" type="submit" disabled={pending} aria-label={pending ? "Ghost is thinking" : "Ask Ghost"}>
+      {pending ? (
+        <span className="command-spinner" aria-hidden="true" />
+      ) : (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M5 12h12.5M12.5 6.5 18 12l-5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
+  if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+  event.preventDefault();
+  const form = event.currentTarget.form;
+  if (event.currentTarget.value.trim() && form?.dataset.pending !== "true") {
+    form?.requestSubmit();
+  }
+}
+
+function ConversationDialog({
+  messages,
+  open,
+  onClose,
+}: {
+  messages: ConversationMessage[];
+  open: boolean;
+  onClose: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    const element = dialog.current;
+    if (!element) return;
+    if (open && !element.open) {
+      element.showModal();
+      if (body.current) body.current.scrollTop = body.current.scrollHeight;
+    } else if (!open && element.open) {
+      element.close();
+    }
+  }, [open]);
+
+  return (
+    <dialog
+      ref={dialog}
+      className="conversation-dialog"
+      aria-labelledby={titleId}
+      onClose={onClose}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) event.currentTarget.close();
+      }}
+    >
+      <div className="dialog-head">
+        <h2 id={titleId}>Conversation</h2>
+        <button className="button-secondary" type="button" onClick={() => dialog.current?.close()}>
+          Close
+        </button>
+      </div>
+      <div className="dialog-body" ref={body}>
+        {open ? <Thread messages={messages} /> : null}
+      </div>
+    </dialog>
+  );
+}
+
+function LatestAnswer({ answer }: { answer: ConversationMessage }) {
+  const [expanded, setExpanded] = useState(false);
+  const long = isLongAnswer(answer.content);
+  return (
+    <div className="latest-answer" data-long={long} data-expanded={expanded}>
+      <Bubble message={answer} />
+      {long ? (
+        <button className="latest-more" type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
+          {expanded ? "Show less" : "Show full answer"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function LatestExchange({
+  messages,
+  pendingQuestion,
+}: {
+  messages: ConversationMessage[];
+  pendingQuestion: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const exchange = latestExchange(messages, pendingQuestion);
+  if (!exchange.ask && !exchange.answer) {
+    return null;
+  }
+  return (
+    <section className="latest" aria-labelledby="latest-title">
+      <div className="latest-head">
+        <h2 className="eyebrow" id="latest-title">
+          Latest from Ghost
+        </h2>
+        {messages.length > 0 ? (
+          <button className="latest-open" type="button" onClick={() => setOpen(true)}>
+            Open conversation <span className="latest-count">{messages.length} messages</span>
+          </button>
+        ) : null}
+      </div>
+      {exchange.ask ? (
+        <p className="latest-ask">
+          <span className="sr-only">You asked: </span>
+          {exchange.ask}
+        </p>
+      ) : null}
+      {exchange.thinking ? <Thinking /> : null}
+      {exchange.answer ? <LatestAnswer answer={exchange.answer} key={exchange.answer.id} /> : null}
+      {exchange.unanswered ? <p className="quiet">Ghost did not store an answer for this request.</p> : null}
+      <ConversationDialog messages={messages} open={open} onClose={() => setOpen(false)} />
+    </section>
   );
 }
 
@@ -70,34 +233,23 @@ export function GhostConversation({
   providerConfigured: boolean;
   variant?: "thread" | "command";
 }) {
-  const [state, formAction] = useActionState(sendGhostMessage, initialActionState);
+  const [pendingQuestion, showPendingQuestion] = useOptimistic<string | null>(null);
+  const [state, formAction, pending] = useActionState(async (previous: ActionState, formData: FormData) => {
+    showPendingQuestion(String(formData.get("message") ?? "").trim() || null);
+    return sendGhostMessage(previous, formData);
+  }, initialActionState);
   useVoiceReader(`${projectId ?? "all"}:${conversationId ?? "new"}`, messages);
-  const command = variant === "command";
-  const recentStart = command ? Math.max(0, messages.length - 2) : 0;
+  const latestAnswerId = [...messages].reverse().find((message) => message.role === "assistant")?.id ?? null;
+  useCoreActivity(pending, latestAnswerId);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const voice = useVoiceInput(field);
+  const fieldId = useId();
+  const hintId = useId();
 
-  const intro = (
-    <p className="quiet">
-      {projectName
-        ? `Ask Ghost about ${projectName}. This thread stays on this project.`
-        : "Ask across your projects. Ghost loads one project's detail only after it matches a project you can see."}
-    </p>
-  );
   const providerNotice = providerConfigured ? null : (
     <p className="notice" role="status">
       No model provider is configured. Ghost can store the question, but it will not invent an answer.
     </p>
-  );
-  const form = (
-    <form action={formAction} className={command ? "command-bar" : "stack"}>
-      <ConversationActivity />
-      <input type="hidden" name="projectId" value={projectId ?? ""} />
-      <input type="hidden" name="conversationId" value={conversationId ?? ""} />
-      <label className="field">
-        <span>{projectName ? "Ask about this project" : "Ask Ghost"}</span>
-        <textarea name="message" required maxLength={4000} placeholder="What should happen next?" />
-      </label>
-      <SubmitButton label="Ask Ghost" />
-    </form>
   );
   const feedback = (
     <>
@@ -113,33 +265,71 @@ export function GhostConversation({
       ) : null}
     </>
   );
+  const hidden = (
+    <>
+      <input type="hidden" name="projectId" value={projectId ?? ""} />
+      <input type="hidden" name="conversationId" value={conversationId ?? ""} />
+    </>
+  );
 
-  if (command) {
-    const earlier = messages.slice(0, recentStart);
-    const recent = messages.slice(recentStart);
+  if (variant === "command") {
     return (
-      <div className="stack">
-        {form}
+      <div className="command-experience">
+        <div className="command-dock">
+          <form action={formAction} className="command-bar" data-pending={pending}>
+            {hidden}
+            <span className="command-mark" aria-hidden="true">
+              <GhostCore size="mark" />
+            </span>
+            <label className="sr-only" htmlFor={fieldId}>
+              Ask Ghost
+            </label>
+            <textarea
+              id={fieldId}
+              ref={field}
+              name="message"
+              rows={1}
+              required
+              maxLength={4000}
+              enterKeyHint="send"
+              placeholder="Ask Ghost anything…"
+              aria-describedby={hintId}
+              onKeyDown={submitOnEnter}
+            />
+            <MicButton voice={voice} />
+            <SendButton />
+          </form>
+          <p className="command-voice" role="status" aria-live="polite" data-status={voice.snapshot.status}>
+            {voice.snapshot.message}
+          </p>
+          <p className="command-hint" id={hintId}>
+            Enter sends · Shift+Enter adds a line · Ghost answers from your Project Brain and says when something is unknown.
+          </p>
+        </div>
         {feedback}
         {providerNotice}
-        {intro}
-        {recent.length > 0 ? <Thread messages={recent} /> : null}
-        {earlier.length > 0 ? (
-          <details className="thread-history">
-            <summary>Earlier in this thread ({earlier.length} messages)</summary>
-            <Thread messages={earlier} />
-          </details>
-        ) : null}
+        <LatestExchange messages={messages} pendingQuestion={pendingQuestion} />
       </div>
     );
   }
 
   return (
     <div className="stack">
-      {intro}
+      <p className="quiet">
+        {projectName
+          ? `Ask Ghost about ${projectName}. This thread stays on this project.`
+          : "Ask across your projects. Ghost loads one project's detail only after it matches a project you can see."}
+      </p>
       {providerNotice}
-      {messages.length > 0 ? <Thread messages={messages} /> : null}
-      {form}
+      {messages.length > 0 || pendingQuestion ? <Thread messages={messages} pendingQuestion={pendingQuestion} /> : null}
+      <form action={formAction} className="stack">
+        {hidden}
+        <label className="field">
+          <span>{projectName ? "Ask about this project" : "Ask Ghost"}</span>
+          <textarea name="message" required maxLength={4000} placeholder="What should happen next?" />
+        </label>
+        <SubmitButton label="Ask Ghost" />
+      </form>
       {feedback}
     </div>
   );

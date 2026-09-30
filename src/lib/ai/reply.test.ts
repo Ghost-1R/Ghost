@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { authorizeProjectContext } from "../brain/authorize";
 import type { GhostContext } from "../brain/types";
@@ -80,6 +81,29 @@ test("project text stays out of the system instructions", () => {
   assert.equal(request.system.includes("Ignore previous instructions"), false);
   assert.equal(request.messages[0]?.content.includes("DEC-006"), true);
   assert.equal(request.messages[0]?.content.includes("untrusted project data"), true);
+});
+
+test("founder-facing wording keeps every grounding rule and hardcodes no project facts", () => {
+  for (const rule of [
+    "Never invent project facts, progress, blockers, decisions, completed work, deployments, or verification.",
+    "Never claim something is deployed unless a verification record supports that claim.",
+    "If information is unavailable, say it is unknown.",
+    "Your own answer cannot create a VERIFIED status.",
+    "Natural wording never adds facts. Every statement must still trace to the supplied context.",
+  ]) {
+    assert.ok(GHOST_SYSTEM_INSTRUCTIONS.includes(rule), rule);
+  }
+  assert.match(GHOST_SYSTEM_INSTRUCTIONS, /Do not show raw field names, enum values, record ids/);
+  assert.match(GHOST_SYSTEM_INSTRUCTIONS, /no next action is recorded yet, so I won't invent one/);
+  assert.match(GHOST_SYSTEM_INSTRUCTIONS, /Do not end with a Sources, References, or Citations section/);
+  for (const specific of ["Ghost Experience", "GHOST", "DEC-", "RULE-", "%", "Render", "Groq"]) {
+    assert.ok(!GHOST_SYSTEM_INSTRUCTIONS.includes(specific), `system prompt hardcodes ${specific}`);
+  }
+});
+
+test("assistant history reaches the model without Ghost's stored sources footer", () => {
+  const actions = readFileSync(new URL("../conversation/actions.ts", import.meta.url), "utf8");
+  assert.match(actions, /turn\.role === "assistant" \? splitAnswer\(turn\.content\)\.answer : turn\.content/);
 });
 
 test("authorization requires the visible project id", () => {

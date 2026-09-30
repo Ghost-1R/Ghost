@@ -254,7 +254,7 @@ test("the hero recomposes for mobile and the motion stops under reduced motion",
   assert.match(mobile, /\.hero-image \{[^}]*object-position:/);
   assert.match(mobile, /\.hero-title \{[^}]*font-size:/);
   assert.match(mobile, /\.voice-button \{[^}]*min-height: 2\.75rem/);
-  assert.match(css, /@media \(min-width: 640px\) \{\s*\.command-bar \{\s*grid-template-columns/);
+  assert.match(mobile, /\.command-dock \{[^}]*width: calc\(100% - 1rem\)/);
 
   const reduced = css.match(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   for (const selector of [".hero-image", ".voice-wave span", ".ghost-core-ring", ".ghost-core-node"]) {

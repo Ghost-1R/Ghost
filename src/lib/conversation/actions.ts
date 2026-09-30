@@ -9,7 +9,7 @@ import { getSession } from "@/lib/auth/session";
 import { assembleGlobalContext, assembleProjectContext } from "@/lib/brain/context";
 import { isSupportedVerified } from "@/lib/brain/verification";
 import { reuseUnansweredUserMessage } from "@/lib/conversation/idempotency";
-import { groundingMetadata, sourcesFromMetadata, withSources, type ConversationSource } from "@/lib/conversation/queries";
+import { groundingMetadata, sourcesFromMetadata, splitAnswer, withSources, type ConversationSource } from "@/lib/conversation/queries";
 import { collectGlobalItems, collectProjectItems, selectGrounding } from "@/lib/ghost-context/assemble";
 import type { ContextItem } from "@/lib/ghost-context/types";
 import { detectMemoryIntent } from "@/lib/ghost-context/memory-intent";
@@ -345,7 +345,9 @@ export async function sendGhostMessage(
   }
 
   const turns: ConversationTurn[] = history.data.flatMap((turn) =>
-    turn.role === "user" || turn.role === "assistant" ? [{ role: turn.role, content: turn.content }] : [],
+    turn.role === "user" || turn.role === "assistant"
+      ? [{ role: turn.role, content: turn.role === "assistant" ? splitAnswer(turn.content).answer : turn.content }]
+      : [],
   );
   const retryingFailedRequest = reuseUnansweredUserMessage(turns, message);
   let userMessageId = retryingFailedRequest ? history.data.at(-1)?.id ?? "" : "";
