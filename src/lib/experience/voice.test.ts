@@ -231,6 +231,22 @@ test("the dashboard hero carries the brand copy and no invented numbers", () => 
   assert.match(text, /Core\s+IDLE/);
 });
 
+test("the hero artwork ships at its native high resolution", () => {
+  const webp = readFileSync(new URL("../../../public/ghost/hero.webp", import.meta.url));
+  assert.equal(webp.toString("ascii", 0, 4), "RIFF");
+  assert.equal(webp.toString("ascii", 8, 12), "WEBP");
+  const chunk = webp.toString("ascii", 12, 16);
+  const [width, height] =
+    chunk === "VP8X"
+      ? [1 + webp.readUIntLE(24, 3), 1 + webp.readUIntLE(27, 3)]
+      : chunk === "VP8L"
+        ? [1 + (webp.readUInt32LE(21) & 0x3fff), 1 + ((webp.readUInt32LE(21) >> 14) & 0x3fff)]
+        : [webp.readUInt16LE(26) & 0x3fff, webp.readUInt16LE(28) & 0x3fff];
+  assert.ok(width >= 1900, `hero is only ${width}px wide`);
+  assert.ok(Math.abs(width / height - 2.5) < 0.05, `hero aspect ${width}x${height}`);
+  assert.ok(webp.length < 350_000, `hero weighs ${webp.length} bytes`);
+});
+
 test("the hero recomposes for mobile and the motion stops under reduced motion", () => {
   const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
   const mobile = css.match(/@media \(max-width: 639px\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
