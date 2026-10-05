@@ -10,6 +10,9 @@ import { isModelConfigured } from "@/lib/ai/provider";
 import { getSession } from "@/lib/auth/session";
 import { loadLatestConversation } from "@/lib/conversation/queries";
 import { loadDecisionQueue, loadFounderRules, loadMemoryProposals, loadProjectKnowledge } from "@/lib/memory/queries";
+import { explainTodayPriority } from "@/lib/operations/today";
+import { loadTodayActions } from "@/lib/operations/actions";
+import { loadOpenDecisions } from "@/lib/decisions/queries";
 import { loadPatterns } from "@/lib/patterns/library";
 import { loadPresentationStatus } from "@/lib/presentation/status";
 import { loadProjectSummaries } from "@/lib/projects/queries";
@@ -36,16 +39,19 @@ export default async function DashboardPage() {
   }
 
   const summaries = loadProjectSummaries(session.supabase);
-  const [projects, decisions, rules, knowledge, proposals, conversation, patterns, presentation] = await Promise.all([
-    summaries,
-    loadDecisionQueue(session.supabase),
-    loadFounderRules(session.supabase),
-    loadProjectKnowledge(session.supabase),
-    loadMemoryProposals(session.supabase),
-    loadLatestConversation(session.supabase, null),
-    loadPatterns(path.join(process.cwd(), "ghost-patterns")).catch(() => null),
-    loadPresentationStatus(session.supabase, session.user.id, summaries),
-  ]);
+  const [projects, decisions, rules, knowledge, proposals, conversation, patterns, presentation, today, openDecisions] =
+    await Promise.all([
+      summaries,
+      loadDecisionQueue(session.supabase),
+      loadFounderRules(session.supabase),
+      loadProjectKnowledge(session.supabase),
+      loadMemoryProposals(session.supabase),
+      loadLatestConversation(session.supabase, null),
+      loadPatterns(path.join(process.cwd(), "ghost-patterns")).catch(() => null),
+      loadPresentationStatus(session.supabase, session.user.id, summaries),
+      loadTodayActions(session.supabase),
+      loadOpenDecisions(session.supabase),
+    ]);
 
   const activeRules = rules.status === "ok" ? rules.data.filter((rule) => rule.status === "ACTIVE").length : null;
   const pendingCount =
@@ -77,6 +83,49 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
+      <Panel title="Today with Ghost">
+        {today.status === "error" ? <ErrorState message={today.message} /> : null}
+        {today.status === "ok" && today.data.length === 0 ? (
+          <EmptyState>Nothing needs your attention right now. Ghost does not invent tasks to fill this list.</EmptyState>
+        ) : null}
+        {today.status === "ok" && today.data.length > 0 ? (
+          <div className="stack">
+            {today.data.map((item) => (
+              <article className="list-item" key={item.id}>
+                <h3>
+                  <Link href={`/projects/${item.projectId}`}>{item.title}</Link>
+                </h3>
+                <p className="quiet">
+                  {item.projectName} · {item.status}
+                  {item.requiresDecision ? " · decision required" : ""} · {item.provenance}
+                </p>
+                <p className="quiet">{explainTodayPriority(item)}</p>
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </Panel>
+
+      <Panel title="Decision inbox">
+        {openDecisions.status === "error" ? <ErrorState message={openDecisions.message} /> : null}
+        {openDecisions.status === "ok" && openDecisions.data.length === 0 ? (
+          <EmptyState>No founder decisions are waiting.</EmptyState>
+        ) : null}
+        {openDecisions.status === "ok" && openDecisions.data.length > 0 ? (
+          <div className="stack">
+            {openDecisions.data.map((decision) => (
+              <article className="list-item" key={decision.id}>
+                <h3>
+                  <Link href={`/projects/${decision.projectId}`}>{decision.title}</Link>
+                </h3>
+                <p className="quiet">{decision.question}</p>
+                {decision.recommendation ? <p className="quiet">Ghost recommends: {decision.recommendation}</p> : null}
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </Panel>
+
       <Panel title="Continue building" action={<Link href="/projects">All projects</Link>}>
         {projects.status === "error" ? <ErrorState message={projects.message} /> : null}
         {projects.status === "ok" && projects.data.length === 0 ? (
@@ -89,7 +138,9 @@ export default async function DashboardPage() {
                 <h3>
                   <Link href={`/projects/${project.id}`}>{project.name}</Link>
                 </h3>
-                <p className="quiet">{project.currentMilestone || "No milestone recorded."}</p>
+                <p className="quiet">
+                  {project.lifecycleStage} · {project.currentMilestone || "No milestone recorded."}
+                </p>
                 <ul className="meta">
                   <li>
                     <StatusBadge status={project.status} />

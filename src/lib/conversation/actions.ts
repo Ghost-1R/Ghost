@@ -35,6 +35,8 @@ import { loadPatterns } from "@/lib/patterns/library";
 import { repositoryContextItems } from "@/lib/repository/evidence";
 import { readGitState } from "@/lib/repository/local-git";
 import { captureRepositorySnapshot, missingExplicitPaths, shouldAttachRepository } from "@/lib/repository/snapshot";
+import { loadOpenDecisions } from "@/lib/decisions/queries";
+import { loadLatestRepositoryObservation } from "@/lib/repository/association";
 import {
   loadBlockers,
   loadKnowledge,
@@ -63,13 +65,15 @@ async function projectContext(
     return null;
   }
 
-  const [milestones, knowledge, blockers, actions, verification, rules] = await Promise.all([
+  const [milestones, knowledge, blockers, actions, verification, rules, decisions, observation] = await Promise.all([
     loadMilestones(session.supabase, projectId),
     loadKnowledge(session.supabase, projectId),
     loadBlockers(session.supabase, projectId),
     loadNextActions(session.supabase, projectId),
     loadVerification(session.supabase, projectId),
     loadFounderRules(session.supabase),
+    loadOpenDecisions(session.supabase, projectId),
+    loadLatestRepositoryObservation(session.supabase, projectId),
   ]);
 
   if (
@@ -78,7 +82,9 @@ async function projectContext(
     blockers.status === "error" ||
     actions.status === "error" ||
     verification.status === "error" ||
-    rules.status === "error"
+    rules.status === "error" ||
+    decisions.status === "error" ||
+    observation.status === "error"
   ) {
     return null;
   }
@@ -137,6 +143,7 @@ async function projectContext(
         description: project.data.description,
         status: project.data.status,
         currentMilestone: project.data.currentMilestone,
+        lifecycleStage: project.data.lifecycleStage,
       },
       knowledge: knowledge.data.map((item) => ({
         id: item.id,
@@ -156,6 +163,8 @@ async function projectContext(
         description: action.description,
         status: action.status,
         position: action.position,
+        provenance: action.provenance,
+        requiresDecision: action.requiresDecision,
       })),
       verification: verification.data.map((record) => ({
         id: record.id,
@@ -171,6 +180,14 @@ async function projectContext(
         content: rule.content,
         status: rule.status,
       })),
+      decisions: decisions.data.map((decision) => ({
+        id: decision.id,
+        title: decision.title,
+        question: decision.question,
+        status: decision.status,
+        recommendation: decision.recommendation,
+      })),
+      repositoryObservation: observation.data,
     }),
   };
 }

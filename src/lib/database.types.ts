@@ -1,14 +1,19 @@
 import type {
+  ActionPriority,
+  ActionProvenance,
   ActionStatus,
   BlockerStatus,
+  DecisionStatus,
   FounderRuleStatus,
   KnowledgeKind,
+  LifecycleStage,
   MemoryProposalStatus,
   MemoryScope,
   ProjectStatus,
   VerificationCategory,
   VerificationState,
 } from "@/lib/domain/status";
+import type { LifecycleActor } from "@/lib/lifecycle/stages";
 
 export type Json =
   | string
@@ -71,6 +76,7 @@ export type Database = {
           description: string;
           current_milestone: string;
           status: ProjectStatus;
+          lifecycle_stage: LifecycleStage;
           repository_url: string | null;
           repository_provider: string | null;
           repository_branch: string | null;
@@ -86,6 +92,7 @@ export type Database = {
           description?: string;
           current_milestone?: string;
           status?: ProjectStatus;
+          lifecycle_stage?: LifecycleStage;
           repository_url?: string | null;
           repository_provider?: string | null;
           repository_branch?: string | null;
@@ -195,6 +202,13 @@ export type Database = {
           description: string;
           status: ActionStatus;
           position: number;
+          priority: ActionPriority;
+          provenance: ActionProvenance;
+          source_kind: string;
+          source_ref: string | null;
+          requires_decision: boolean;
+          decision_id: string | null;
+          requirement_id: string | null;
           created_at: string;
           completed_at: string | null;
         },
@@ -206,6 +220,13 @@ export type Database = {
           description?: string;
           status?: ActionStatus;
           position?: number;
+          priority?: ActionPriority;
+          provenance?: ActionProvenance;
+          source_kind?: string;
+          source_ref?: string | null;
+          requires_decision?: boolean;
+          decision_id?: string | null;
+          requirement_id?: string | null;
           created_at?: string;
           completed_at?: string | null;
         }
@@ -294,6 +315,122 @@ export type Database = {
           reviewed_at?: string | null;
         }
       >;
+      lifecycle_transitions: Table<
+        {
+          id: string;
+          project_id: string;
+          from_stage: LifecycleStage | null;
+          to_stage: LifecycleStage;
+          changed_at: string;
+          changed_by: string | null;
+          actor: LifecycleActor;
+          reason: string;
+          evidence_kind: string | null;
+          evidence_id: string | null;
+        },
+        {
+          id?: string;
+          project_id: string;
+          from_stage?: LifecycleStage | null;
+          to_stage: LifecycleStage;
+          changed_at?: string;
+          changed_by?: string | null;
+          actor: LifecycleActor;
+          reason: string;
+          evidence_kind?: string | null;
+          evidence_id?: string | null;
+        }
+      >;
+      project_decisions: Table<
+        {
+          id: string;
+          project_id: string;
+          title: string;
+          question: string;
+          context: string;
+          status: DecisionStatus;
+          options: Json;
+          recommendation: string | null;
+          evidence: Json;
+          created_at: string;
+          created_by: string | null;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          selected_option: string | null;
+          founder_response: string | null;
+          rationale: string | null;
+        },
+        {
+          id?: string;
+          project_id: string;
+          title: string;
+          question: string;
+          context?: string;
+          status?: DecisionStatus;
+          options?: Json;
+          recommendation?: string | null;
+          evidence?: Json;
+          created_at?: string;
+          created_by?: string | null;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          selected_option?: string | null;
+          founder_response?: string | null;
+          rationale?: string | null;
+        }
+      >;
+      project_repositories: Table<
+        {
+          id: string;
+          project_id: string;
+          provider: string;
+          owner_login: string;
+          repo_name: string;
+          full_name: string;
+          html_url: string;
+          default_branch: string | null;
+          is_primary: boolean;
+          associated_at: string;
+          associated_by: string | null;
+        },
+        {
+          id?: string;
+          project_id: string;
+          provider?: string;
+          owner_login: string;
+          repo_name: string;
+          full_name: string;
+          html_url: string;
+          default_branch?: string | null;
+          is_primary?: boolean;
+          associated_at?: string;
+          associated_by?: string | null;
+        }
+      >;
+      repository_observations: Table<
+        {
+          id: string;
+          project_id: string;
+          repository_id: string;
+          observed_at: string;
+          branch: string | null;
+          commit_sha: string | null;
+          commit_message: string | null;
+          open_pull_requests: number | null;
+          summary: string;
+        },
+        {
+          id?: string;
+          project_id: string;
+          repository_id: string;
+          observed_at?: string;
+          branch?: string | null;
+          commit_sha?: string | null;
+          commit_message?: string | null;
+          open_pull_requests?: number | null;
+          summary?: string;
+        }
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -309,6 +446,29 @@ export type Database = {
           rule_id: string;
         };
         Returns: undefined;
+      };
+      record_lifecycle_transition: {
+        Args: {
+          target_project_id: string;
+          next_stage: LifecycleStage;
+          transition_reason: string;
+          transition_actor?: LifecycleActor;
+          evidence_kind?: string | null;
+          evidence_id?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["lifecycle_transitions"]["Row"];
+      };
+      resolve_project_decision: {
+        Args: {
+          target_decision_id: string;
+          next_status: DecisionStatus;
+          selected_option?: string | null;
+          founder_response?: string | null;
+          rationale?: string | null;
+          follow_up_action_title?: string | null;
+          follow_up_action_description?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["project_decisions"]["Row"];
       };
     };
   };

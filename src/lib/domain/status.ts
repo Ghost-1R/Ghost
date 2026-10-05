@@ -32,9 +32,31 @@ export const BLOCKER_STATUSES = ["OPEN", "RESOLVED"] as const;
 
 export type BlockerStatus = (typeof BLOCKER_STATUSES)[number];
 
-export const ACTION_STATUSES = ["OPEN", "DONE", "CANCELLED"] as const;
+export const ACTION_STATUSES = ["OPEN", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELLED"] as const;
 
 export type ActionStatus = (typeof ACTION_STATUSES)[number];
+
+export const LIFECYCLE_STAGES = [
+  "IDEA",
+  "STRATEGY",
+  "DESIGN",
+  "BUILD",
+  "TEST",
+  "DEPLOY",
+  "LEARN",
+  "COMPLETED",
+] as const;
+
+export type LifecycleStage = (typeof LIFECYCLE_STAGES)[number];
+
+export const ACTION_PRIORITIES = ["HIGH", "NORMAL", "LOW"] as const;
+export type ActionPriority = (typeof ACTION_PRIORITIES)[number];
+
+export const ACTION_PROVENANCES = ["FACT", "RECOMMENDATION", "FOUNDER_APPROVED_ACTION"] as const;
+export type ActionProvenance = (typeof ACTION_PROVENANCES)[number];
+
+export const DECISION_STATUSES = ["OPEN", "RESOLVED", "CANCELLED"] as const;
+export type DecisionStatus = (typeof DECISION_STATUSES)[number];
 
 export const VERIFICATION_CATEGORIES = [
   "APPLICATION",

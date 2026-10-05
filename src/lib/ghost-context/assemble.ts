@@ -8,7 +8,15 @@ import type { ContextItem, SourceRef } from "./types";
 
 type Knowledge = { id: string; kind: string; title: string; content: string };
 type Blocker = { id: string; title: string; description: string; status: string };
-type Action = { id: string; title: string; description: string; status: string; position: number };
+type Action = {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  position: number;
+  provenance?: string;
+  requiresDecision?: boolean;
+};
 type Verification = {
   id: string;
   category: string;
@@ -18,7 +26,23 @@ type Verification = {
   checkedAt: string | null;
 };
 type Rule = { id: string; title: string; content: string; status: string };
-type Project = { id: string; name: string; description: string; status: string; currentMilestone: string };
+type Project = {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  currentMilestone: string;
+  lifecycleStage?: string;
+};
+type Decision = { id: string; title: string; question: string; status: string; recommendation: string | null };
+type RepoObservation = {
+  id: string;
+  branch: string | null;
+  commitSha: string | null;
+  commitMessage: string | null;
+  openPullRequests: number | null;
+  summary: string;
+};
 
 function item(partial: Omit<ContextItem, "relevance"> & { question: string }): ContextItem {
   return {
@@ -35,9 +59,12 @@ export function collectProjectItems(input: {
   nextActions: Action[];
   verification: Verification[];
   founderRules: Rule[];
+  decisions?: Decision[];
+  repositoryObservation?: RepoObservation | null;
 }): ContextItem[] {
   const question = input.question;
   const projectId = input.project.id;
+  const lifecycle = input.project.lifecycleStage ?? null;
   const items: ContextItem[] = [
     item({
       question,
@@ -69,6 +96,25 @@ export function collectProjectItems(input: {
     }),
   ];
 
+  if (lifecycle) {
+    items.push(
+      item({
+        question,
+        id: `lifecycle-${projectId}`,
+        type: "lifecycle",
+        authority: "PROJECT_STATE",
+        sourceTable: "projects",
+        sourceId: projectId,
+        projectId,
+        title: "Lifecycle stage",
+        content: `Recorded lifecycle stage: ${lifecycle}. Ghost must not invent a later stage.`,
+        status: lifecycle,
+        keep: true,
+        selectedBecause: "Lifecycle stage is authoritative project state.",
+      }),
+    );
+  }
+
   for (const blocker of input.blockers.filter((entry) => entry.status === "OPEN")) {
     items.push(
       item({
@@ -89,8 +135,10 @@ export function collectProjectItems(input: {
   }
 
   for (const action of input.nextActions
-    .filter((entry) => entry.status === "OPEN")
+    .filter((entry) => entry.status === "OPEN" || entry.status === "IN_PROGRESS" || entry.status === "BLOCKED")
     .sort((left, right) => left.position - right.position)) {
+    const provenance = action.provenance ?? "FOUNDER_APPROVED_ACTION";
+    const authoritative = provenance === "FACT" || provenance === "FOUNDER_APPROVED_ACTION";
     items.push(
       item({
         question,
@@ -101,10 +149,32 @@ export function collectProjectItems(input: {
         sourceId: action.id,
         projectId,
         title: action.title,
-        content: action.description,
+        content: `${action.description}\nProvenance: ${provenance}.${action.requiresDecision ? " Waiting on a founder decision." : ""}`,
         status: action.status,
+        keep: authoritative,
+        selectedBecause: authoritative
+          ? "Authoritative next actions are always included."
+          : "Ghost recommendations stay visible and are not project truth until approved.",
+      }),
+    );
+  }
+
+  for (const decision of input.decisions ?? []) {
+    if (decision.status !== "OPEN") continue;
+    items.push(
+      item({
+        question,
+        id: decision.id,
+        type: "decision",
+        authority: "PROJECT_STATE",
+        sourceTable: "project_decisions",
+        sourceId: decision.id,
+        projectId,
+        title: decision.title,
+        content: `${decision.question}${decision.recommendation ? `\nGhost recommendation: ${decision.recommendation}` : ""}\nGhost cannot choose for the founder.`,
+        status: decision.status,
         keep: true,
-        selectedBecause: "Open next actions are always included.",
+        selectedBecause: "Open founder decisions are always included.",
       }),
     );
   }
@@ -127,6 +197,26 @@ export function collectProjectItems(input: {
         selectedBecause: supported
           ? "Supported verification is always included."
           : "Unverified records stay visible and are not promoted.",
+      }),
+    );
+  }
+
+  if (input.repositoryObservation) {
+    const observation = input.repositoryObservation;
+    items.push(
+      item({
+        question,
+        id: observation.id,
+        type: "repository_observation",
+        authority: "REPOSITORY_EVIDENCE",
+        sourceTable: "repository_observations",
+        sourceId: observation.id,
+        projectId,
+        title: "Latest repository observation",
+        content: `${observation.summary} A commit is evidence that the commit exists. It does not mean feature complete, tested, deployed, or presentation-ready.`,
+        status: observation.commitSha,
+        keep: /commit|github|repo|branch|pull|changed|latest/i.test(question),
+        selectedBecause: "Repository observations are evidence only.",
       }),
     );
   }
