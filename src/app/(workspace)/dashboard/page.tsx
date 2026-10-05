@@ -6,13 +6,15 @@ import { GhostConversation } from "@/components/ghost/conversation";
 import { DashboardHero } from "@/components/ghost/hero";
 import { EmptyState, ErrorState, Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { isModelConfigured } from "@/lib/ai/provider";
+import { describeProviderPolicy, isModelConfigured } from "@/lib/ai/provider";
 import { getSession } from "@/lib/auth/session";
 import { loadLatestConversation } from "@/lib/conversation/queries";
-import { loadDecisionQueue, loadFounderRules, loadMemoryProposals, loadProjectKnowledge } from "@/lib/memory/queries";
-import { explainTodayPriority } from "@/lib/operations/today";
-import { loadTodayActions } from "@/lib/operations/actions";
 import { loadOpenDecisions } from "@/lib/decisions/queries";
+import { formatTimestamp } from "@/lib/format";
+import { loadFounderRules, loadMemoryProposals, loadProjectKnowledge } from "@/lib/memory/queries";
+import { loadRecentActivity } from "@/lib/operations/activity";
+import { loadTodayActions } from "@/lib/operations/actions";
+import { explainTodayPriority } from "@/lib/operations/today";
 import { loadPatterns } from "@/lib/patterns/library";
 import { loadPresentationStatus } from "@/lib/presentation/status";
 import { loadProjectSummaries } from "@/lib/projects/queries";
@@ -25,11 +27,14 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-function checkedAt(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? iso
-    : `${date.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC`;
+function githubConfigured(): boolean {
+  return Boolean(
+    process.env.GITHUB_TOKEN?.trim() || process.env.GH_TOKEN?.trim() || process.env.GITHUB_PAT?.trim(),
+  );
+}
+
+function supabaseConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim());
 }
 
 export default async function DashboardPage() {
@@ -39,19 +44,30 @@ export default async function DashboardPage() {
   }
 
   const summaries = loadProjectSummaries(session.supabase);
-  const [projects, decisions, rules, knowledge, proposals, conversation, patterns, presentation, today, openDecisions] =
-    await Promise.all([
-      summaries,
-      loadDecisionQueue(session.supabase),
-      loadFounderRules(session.supabase),
-      loadProjectKnowledge(session.supabase),
-      loadMemoryProposals(session.supabase),
-      loadLatestConversation(session.supabase, null),
-      loadPatterns(path.join(process.cwd(), "ghost-patterns")).catch(() => null),
-      loadPresentationStatus(session.supabase, session.user.id, summaries),
-      loadTodayActions(session.supabase),
-      loadOpenDecisions(session.supabase),
-    ]);
+  const provider = describeProviderPolicy();
+  const [
+    projects,
+    rules,
+    knowledge,
+    proposals,
+    conversation,
+    patterns,
+    presentation,
+    today,
+    openDecisions,
+    activity,
+  ] = await Promise.all([
+    summaries,
+    loadFounderRules(session.supabase),
+    loadProjectKnowledge(session.supabase),
+    loadMemoryProposals(session.supabase),
+    loadLatestConversation(session.supabase, null),
+    loadPatterns(path.join(process.cwd(), "ghost-patterns")).catch(() => null),
+    loadPresentationStatus(session.supabase, session.user.id, summaries),
+    loadTodayActions(session.supabase),
+    loadOpenDecisions(session.supabase),
+    loadRecentActivity(session.supabase),
+  ]);
 
   const activeRules = rules.status === "ok" ? rules.data.filter((rule) => rule.status === "ACTIVE").length : null;
   const pendingCount =
@@ -106,7 +122,7 @@ export default async function DashboardPage() {
         ) : null}
       </Panel>
 
-      <Panel title="Decision inbox">
+      <Panel title="Needs your decision">
         {openDecisions.status === "error" ? <ErrorState message={openDecisions.message} /> : null}
         {openDecisions.status === "ok" && openDecisions.data.length === 0 ? (
           <EmptyState>No founder decisions are waiting.</EmptyState>
@@ -126,7 +142,7 @@ export default async function DashboardPage() {
         ) : null}
       </Panel>
 
-      <Panel title="Continue building" action={<Link href="/projects">All projects</Link>}>
+      <Panel title="Your projects" action={<Link href="/projects">All projects</Link>}>
         {projects.status === "error" ? <ErrorState message={projects.message} /> : null}
         {projects.status === "ok" && projects.data.length === 0 ? (
           <EmptyState>No projects yet. Create your first project.</EmptyState>
@@ -139,14 +155,18 @@ export default async function DashboardPage() {
                   <Link href={`/projects/${project.id}`}>{project.name}</Link>
                 </h3>
                 <p className="quiet">
-                  {project.lifecycleStage} · {project.currentMilestone || "No milestone recorded."}
+                  Lifecycle: {project.lifecycleStage} · {project.currentMilestone || "No milestone recorded."}
                 </p>
                 <ul className="meta">
                   <li>
                     <StatusBadge status={project.status} />
                   </li>
-                  <li>{project.openBlockers} open blockers</li>
-                  <li>{project.nextAction ?? "No open next action."}</li>
+                  <li>
+                    {project.openBlockers === 0
+                      ? "No open blockers"
+                      : `${project.openBlockers} open blocker${project.openBlockers === 1 ? "" : "s"}`}
+                  </li>
+                  <li>Next: {project.nextAction ?? "No open next action recorded."}</li>
                 </ul>
               </article>
             ))}
@@ -154,18 +174,42 @@ export default async function DashboardPage() {
         ) : null}
       </Panel>
 
-      <Panel title="Needs your decision">
-        {decisions.status === "error" ? <ErrorState message={decisions.message} /> : null}
-        {decisions.status === "ok" && decisions.data.length === 0 ? (
-          <EmptyState>Nothing is waiting on a decision.</EmptyState>
-        ) : null}
-        {decisions.status === "ok" && decisions.data.length > 0 ? (
+      <Panel title="Build progress">
+        {projects.status === "ok" && projects.data.length > 0 ? (
           <div className="stack">
-            {decisions.data.map((item) => (
-              <article className="list-item" key={`${item.kind}-${item.id}`}>
+            {projects.data.map((project) => (
+              <article className="list-item" key={`progress-${project.id}`}>
+                <h3>
+                  <Link href={`/projects/${project.id}`}>{project.name}</Link>
+                </h3>
+                <p className="quiet">
+                  Stage {project.lifecycleStage}
+                  {project.currentMilestone ? ` · ${project.currentMilestone}` : ""}
+                </p>
+                <p className="quiet">Ghost does not invent completion percentages.</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <EmptyState>No project lifecycle is recorded yet.</EmptyState>
+        )}
+      </Panel>
+
+      <Panel title="Latest activity">
+        {activity.status === "error" ? <ErrorState message={activity.message} /> : null}
+        {activity.status === "ok" && activity.data.length === 0 ? (
+          <EmptyState>No operational activity is recorded yet.</EmptyState>
+        ) : null}
+        {activity.status === "ok" && activity.data.length > 0 ? (
+          <div className="stack">
+            {activity.data.map((item) => (
+              <article className="list-item" key={item.id}>
                 <h3>
                   <Link href={item.href}>{item.title}</Link>
                 </h3>
+                <p className="quiet">
+                  {item.projectName} · {formatTimestamp(item.at)}
+                </p>
                 <p className="quiet">{item.detail}</p>
               </article>
             ))}
@@ -211,7 +255,7 @@ export default async function DashboardPage() {
               </h3>
               <ul className="meta">
                 <li>Commit {review.commitSha.slice(0, 7)}</li>
-                <li>Checked {checkedAt(review.createdAt)}</li>
+                <li>Checked {formatTimestamp(review.createdAt)}</li>
               </ul>
             </>
           ) : (
@@ -221,11 +265,24 @@ export default async function DashboardPage() {
             Open presentation
           </Link>
         </article>
+        <article className="system-card">
+          <p className="eyebrow">Integrations</p>
+          <h3>Connected systems Ghost can prove</h3>
+          <ul className="meta">
+            <li>Supabase: {supabaseConfigured() ? "connected" : "not configured"}</li>
+            <li>
+              Groq: {provider.status === "READY" ? `ready · ${provider.model}` : "not configured"}
+            </li>
+            <li>GitHub: {githubConfigured() ? "configured (read-only)" : "NOT CONFIGURED"}</li>
+            <li>Render: Ghost deployment platform</li>
+            <li>Vercel: not used for Ghost</li>
+            <li>Paid fallback: {provider.paidFallback}</li>
+          </ul>
+          <Link className="system-link" href="/settings">
+            Open settings
+          </Link>
+        </article>
       </section>
-
-      <Panel title="Recent activity">
-        <EmptyState>No activity log exists yet. Ghost does not invent a timeline.</EmptyState>
-      </Panel>
     </div>
   );
 }

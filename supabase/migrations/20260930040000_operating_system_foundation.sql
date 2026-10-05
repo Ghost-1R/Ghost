@@ -449,6 +449,11 @@ set search_path = ''
 as $$
 declare
   decision public.project_decisions%rowtype;
+  chosen_option text := selected_option;
+  founder_reply text := founder_response;
+  decision_rationale text := rationale;
+  follow_title text := follow_up_action_title;
+  follow_description text := follow_up_action_description;
 begin
   if next_status not in ('RESOLVED', 'CANCELLED') then
     raise exception 'decision must resolve to RESOLVED or CANCELLED';
@@ -473,16 +478,16 @@ begin
     status = next_status,
     resolved_at = pg_catalog.now(),
     resolved_by = (select auth.uid()),
-    selected_option = case when next_status = 'RESOLVED' then selected_option else null end,
-    founder_response = founder_response,
-    rationale = rationale
+    selected_option = case when next_status = 'RESOLVED' then chosen_option else null end,
+    founder_response = founder_reply,
+    rationale = decision_rationale
   where id = target_decision_id
   returning * into decision;
 
   -- Explicit workflow only: a RESOLVED decision may mint one founder-approved follow-up action.
   if next_status = 'RESOLVED'
-    and follow_up_action_title is not null
-    and char_length(trim(follow_up_action_title)) > 0
+    and follow_title is not null
+    and char_length(trim(follow_title)) > 0
   then
     insert into public.next_actions (
       project_id,
@@ -499,8 +504,8 @@ begin
     )
     values (
       decision.project_id,
-      trim(follow_up_action_title),
-      coalesce(follow_up_action_description, ''),
+      trim(follow_title),
+      coalesce(follow_description, ''),
       'OPEN',
       coalesce((select max(position) + 1 from public.next_actions where project_id = decision.project_id), 0),
       'HIGH',

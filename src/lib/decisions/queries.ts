@@ -124,6 +124,70 @@ export async function createProjectDecision(
   return { status: "ok", data: mapDecision(inserted.data) };
 }
 
+async function resolveProjectDecisionDirect(
+  supabase: GhostClient,
+  decisionId: string,
+  resolution: DecisionResolution,
+): Promise<QueryResult<ProjectDecisionRecord>> {
+  const existing = await supabase.from("project_decisions").select(DECISION_COLUMNS).eq("id", decisionId).maybeSingle();
+  if (existing.error) return fromError(existing.error);
+  if (!existing.data) return { status: "error", message: "That decision is not visible." };
+  if (existing.data.status !== "OPEN") {
+    return { status: "error", message: `That decision is already ${existing.data.status.toLowerCase()}.` };
+  }
+
+  const auth = await supabase.auth.getUser();
+  const updated = await supabase
+    .from("project_decisions")
+    .update({
+      status: resolution.status,
+      resolved_at: new Date().toISOString(),
+      resolved_by: auth.data.user?.id ?? null,
+      selected_option: resolution.status === "RESOLVED" ? resolution.selectedOption ?? null : null,
+      founder_response: resolution.founderResponse ?? null,
+      rationale: resolution.rationale ?? null,
+    })
+    .eq("id", decisionId)
+    .eq("status", "OPEN")
+    .select(DECISION_COLUMNS)
+    .single();
+  if (updated.error) return fromError(updated.error);
+
+  if (resolution.status === "RESOLVED" && resolution.followUpAction?.title.trim()) {
+    const position = await supabase
+      .from("next_actions")
+      .select("position")
+      .eq("project_id", updated.data.project_id)
+      .order("position", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (position.error) return fromError(position.error);
+    const followUp = await supabase.from("next_actions").insert({
+      project_id: updated.data.project_id,
+      title: resolution.followUpAction.title.trim(),
+      description: resolution.followUpAction.description?.trim() ?? "",
+      status: "OPEN",
+      position: (position.data?.position ?? -1) + 1,
+      priority: "HIGH",
+      provenance: "FOUNDER_APPROVED_ACTION",
+      source_kind: "decision_resolution",
+      source_ref: decisionId,
+      requires_decision: false,
+      decision_id: decisionId,
+    });
+    if (followUp.error) return fromError(followUp.error);
+
+    await supabase
+      .from("next_actions")
+      .update({ status: "OPEN", requires_decision: false })
+      .eq("decision_id", decisionId)
+      .eq("requires_decision", true)
+      .in("status", ["OPEN", "BLOCKED"]);
+  }
+
+  return { status: "ok", data: mapDecision(updated.data) };
+}
+
 export async function resolveProjectDecision(
   supabase: GhostClient,
   decisionId: string,
@@ -140,7 +204,17 @@ export async function resolveProjectDecision(
     follow_up_action_title: resolution.followUpAction?.title ?? null,
     follow_up_action_description: resolution.followUpAction?.description ?? null,
   });
-  if (result.error) return fromError(result.error);
+  if (result.error) {
+    // Pre-fix RPC builds collide parameter names with columns; fall back safely.
+    if (/ambiguous|selected_option/i.test(result.error.message)) {
+      const fallback = await resolveProjectDecisionDirect(supabase, decisionId, resolution);
+      if (fallback.status === "ok" && fallback.data.status === "RESOLVED") {
+        await rememberResolvedDecision(supabase, fallback.data);
+      }
+      return fallback;
+    }
+    return fromError(result.error);
+  }
   const mapped = mapDecision(result.data);
   if (mapped.status === "RESOLVED") {
     await rememberResolvedDecision(supabase, mapped);

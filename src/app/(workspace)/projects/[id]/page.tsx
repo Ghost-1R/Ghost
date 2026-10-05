@@ -14,8 +14,11 @@ import { detectStateDrift, parseGhostMarkdown } from "@/lib/brain/drift";
 import { exportProjectState } from "@/lib/brain/export-state";
 import { displayVerificationState, isSupportedVerified } from "@/lib/brain/verification";
 import { loadLatestConversation } from "@/lib/conversation/queries";
+import { resolveFounderDecision, submitProjectDecision } from "@/lib/decisions/actions";
+import { loadOpenDecisions, loadProjectDecisions } from "@/lib/decisions/queries";
 import type { KnowledgeKind } from "@/lib/domain/status";
 import { formatTimestamp } from "@/lib/format";
+import { loadLifecycleHistory } from "@/lib/lifecycle/queries";
 import { createMemoryProposal } from "@/lib/memory/actions";
 import { loadFounderRules } from "@/lib/memory/queries";
 import {
@@ -27,6 +30,7 @@ import {
   loadVerification,
   type KnowledgeRecord,
 } from "@/lib/projects/queries";
+import { loadPrimaryRepository } from "@/lib/repository/association";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -64,7 +68,21 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     redirect("/login");
   }
 
-  const [project, milestones, knowledge, blockers, actions, verification, rules, conversation, repositoryFile] = await Promise.all([
+  const [
+    project,
+    milestones,
+    knowledge,
+    blockers,
+    actions,
+    verification,
+    rules,
+    conversation,
+    repositoryFile,
+    lifecycle,
+    projectDecisions,
+    openDecisions,
+    primaryRepo,
+  ] = await Promise.all([
     loadProjectDetail(session.supabase, id),
     loadMilestones(session.supabase, id),
     loadKnowledge(session.supabase, id),
@@ -74,6 +92,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     loadFounderRules(session.supabase),
     loadLatestConversation(session.supabase, id),
     repositorySnapshot(),
+    loadLifecycleHistory(session.supabase, id),
+    loadProjectDecisions(session.supabase, id),
+    loadOpenDecisions(session.supabase, id),
+    loadPrimaryRepository(session.supabase, id),
   ]);
   if (project.status === "error") {
     return (
@@ -100,8 +122,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const blockerRows = blockers.status === "ok" ? blockers.data : [];
   const openBlockers = blockerRows.filter((blocker) => blocker.status === "OPEN");
   const actionRows = actions.status === "ok" ? actions.data : [];
-  const openActions = actionRows.filter((action) => action.status === "OPEN");
+  const openActions = actionRows.filter((action) => action.status === "OPEN" || action.status === "IN_PROGRESS" || action.status === "BLOCKED");
+  const nextAction = openActions[0] ?? null;
   const verificationRows = verification.status === "ok" ? verification.data : [];
+  const lifecycleRows = lifecycle.status === "ok" ? lifecycle.data : [];
+  const decisionRows = projectDecisions.status === "ok" ? projectDecisions.data : [];
+  const pendingDecisions = openDecisions.status === "ok" ? openDecisions.data : [];
+  const associatedRepo = primaryRepo.status === "ok" ? primaryRepo.data : null;
   const comparesRepository = detail.slug === "ghost" || detail.name.toLocaleLowerCase() === "ghost";
   const repositoryState = comparesRepository ? repositoryFile : null;
   const drift =
@@ -179,14 +206,123 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       <Panel title="What we are building">
         <p>{detail.description || "No description recorded."}</p>
         <ul className="meta">
+          <li>Lifecycle: {detail.lifecycleStage}</li>
           <li>Status: {detail.status.replaceAll("_", " ")}</li>
           <li>Record updated: {formatTimestamp(detail.updatedAt)}</li>
         </ul>
       </Panel>
 
+      <Panel title="Operating state">
+        <ul className="meta">
+          <li>Lifecycle stage: {detail.lifecycleStage}</li>
+          <li>Current milestone: {detail.currentMilestone || "None recorded"}</li>
+          <li>Next action: {nextAction?.title ?? "No open next action recorded."}</li>
+          <li>
+            Blockers:{" "}
+            {openBlockers.length === 0 ? "None open" : `${openBlockers.length} open`}
+          </li>
+          <li>
+            Pending decisions:{" "}
+            {pendingDecisions.length === 0 ? "None" : pendingDecisions.length}
+          </li>
+        </ul>
+        {lifecycleRows[0] ? (
+          <p className="quiet">
+            Last lifecycle change: {lifecycleRows[0].fromStage ?? "none"} → {lifecycleRows[0].toStage}.{" "}
+            {lifecycleRows[0].reason}
+          </p>
+        ) : (
+          <p className="quiet">No lifecycle history beyond the current stage.</p>
+        )}
+      </Panel>
+
+      <Panel title="Needs your decision">
+        {openDecisions.status === "error" ? <ErrorState message={openDecisions.message} /> : null}
+        {pendingDecisions.length === 0 ? <EmptyState>No open decisions for this project.</EmptyState> : null}
+        {pendingDecisions.map((decision) => (
+          <article className="list-item" key={decision.id}>
+            <h3>{decision.title}</h3>
+            <p>{decision.question}</p>
+            {decision.context ? <p className="quiet">{decision.context}</p> : null}
+            {decision.recommendation ? <p className="quiet">Ghost recommends: {decision.recommendation}</p> : null}
+            {decision.options.length > 0 ? (
+              <ul className="meta">
+                {decision.options.map((option) => (
+                  <li key={option.id}>{option.label}</li>
+                ))}
+              </ul>
+            ) : null}
+            <ActionForm action={resolveFounderDecision} submitLabel="Resolve decision">
+              <input type="hidden" name="decisionId" value={decision.id} />
+              <input type="hidden" name="projectId" value={detail.id} />
+              <input type="hidden" name="status" value="RESOLVED" />
+              <label className="field">
+                <span>Your choice</span>
+                <input name="selectedOption" required maxLength={200} placeholder="Selected option or answer" />
+              </label>
+              <label className="field">
+                <span>Rationale (optional)</span>
+                <textarea name="rationale" />
+              </label>
+              <label className="field">
+                <span>Follow-up next action title (optional)</span>
+                <input name="followUpTitle" maxLength={200} />
+              </label>
+              <label className="field">
+                <span>Follow-up description (optional)</span>
+                <textarea name="followUpDescription" />
+              </label>
+            </ActionForm>
+            <ActionForm action={resolveFounderDecision} submitLabel="Cancel decision">
+              <input type="hidden" name="decisionId" value={decision.id} />
+              <input type="hidden" name="projectId" value={detail.id} />
+              <input type="hidden" name="status" value="CANCELLED" />
+              <input type="hidden" name="founderResponse" value="Cancelled by founder" />
+            </ActionForm>
+          </article>
+        ))}
+      </Panel>
+
+      <Panel title="Record a decision">
+        <p className="quiet">Ghost can recommend. Only you resolve.</p>
+        <ActionForm action={submitProjectDecision} submitLabel="Save decision">
+          <input type="hidden" name="projectId" value={detail.id} />
+          <label className="field">
+            <span>Title</span>
+            <input name="title" required maxLength={200} />
+          </label>
+          <label className="field">
+            <span>Question</span>
+            <textarea name="question" required />
+          </label>
+          <label className="field">
+            <span>Context</span>
+            <textarea name="context" />
+          </label>
+          <label className="field">
+            <span>Option A (optional)</span>
+            <input name="optionA" maxLength={200} />
+          </label>
+          <label className="field">
+            <span>Option B (optional)</span>
+            <input name="optionB" maxLength={200} />
+          </label>
+          <label className="field">
+            <span>Ghost recommendation (optional)</span>
+            <input name="recommendation" maxLength={500} />
+          </label>
+        </ActionForm>
+      </Panel>
+
       <Panel title="Current milestone">
         {milestones.status === "error" ? <ErrorState message={milestones.message} /> : null}
-        {!current ? <EmptyState>No milestone recorded.</EmptyState> : null}
+        {!current && !detail.currentMilestone ? <EmptyState>No milestone recorded.</EmptyState> : null}
+        {detail.currentMilestone && !current ? (
+          <article className="list-item">
+            <h3>{detail.currentMilestone}</h3>
+            <p className="quiet">Recorded on the project. No matching milestone row yet.</p>
+          </article>
+        ) : null}
         {current ? (
           <article className="list-item">
             <h3>{current.title}</h3>
@@ -198,12 +334,38 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
       <Panel title="Repository">
         <ul className="meta">
-          <li>Provider: {detail.repositoryProvider ?? "Not recorded"}</li>
-          <li>URL: {detail.repositoryUrl ?? "Not recorded"}</li>
-          <li>Branch: {detail.repositoryBranch ?? "Not recorded"}</li>
+          <li>Provider: {associatedRepo?.provider ?? detail.repositoryProvider ?? "Not recorded"}</li>
+          <li>URL: {associatedRepo?.htmlUrl ?? detail.repositoryUrl ?? "Not recorded"}</li>
+          <li>Branch: {associatedRepo?.defaultBranch ?? detail.repositoryBranch ?? "Not recorded"}</li>
           <li>Last known commit: {detail.repositoryCommit ?? "Not recorded"}</li>
+          <li>
+            Association:{" "}
+            {associatedRepo
+              ? `${associatedRepo.fullName} (explicit)`
+              : "No explicit repository association"}
+          </li>
         </ul>
-        <p className="quiet">A missing URL or commit means remote repository state is not recorded.</p>
+        <p className="quiet">
+          GitHub observations are evidence only. A commit does not mean tested, deployed, or production ready.
+          {process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.GITHUB_PAT
+            ? ""
+            : " GitHub read-only integration is NOT CONFIGURED."}
+        </p>
+      </Panel>
+
+      <Panel title="Decision history">
+        {projectDecisions.status === "error" ? <ErrorState message={projectDecisions.message} /> : null}
+        {decisionRows.length === 0 ? <EmptyState>No decisions recorded yet.</EmptyState> : null}
+        {decisionRows.slice(0, 8).map((decision) => (
+          <article className="list-item" key={`hist-${decision.id}`}>
+            <h3>
+              {decision.title} · {decision.status}
+            </h3>
+            <p className="quiet">{decision.question}</p>
+            {decision.selectedOption ? <p className="quiet">Selected: {decision.selectedOption}</p> : null}
+            {decision.resolvedAt ? <p className="quiet">Resolved {formatTimestamp(decision.resolvedAt)}</p> : null}
+          </article>
+        ))}
       </Panel>
 
       <Panel title="Remember something about this project">
