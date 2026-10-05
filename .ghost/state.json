@@ -6,14 +6,25 @@
     "product": "Your Second Mind"
   },
   "milestone": {
-    "name": "Ghost Experience production verification",
+    "name": "V4 Operating System Foundation",
     "status": "DEPLOYED"
   },
+  "lifecycleStage": "DEPLOY",
   "completedMilestones": [
     {
       "name": "Project Brain + Ghost Conversation",
       "status": "COMPLETED",
       "detail": "Ghost Alpha. Frozen on branch ghost-alpha at 1c22b26fc4759798f613932fd1d130a773b4879e."
+    },
+    {
+      "name": "Ghost Experience",
+      "status": "COMPLETED",
+      "detail": "V3 experience on ghost-experience. Production-verified before V4."
+    },
+    {
+      "name": "V4 Operating System Foundation",
+      "status": "COMPLETED",
+      "detail": "Lifecycle, next actions, Today, decisions, activity, repository association. Production commit e6cd5611eb7c4d3e5300e36d6207605c86172423. Local and production Presentation Gates READY."
     }
   ],
   "stack": [
@@ -33,10 +44,14 @@
     {
       "title": "GitHub histories are unrelated",
       "detail": "Originally: no origin was configured and Ghost-1R/Ghost had a separate history. Resolved because origin is github.com/Ghost-1R/Ghost, ghost-alpha was pushed at 1c22b26 and ghost-experience was pushed normally. No force-push, merge, or history rewrite was used."
+    },
+    {
+      "title": "V4 migration not applied",
+      "detail": "Founder applied 20260930040000_operating_system_foundation.sql via Supabase SQL Editor. Lifecycle, decisions, repositories, and next-action extensions are live on wzwrrleqfylhuxfbukfu."
     }
   ],
   "nextActions": [
-    "Complete production Inspector and production Presentation Gate"
+    "Decide whether to configure read-only GitHub for Ghost"
   ],
   "verification": {
     "application": "VERIFIED_LOCAL",
@@ -61,39 +76,28 @@
     "presentationGate": "VERIFIED_LOCAL",
     "customerPresentation": "A fresh review of the current commit decides the result. A review of an earlier dirty tree does not transfer.",
     "production": "DEPLOYED",
-    "productionPresentation": "Decided only by the production Presentation Gate recorded in presentation_reviews for the deployed commit. Local READY does not transfer."
+    "productionPresentation": "READY for commit e6cd5611eb7c4d3e5300e36d6207605c86172423. Local READY does not transfer; this was earned by the production Presentation Gate.",
+    "v4OperatingSystem": "VERIFIED_REMOTE",
+    "githubToken": "NOT_CONFIGURED"
   },
   "evidence": {
     "database": "Against linked project wzwrrleqfylhuxfbukfu, User A inserts succeeded and User B received zero rows. The ACTIVE founder-rule guard and VERIFIED evidence check both rejected invalid writes.",
     "authentication": "On http://localhost:3001, sign-in, session persistence, sign-out, and protected-route redirect were observed. Sign-up returned email rate limit exceeded. Confirmation-code exchange was not observed.",
     "rls": "User B selects of the GHOST project, its knowledge, and founder rules returned zero rows. Insert was denied. The project page showed not found and omitted the milestone and DEC-006.",
     "memoryApproval": "Direct ACTIVE insert was denied with the review_memory_proposal error. Day 2 created five ACTIVE rules through that function.",
-    "verificationRecords": "VERIFIED with empty evidence was denied. VERIFIED with evidence and checked_at succeeded. The GHOST project records production and Ghost conversation as NOT_VERIFIED.",
-    "conversationStorage": "db push applied 20260929043000 on wzwrrleqfylhuxfbukfu. Both tables have RLS enabled and forced. Founder message What are we building persisted on project 7f252953-ecab-4b5e-9762-5f3fe1c6a45d. User B reads returned zero rows and writes returned 42501.",
-    "messageMetadata": "db push applied 20260929053000 on wzwrrleqfylhuxfbukfu. ghost_messages.metadata is jsonb, not null, default {}. Assistant message f3f269a7-e300-4a45-9ffa-f4ac1764e708 stores openai, gpt-5.4, project 7f252953-ecab-4b5e-9762-5f3fe1c6a45d, 20 sources, and token usage. Reload still showed Grounded in 20 sources. User B metadata reads returned zero rows and the provider invoke count did not increase.",
-    "memoryIntelligence": "Explicit remember created pending founder rule e13c8a13-eabd-46f0-b8be-50c17a759037, approved through review into active rule 3ba9b742-0b11-4c05-a426-30fb13163869. GHOST Vercel stayed a pending project proposal. RULE-004 blocked a duplicate. Provenance named conversation bdc9e36d-df87-4890-89b6-f72c7906c7c8. Disposable rules were retired and left later answers. Direct ACTIVE insert stayed denied. User B saw zero database rules. A disposable provider-acme founder rule and project constraint were both shown, with a project exception, and then the disposable rows were retired or removed.",
-    "repositoryContext": "On http://localhost:3000 Ghost answered the branch as ghost-alpha and the working tree as dirty at b00dc39, named src/lib/memory/actions.ts for memory approval, refused src/payments/stripe.ts, and kept production NOT_DEPLOYED. A disposable injection file was quoted as repository data and then removed. The API key was not returned, stored, or logged.",
-    "patternLibrary": "Four patterns remain DRAFT. The RLS question identified Supabase Owner-Scoped RLS as draft. Assistant message ce807b43-76f2-4edb-b9c2-e837abbadec9 stores that pattern source and does not store patternApplications. /patterns listed all four drafts.",
-    "githubRemote": "origin is github.com/Ghost-1R/Ghost. ls-remote lists ghost-alpha and ghost-experience. The Inspector re-checks this on every run.",
-    "inspector": "On http://localhost:3000 allowlisted tests, lint, TypeScript, build, and git status were VERIFIED at commit 8d30cfc with a dirty working tree. GitHub was BLOCKED. Deployment was NOT_VERIFIED. A disposable command stayed FAILED. A later tree change was not treated as build verified.",
-    "riskEngine": "SAFE checks run from the allowlist. Remote migration is HIGH. Remote database reset is CRITICAL and unsupported. Chat text cannot approve an action.",
-    "approvalEngine": "Approvals are local owner records, not a remote table. A rejected migration did not execute. A changed parameter did not match the approved fingerprint. An approved remote reset stayed unsupported. Founder approval applied 20260929180000_presentation_gate.sql to wzwrrleqfylhuxfbukfu.",
-    "presentationGate": "The presentation tables are on Ghost-1R. Evidence is append-only. The result is computed from fresh evidence for one commit and one tree hash.",
-    "customerPresentation": "Day 6: production was not deployed. Day 7: production is deployed on Render and is presentation-ready only when the production Presentation Gate is READY for the deployed commit. A review bound to an earlier tree does not cover a later commit.",
-    "ghostConversation": "On http://localhost:3001 the OpenAI provider and model gpt-5.4 answered from project 7f252953-ecab-4b5e-9762-5f3fe1c6a45d. Answers followed stored records, including NOT_VERIFIED production, DEC-006, unknown Stripe, and RULE-002.",
-    "githubRemoteHistory": "Day 6: no GitHub token was available and gh was not installed, so the inspection was BLOCKED. Day 7: origin github.com/Ghost-1R/Ghost lists ghost-alpha and ghost-experience.",
-    "modelRouter": "Groq is the free default with model openai/gpt-oss-120b. A Groq failure made 0 paid-provider calls in the provider regression. Settings shows Cost policy Free-first and Paid fallback Disabled.",
-    "release": "Ghost Alpha is frozen on ghost-alpha at 1c22b26. Ghost Experience was built on ghost-experience. At 0f593ae the local Inspector passed and the local Presentation Gate was READY (review 5d6503ab-6f83-49dd-91f1-07ac5c68e45d). ghost-experience was pushed normally.",
-    "production": "Render service Ghost at https://ghost-nkk0.onrender.com deploys ghost-experience. Deploy dep-dau3116gekts73cok8l0 served 0f593ae. Production sign-in worked, and production answers used groq openai/gpt-oss-120b with grounding: message 8b09876e-3240-42b5-bcbc-04395e5060c0 had 26 sources and message c8dcdd55-f589-4288-a6d9-95390a6f1873 had 5.",
-    "liveInspectorIncident": "Two Inspector runs started on the live server were OOM-killed by Render at the 512Mi limit (2026-09-29 21:48:51 and 21:53:49 UTC) and the service restarted. The live server now refuses inspections. The trusted runner inspects production over https and records environment production.",
-    "signupConfirmation": "A sign-up email confirmation through /auth/callback has not been observed. The account's confirmed flag is not evidence, because magic-link regression checks also confirm accounts.",
-    "contextEngine": "Selected context, not the full brain, was sent. Continuity, the Stripe claim, the deployment conflict, the pending GHOST Vercel proposal, the IVOIRE SHOP refusal, and the injection regression were observed. User B could not read project data or create a proposal. Sources shown on answers were the records selected for that reply."
+    "verificationRecords": "VERIFIED with empty evidence was denied. VERIFIED with evidence and checked_at succeeded.",
+    "v4OperatingSystem": "Migration 20260930040000 applied. Lifecycle BUILD→TEST→DEPLOY recorded with provenance. Today and Decision inbox used live rows. Decision resolve created follow-up next action and Project Brain DECISION knowledge. Illegal BUILD→DEPLOY transition denied. Production dashboard showed Today, Needs your decision, lifecycle BUILD then DEPLOY after verification, and GitHub NOT CONFIGURED.",
+    "production": "Render service Ghost at https://ghost-nkk0.onrender.com. Deploy for e6cd561 went live. /api/health returned that commit. Production Inspector and Presentation Gate READY.",
+    "githubRemote": "origin is github.com/Ghost-1R/Ghost. ls-remote lists ghost-alpha and ghost-experience. Read-only GitHub token is NOT CONFIGURED.",
+    "modelRouter": "Groq is the free default with model openai/gpt-oss-120b. Paid fallback Disabled.",
+    "presentationGate": "Local review READY for e6cd561. Production review READY for the same commit. Future Inspector and Future GitHub integration remain documented gaps only."
   },
   "deployment": {
     "provider": "render",
     "vercelAllowed": false,
     "service": "Ghost",
     "url": "https://ghost-nkk0.onrender.com",
-    "branch": "ghost-experience"
+    "branch": "ghost-experience",
+    "commit": "e6cd5611eb7c4d3e5300e36d6207605c86172423"
   }
 }

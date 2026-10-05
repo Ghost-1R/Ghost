@@ -14,7 +14,7 @@ Turn ideas into real products while learning how the founder builds.
 
 ## Current Milestone
 
-Ghost Experience production verification
+V4 Operating System Foundation
 
 ## Status
 
@@ -23,6 +23,8 @@ DEPLOYED
 ## Completed Milestones
 
 - Project Brain + Ghost Conversation (Ghost Alpha). Frozen on `ghost-alpha` at `1c22b26`.
+- Ghost Experience (V3). Floating Ask Ghost command bar, voice, and founder-facing answers. Production-verified on `ghost-experience`.
+- V4 Operating System Foundation. Lifecycle, next actions, Today, decisions, activity, and repository association. Production-verified at `e6cd561` on Render.
 
 ## Stack
 
@@ -85,6 +87,8 @@ Before Day 7 no remote was configured, and `Ghost-1R/Ghost` held an unrelated in
 ## Production
 
 Render service `Ghost` at https://ghost-nkk0.onrender.com deploys `ghost-experience`.
+V4 commit `e6cd5611eb7c4d3e5300e36d6207605c86172423` is live; `/api/health` reports that SHA.
+Local and production Presentation Gates returned READY for that commit.
 Deployed is not the same as presentation-ready. Only the production Presentation Gate, recorded in `presentation_reviews` for the deployed commit, decides production readiness. A local READY does not transfer.
 The live server never runs inspections. The trusted runner inspects production over https, and the production evidence requires the live `/api/health` commit to equal the runner's clean commit.
 
@@ -114,7 +118,7 @@ Resolved, with the original text kept on the project rows:
 
 ## Next Actions
 
-1. Complete production Inspector and production Presentation Gate.
+1. Decide whether to configure read-only GitHub for Ghost (`GITHUB_TOKEN` / `GH_TOKEN` / `GITHUB_PAT` still NOT CONFIGURED).
 
 ## Verification
 
