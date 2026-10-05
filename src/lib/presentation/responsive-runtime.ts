@@ -184,6 +184,7 @@ export async function evaluateResponsiveSurfaces(input: { baseUrl: string; proje
     const pages = [
       { path: "/login", kind: "login" as const },
       { path: "/dashboard", kind: "app" as const },
+      { path: "/ideas", kind: "app" as const },
       { path: `/projects/${input.projectId}`, kind: "project" as const },
       { path: "/memory", kind: "app" as const },
       { path: "/patterns", kind: "app" as const },

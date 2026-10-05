@@ -13,6 +13,7 @@ import type {
   VerificationCategory,
   VerificationState,
 } from "@/lib/domain/status";
+import type { IdeaEvidenceType, IdeaReadiness, IdeaStatus, ValidationStatus } from "@/lib/ideas/types";
 import type { LifecycleActor } from "@/lib/lifecycle/stages";
 
 export type Json =
@@ -344,7 +345,9 @@ export type Database = {
       project_decisions: Table<
         {
           id: string;
-          project_id: string;
+          project_id: string | null;
+          idea_id: string | null;
+          strategy_id: string | null;
           title: string;
           question: string;
           context: string;
@@ -362,7 +365,9 @@ export type Database = {
         },
         {
           id?: string;
-          project_id: string;
+          project_id?: string | null;
+          idea_id?: string | null;
+          strategy_id?: string | null;
           title: string;
           question: string;
           context?: string;
@@ -377,6 +382,184 @@ export type Database = {
           selected_option?: string | null;
           founder_response?: string | null;
           rationale?: string | null;
+        }
+      >;
+      ideas: Table<
+        {
+          id: string;
+          owner_id: string;
+          title: string;
+          raw_idea: string;
+          summary: string;
+          problem: string;
+          target_user: string;
+          proposed_solution: string;
+          value_proposition: string;
+          assumptions: Json;
+          risks: Json;
+          opportunities: Json;
+          constraints_json: Json;
+          open_questions: Json;
+          recommendation: string | null;
+          status: IdeaStatus;
+          readiness: IdeaReadiness;
+          note: string;
+          promoted_project_id: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          owner_id: string;
+          title: string;
+          raw_idea: string;
+          summary?: string;
+          problem?: string;
+          target_user?: string;
+          proposed_solution?: string;
+          value_proposition?: string;
+          assumptions?: Json;
+          risks?: Json;
+          opportunities?: Json;
+          constraints_json?: Json;
+          open_questions?: Json;
+          recommendation?: string | null;
+          status?: IdeaStatus;
+          readiness?: IdeaReadiness;
+          note?: string;
+          promoted_project_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      idea_transitions: Table<
+        {
+          id: string;
+          idea_id: string;
+          from_status: IdeaStatus | null;
+          to_status: IdeaStatus;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        {
+          id?: string;
+          idea_id: string;
+          from_status?: IdeaStatus | null;
+          to_status: IdeaStatus;
+          changed_at?: string;
+          changed_by?: string | null;
+          actor: string;
+          reason: string;
+        }
+      >;
+      idea_validations: Table<
+        {
+          id: string;
+          idea_id: string;
+          question: string;
+          reason: string;
+          evidence_needed: string;
+          status: ValidationStatus;
+          result: string;
+          source: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          idea_id: string;
+          question: string;
+          reason?: string;
+          evidence_needed?: string;
+          status?: ValidationStatus;
+          result?: string;
+          source?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      idea_evidence: Table<
+        {
+          id: string;
+          idea_id: string;
+          evidence_type: IdeaEvidenceType;
+          statement: string;
+          source: string;
+          confidence: string | null;
+          provenance: string;
+          observed_at: string | null;
+          created_at: string;
+          created_by: string | null;
+        },
+        {
+          id?: string;
+          idea_id: string;
+          evidence_type: IdeaEvidenceType;
+          statement: string;
+          source?: string;
+          confidence?: string | null;
+          provenance?: string;
+          observed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        }
+      >;
+      idea_strategies: Table<
+        {
+          id: string;
+          idea_id: string;
+          vision: string;
+          problem: string;
+          target_customer: string;
+          positioning: string;
+          value_proposition: string;
+          core_offer: string;
+          differentiation: string;
+          value_model: string;
+          distribution: string;
+          key_capabilities: Json;
+          constraints_json: Json;
+          risks: Json;
+          assumptions: Json;
+          success_measures: Json;
+          non_goals: Json;
+          initial_scope: string;
+          mvp: string;
+          not_building: string;
+          open_decisions: Json;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          idea_id: string;
+          vision?: string;
+          problem?: string;
+          target_customer?: string;
+          positioning?: string;
+          value_proposition?: string;
+          core_offer?: string;
+          differentiation?: string;
+          value_model?: string;
+          distribution?: string;
+          key_capabilities?: Json;
+          constraints_json?: Json;
+          risks?: Json;
+          assumptions?: Json;
+          success_measures?: Json;
+          non_goals?: Json;
+          initial_scope?: string;
+          mvp?: string;
+          not_building?: string;
+          open_decisions?: Json;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
         }
       >;
       project_repositories: Table<
@@ -469,6 +652,15 @@ export type Database = {
           follow_up_action_description?: string | null;
         };
         Returns: Database["public"]["Tables"]["project_decisions"]["Row"];
+      };
+      record_idea_transition: {
+        Args: {
+          target_idea_id: string;
+          next_status: IdeaStatus;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["idea_transitions"]["Row"];
       };
     };
   };

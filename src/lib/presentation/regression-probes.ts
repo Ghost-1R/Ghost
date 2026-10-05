@@ -219,3 +219,74 @@ export async function conversationSourceAvoidsDirectRules(cwd: string): Promise<
   const source = await readFile(path.join(cwd, "src/lib/conversation/actions.ts"), "utf8");
   return source.includes('.from("memory_proposals")') && !source.includes('.from("founder_rules")');
 }
+
+const IDEA_LAB_BUG = "Idea Lab domain is incomplete";
+
+export async function evaluateIdeaLabRegression(supabase: GhostClient): Promise<ProbeResult> {
+  const lines = [
+    IDEA_LAB_BUG,
+    "IDEA DOMAIN",
+    "IDEA RLS",
+    "IDEA WORKFLOW",
+    "VALIDATION",
+    "STRATEGY",
+    "STRATEGY DECISIONS",
+    "IDEA → PROJECT PROMOTION",
+    "TRUTH BOUNDARY",
+    "V4 REGRESSION",
+  ];
+
+  const tables = await Promise.all([
+    supabase.from("ideas").select("id").limit(1),
+    supabase.from("idea_transitions").select("id").limit(1),
+    supabase.from("idea_validations").select("id").limit(1),
+    supabase.from("idea_evidence").select("id").limit(1),
+    supabase.from("idea_strategies").select("id").limit(1),
+  ]);
+  if (tables.some((result) => result.error && /does not exist|schema cache/i.test(result.error.message))) {
+    lines.push("remote idea tables: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  if (tables.some((result) => result.error)) {
+    lines.push(`remote idea tables: ${tables.find((result) => result.error)?.error?.message ?? "error"}`);
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("remote idea tables: present");
+
+  const decisionCols = await supabase.from("project_decisions").select("id, idea_id, strategy_id, project_id").limit(1);
+  if (decisionCols.error && /idea_id|strategy_id|column/i.test(decisionCols.error.message)) {
+    lines.push("project_decisions idea/strategy columns: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("project_decisions idea/strategy columns: present");
+
+  const truthSource = await readFile(path.join(process.cwd(), "src/lib/ideas/truth.ts"), "utf8").catch(() => "");
+  const promoteSource = await readFile(path.join(process.cwd(), "src/lib/ideas/promote.ts"), "utf8").catch(() => "");
+  const workflowSource = await readFile(path.join(process.cwd(), "src/lib/ideas/workflow.ts"), "utf8").catch(() => "");
+  const hasTruth =
+    truthSource.includes("isIdeaValidated") &&
+    truthSource.includes("isProductBuilt") &&
+    truthSource.includes("isDeployed");
+  const hasPromote =
+    promoteSource.includes("Only an approved idea can become a project") &&
+    promoteSource.includes("Project creation is not implementation");
+  const hasWorkflow = workflowSource.includes("NEEDS_DECISION") && workflowSource.includes("DECISION_READY");
+  lines.push(`truth boundary module: ${hasTruth ? "present" : "missing"}`);
+  lines.push(`promotion guard: ${hasPromote ? "present" : "missing"}`);
+  lines.push(`workflow readiness: ${hasWorkflow ? "present" : "missing"}`);
+  if (!hasTruth || !hasPromote || !hasWorkflow) {
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+
+  const v4 = await Promise.all([
+    supabase.from("lifecycle_transitions").select("id").limit(1),
+    supabase.from("next_actions").select("id").limit(1),
+    supabase.from("project_decisions").select("id").limit(1),
+  ]);
+  if (v4.some((result) => result.error)) {
+    lines.push("v4 operating tables: unavailable");
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("v4 operating tables: present");
+  return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
+}

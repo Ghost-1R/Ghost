@@ -6,7 +6,9 @@ import { fromError, type QueryResult } from "@/lib/result";
 
 export type ProjectDecisionRecord = {
   id: string;
-  projectId: string;
+  projectId: string | null;
+  ideaId: string | null;
+  strategyId: string | null;
   title: string;
   question: string;
   context: string;
@@ -24,11 +26,13 @@ export type ProjectDecisionRecord = {
 };
 
 const DECISION_COLUMNS =
-  "id, project_id, title, question, context, status, options, recommendation, evidence, created_at, created_by, resolved_at, resolved_by, selected_option, founder_response, rationale" as const;
+  "id, project_id, idea_id, strategy_id, title, question, context, status, options, recommendation, evidence, created_at, created_by, resolved_at, resolved_by, selected_option, founder_response, rationale" as const;
 
 function mapDecision(row: {
   id: string;
-  project_id: string;
+  project_id: string | null;
+  idea_id: string | null;
+  strategy_id: string | null;
   title: string;
   question: string;
   context: string;
@@ -47,6 +51,8 @@ function mapDecision(row: {
   return {
     id: row.id,
     projectId: row.project_id,
+    ideaId: row.idea_id,
+    strategyId: row.strategy_id,
     title: row.title,
     question: row.question,
     context: row.context,
@@ -64,6 +70,33 @@ function mapDecision(row: {
   };
 }
 
+async function applyResolvedDecisionToStrategy(
+  supabase: GhostClient,
+  decision: ProjectDecisionRecord,
+): Promise<void> {
+  if (decision.status !== "RESOLVED" || !decision.strategyId) return;
+  const existing = await supabase
+    .from("idea_strategies")
+    .select("id, open_decisions")
+    .eq("id", decision.strategyId)
+    .maybeSingle();
+  if (existing.error || !existing.data) return;
+  const prior = Array.isArray(existing.data.open_decisions)
+    ? (existing.data.open_decisions as string[]).filter((item) => {
+        const text = item.trim();
+        return text !== decision.question && text !== decision.title && !text.startsWith(`RESOLVED: ${decision.title}`);
+      })
+    : [];
+  const resolvedLine = `RESOLVED: ${decision.title} → ${decision.selectedOption || decision.founderResponse || "resolved"}`;
+  await supabase
+    .from("idea_strategies")
+    .update({
+      open_decisions: [...prior, resolvedLine],
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", decision.strategyId);
+}
+
 export async function loadOpenDecisions(
   supabase: GhostClient,
   projectId?: string,
@@ -73,6 +106,24 @@ export async function loadOpenDecisions(
   const result = await query;
   if (result.error) {
     if (/project_decisions|does not exist/i.test(result.error.message)) {
+      return { status: "ok", data: [] };
+    }
+    return fromError(result.error);
+  }
+  return { status: "ok", data: result.data.map(mapDecision) };
+}
+
+export async function loadIdeaDecisions(
+  supabase: GhostClient,
+  ideaId: string,
+): Promise<QueryResult<ProjectDecisionRecord[]>> {
+  const result = await supabase
+    .from("project_decisions")
+    .select(DECISION_COLUMNS)
+    .eq("idea_id", ideaId)
+    .order("created_at", { ascending: false });
+  if (result.error) {
+    if (/project_decisions|idea_id|does not exist/i.test(result.error.message)) {
       return { status: "ok", data: [] };
     }
     return fromError(result.error);
@@ -108,7 +159,9 @@ export async function createProjectDecision(
   const inserted = await supabase
     .from("project_decisions")
     .insert({
-      project_id: draft.projectId,
+      project_id: draft.projectId || null,
+      idea_id: draft.ideaId || null,
+      strategy_id: draft.strategyId || null,
       title: draft.title.trim(),
       question: draft.question.trim(),
       context: draft.context?.trim() ?? "",
@@ -153,17 +206,18 @@ async function resolveProjectDecisionDirect(
     .single();
   if (updated.error) return fromError(updated.error);
 
-  if (resolution.status === "RESOLVED" && resolution.followUpAction?.title.trim()) {
+  const mapped = mapDecision(updated.data);
+  if (resolution.status === "RESOLVED" && resolution.followUpAction?.title.trim() && mapped.projectId) {
     const position = await supabase
       .from("next_actions")
       .select("position")
-      .eq("project_id", updated.data.project_id)
+      .eq("project_id", mapped.projectId)
       .order("position", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (position.error) return fromError(position.error);
     const followUp = await supabase.from("next_actions").insert({
-      project_id: updated.data.project_id,
+      project_id: mapped.projectId,
       title: resolution.followUpAction.title.trim(),
       description: resolution.followUpAction.description?.trim() ?? "",
       status: "OPEN",
@@ -185,7 +239,8 @@ async function resolveProjectDecisionDirect(
       .in("status", ["OPEN", "BLOCKED"]);
   }
 
-  return { status: "ok", data: mapDecision(updated.data) };
+  await applyResolvedDecisionToStrategy(supabase, mapped);
+  return { status: "ok", data: mapped };
 }
 
 export async function resolveProjectDecision(
@@ -217,6 +272,7 @@ export async function resolveProjectDecision(
   }
   const mapped = mapDecision(result.data);
   if (mapped.status === "RESOLVED") {
+    await applyResolvedDecisionToStrategy(supabase, mapped);
     await rememberResolvedDecision(supabase, mapped);
   }
   return { status: "ok", data: mapped };

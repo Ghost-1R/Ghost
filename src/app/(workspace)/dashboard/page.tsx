@@ -4,13 +4,16 @@ import path from "node:path";
 import { redirect } from "next/navigation";
 import { GhostConversation } from "@/components/ghost/conversation";
 import { DashboardHero } from "@/components/ghost/hero";
+import { ActionForm } from "@/components/ui/action-form";
 import { EmptyState, ErrorState, Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { describeProviderPolicy, isModelConfigured } from "@/lib/ai/provider";
 import { getSession } from "@/lib/auth/session";
 import { loadLatestConversation } from "@/lib/conversation/queries";
+import { resolveFounderDecision } from "@/lib/decisions/actions";
 import { loadOpenDecisions } from "@/lib/decisions/queries";
 import { formatTimestamp } from "@/lib/format";
+import { listIdeas } from "@/lib/ideas/queries";
 import { loadFounderRules, loadMemoryProposals, loadProjectKnowledge } from "@/lib/memory/queries";
 import { loadRecentActivity } from "@/lib/operations/activity";
 import { loadTodayActions } from "@/lib/operations/actions";
@@ -56,6 +59,7 @@ export default async function DashboardPage() {
     today,
     openDecisions,
     activity,
+    ideas,
   ] = await Promise.all([
     summaries,
     loadFounderRules(session.supabase),
@@ -67,6 +71,7 @@ export default async function DashboardPage() {
     loadTodayActions(session.supabase),
     loadOpenDecisions(session.supabase),
     loadRecentActivity(session.supabase),
+    listIdeas(session.supabase),
   ]);
 
   const activeRules = rules.status === "ok" ? rules.data.filter((rule) => rule.status === "ACTIVE").length : null;
@@ -94,10 +99,37 @@ export default async function DashboardPage() {
           <p className="eyebrow">Dashboard</p>
           <h2>Continue from the real state.</h2>
         </div>
-        <Link className="button" href="/projects/new">
-          New project
-        </Link>
+        <div className="meta">
+          <Link className="button-secondary" href="/ideas">
+            Idea Lab
+          </Link>
+          <Link className="button" href="/projects/new">
+            New project
+          </Link>
+        </div>
       </div>
+
+      <Panel title="Idea Lab" action={<Link href="/ideas">All ideas</Link>}>
+        {ideas.status === "error" ? <ErrorState message={ideas.message} /> : null}
+        {ideas.status === "ok" && ideas.data.length === 0 ? (
+          <EmptyState>No ideas captured yet. Capture before creating a project.</EmptyState>
+        ) : null}
+        {ideas.status === "ok" && ideas.data.length > 0 ? (
+          <div className="stack">
+            {ideas.data.slice(0, 5).map((idea) => (
+              <article className="list-item" key={idea.id}>
+                <h3>
+                  <Link href={`/ideas/${idea.id}`}>{idea.title}</Link>
+                </h3>
+                <p className="quiet">
+                  {idea.status} · {idea.readiness}
+                  {idea.summary ? ` · ${idea.summary}` : ""}
+                </p>
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </Panel>
 
       <Panel title="Today with Ghost">
         {today.status === "error" ? <ErrorState message={today.message} /> : null}
@@ -129,15 +161,45 @@ export default async function DashboardPage() {
         ) : null}
         {openDecisions.status === "ok" && openDecisions.data.length > 0 ? (
           <div className="stack">
-            {openDecisions.data.map((decision) => (
-              <article className="list-item" key={decision.id}>
-                <h3>
-                  <Link href={`/projects/${decision.projectId}`}>{decision.title}</Link>
-                </h3>
-                <p className="quiet">{decision.question}</p>
-                {decision.recommendation ? <p className="quiet">Ghost recommends: {decision.recommendation}</p> : null}
-              </article>
-            ))}
+            {openDecisions.data.map((decision) => {
+              const href = decision.projectId
+                ? `/projects/${decision.projectId}`
+                : decision.ideaId
+                  ? `/ideas/${decision.ideaId}`
+                  : "/dashboard";
+              return (
+                <article className="list-item" key={decision.id}>
+                  <h3>
+                    <Link href={href}>{decision.title}</Link>
+                  </h3>
+                  <p className="quiet">{decision.question}</p>
+                  {decision.ideaId && !decision.projectId ? (
+                    <p className="quiet">From Idea Lab · Ghost recommends only; you decide.</p>
+                  ) : null}
+                  {decision.recommendation ? <p className="quiet">Ghost recommends: {decision.recommendation}</p> : null}
+                  {decision.options.length > 0 ? (
+                    <ul className="meta">
+                      {decision.options.map((option) => (
+                        <li key={option.id}>{option.label}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <ActionForm action={resolveFounderDecision} submitLabel="Resolve decision">
+                    <input type="hidden" name="decisionId" value={decision.id} />
+                    <input type="hidden" name="projectId" value={decision.projectId ?? ""} />
+                    <input type="hidden" name="status" value="RESOLVED" />
+                    <label className="field">
+                      <span>Your choice</span>
+                      <input name="selectedOption" required maxLength={200} placeholder="Selected option or answer" />
+                    </label>
+                    <label className="field">
+                      <span>Rationale (optional)</span>
+                      <textarea name="rationale" />
+                    </label>
+                  </ActionForm>
+                </article>
+              );
+            })}
           </div>
         ) : null}
       </Panel>

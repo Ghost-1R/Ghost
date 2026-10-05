@@ -13,6 +13,8 @@ import { groundingMetadata, sourcesFromMetadata, splitAnswer, withSources, type 
 import { collectGlobalItems, collectProjectItems, selectGrounding } from "@/lib/ghost-context/assemble";
 import type { ContextItem } from "@/lib/ghost-context/types";
 import { detectMemoryIntent } from "@/lib/ghost-context/memory-intent";
+import { collectIdeaItems } from "@/lib/ideas/context";
+import { loadIdea, loadIdeaEvidence, loadIdeaStrategy, loadIdeaValidations } from "@/lib/ideas/queries";
 import { explainInspections, inspectionContextItems, inspectionQuestion } from "@/lib/inspector/evidence";
 import { explainPresentation, presentationQuestion } from "@/lib/presentation/explain";
 import { listReviews, presentationRoot } from "@/lib/presentation/ledger";
@@ -204,6 +206,7 @@ export async function sendGhostMessage(
 
   const message = readField(formData, "message");
   const requestedProjectId = readField(formData, "projectId");
+  const requestedIdeaId = readField(formData, "ideaId");
   const requestedConversationId = readField(formData, "conversationId");
 
   if (message.length < 1 || message.length > 4000) {
@@ -212,6 +215,9 @@ export async function sendGhostMessage(
 
   if (requestedProjectId && !UUID_PATTERN.test(requestedProjectId)) {
     return { error: "That project is not visible.", notice: null };
+  }
+  if (requestedIdeaId && !UUID_PATTERN.test(requestedIdeaId)) {
+    return { error: "That idea is not visible.", notice: null };
   }
 
   let visibleProjectId: string | null = null;
@@ -270,6 +276,31 @@ export async function sendGhostMessage(
     return { error: "Ghost could not read that project's records.", notice: null };
   }
 
+  let ideaItems: Awaited<ReturnType<typeof collectIdeaItems>> = [];
+  if (requestedIdeaId && !contextProjectId) {
+    const [idea, validations, evidence, strategy] = await Promise.all([
+      loadIdea(session.supabase, requestedIdeaId),
+      loadIdeaValidations(session.supabase, requestedIdeaId),
+      loadIdeaEvidence(session.supabase, requestedIdeaId),
+      loadIdeaStrategy(session.supabase, requestedIdeaId),
+    ]);
+    if (idea.status === "error") {
+      return { error: idea.message, notice: null };
+    }
+    if (!idea.data) {
+      return { error: "That idea is not visible.", notice: null };
+    }
+    if (validations.status === "ok" && evidence.status === "ok" && strategy.status === "ok") {
+      ideaItems = collectIdeaItems({
+        question: message,
+        idea: idea.data,
+        strategy: strategy.data,
+        validations: validations.data,
+        evidence: evidence.data,
+      });
+    }
+  }
+
   const context = loaded
     ? loaded.ghost
     : assembleGlobalContext({
@@ -291,23 +322,26 @@ export async function sendGhostMessage(
 
   const contextItems = loaded
     ? loaded.items
-    : collectGlobalItems({
-        question: message,
-        projects: summaries.data.map((project) => ({
-          id: project.id,
-          name: project.name,
-          status: project.status,
-          currentMilestone: project.currentMilestone,
-          openBlockers: project.openBlockers,
-          nextAction: project.nextAction,
-        })),
-        founderRules: rules.data.map((rule) => ({
-          id: rule.id,
-          title: rule.title,
-          content: rule.content,
-          status: rule.status,
-        })),
-      });
+    : [
+        ...collectGlobalItems({
+          question: message,
+          projects: summaries.data.map((project) => ({
+            id: project.id,
+            name: project.name,
+            status: project.status,
+            currentMilestone: project.currentMilestone,
+            openBlockers: project.openBlockers,
+            nextAction: project.nextAction,
+          })),
+          founderRules: rules.data.map((rule) => ({
+            id: rule.id,
+            title: rule.title,
+            content: rule.content,
+            status: rule.status,
+          })),
+        }),
+        ...ideaItems,
+      ];
   const projectName = loaded?.projectName ?? null;
 
   let conversationId = requestedConversationId;

@@ -11,6 +11,7 @@ export const PARALLEL_PROBES = [
   "production-health",
   "repository-regression",
   "signup-regression",
+  "idea-lab-regression",
 ] as const;
 
 export type InspectionStage =

@@ -10,6 +10,8 @@ import {
 test("decision drafts require a real question and never invent options", () => {
   assert.match(validateDecisionDraft({ projectId: "p", title: "", question: "Which provider?" }) ?? "", /title/);
   assert.match(validateDecisionDraft({ projectId: "p", title: "Provider", question: "" }) ?? "", /question/);
+  assert.match(validateDecisionDraft({ title: "Scope", question: "Web first?" }) ?? "", /project or idea/);
+  assert.equal(validateDecisionDraft({ ideaId: "i", title: "Scope", question: "Web first?" }), null);
   assert.equal(
     validateDecisionDraft({
       projectId: "p",

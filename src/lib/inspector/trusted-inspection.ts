@@ -12,6 +12,7 @@ import { isExcludedRepositoryPath } from "@/lib/repository/exclude";
 import { readGitState } from "@/lib/repository/local-git";
 import {
   evaluateConversationRegression,
+  evaluateIdeaLabRegression,
   evaluateModelProviderRegression,
   evaluateRepositoryRegression,
   evaluateSignupRegression,
@@ -251,6 +252,7 @@ export async function executeTrustedInspection(input: {
     productionProbe(),
     runProbe("regression", PARALLEL_PROBES[7], () => evaluateRepositoryRegression(input.cwd)),
     runProbe("regression", PARALLEL_PROBES[8], () => evaluateSignupRegression(input.supabase, input.projectId)),
+    runProbe("regression", PARALLEL_PROBES[9], () => evaluateIdeaLabRegression(input.supabase)),
   ]);
 
   const after = await hashWorkingTree(input.cwd);

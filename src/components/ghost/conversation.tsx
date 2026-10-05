@@ -221,6 +221,7 @@ function LatestExchange({
 export function GhostConversation({
   projectId,
   projectName,
+  ideaId = null,
   conversationId,
   messages,
   providerConfigured,
@@ -228,6 +229,7 @@ export function GhostConversation({
 }: {
   projectId: string | null;
   projectName: string | null;
+  ideaId?: string | null;
   conversationId: string | null;
   messages: ConversationMessage[];
   providerConfigured: boolean;
@@ -238,7 +240,7 @@ export function GhostConversation({
     showPendingQuestion(String(formData.get("message") ?? "").trim() || null);
     return sendGhostMessage(previous, formData);
   }, initialActionState);
-  useVoiceReader(`${projectId ?? "all"}:${conversationId ?? "new"}`, messages);
+  useVoiceReader(`${ideaId ?? projectId ?? "all"}:${conversationId ?? "new"}`, messages);
   const latestAnswerId = [...messages].reverse().find((message) => message.role === "assistant")?.id ?? null;
   useCoreActivity(pending, latestAnswerId);
   const field = useRef<HTMLTextAreaElement>(null);
@@ -268,6 +270,7 @@ export function GhostConversation({
   const hidden = (
     <>
       <input type="hidden" name="projectId" value={projectId ?? ""} />
+      <input type="hidden" name="ideaId" value={ideaId ?? ""} />
       <input type="hidden" name="conversationId" value={conversationId ?? ""} />
     </>
   );

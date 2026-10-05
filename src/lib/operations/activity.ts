@@ -70,6 +70,7 @@ export async function loadRecentActivity(
 
   if (!decisions.error) {
     for (const row of decisions.data) {
+      if (!row.project_id) continue;
       items.push({
         id: `dec-${row.id}`,
         projectId: row.project_id,

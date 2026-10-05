@@ -201,7 +201,7 @@ test("conversation hands the reader only the final answer, and the reader has no
   const conversation = readFileSync(new URL("../../components/ghost/conversation.tsx", import.meta.url), "utf8");
   assert.match(conversation, /<VoiceControls messageId=\{message\.id\} source=\{splitAnswer\(message\.content\)\.answer\} \/>/);
   assert.equal(conversation.match(/<VoiceControls/g)?.length, 1);
-  assert.match(conversation, /useVoiceReader\(`\$\{projectId \?\? "all"\}:\$\{conversationId \?\? "new"\}`, messages\)/);
+  assert.match(conversation, /useVoiceReader\(`\$\{ideaId \?\? projectId \?\? "all"\}:\$\{conversationId \?\? "new"\}`, messages\)/);
 
   const component = readFileSync(new URL("../../components/ghost/voice.tsx", import.meta.url), "utf8");
   const library = readFileSync(new URL("./voice.ts", import.meta.url), "utf8");

@@ -86,6 +86,7 @@ export async function resolveFounderDecision(
   }
   revalidatePath("/dashboard");
   if (projectId) revalidatePath(`/projects/${projectId}`);
+  if (resolved.data.ideaId) revalidatePath(`/ideas/${resolved.data.ideaId}`);
   return {
     error: null,
     notice:

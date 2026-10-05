@@ -4,7 +4,9 @@ export type DecisionStatus = (typeof DECISION_STATUSES)[number];
 export type DecisionOption = { id: string; label: string };
 
 export type DecisionDraft = {
-  projectId: string;
+  projectId?: string | null;
+  ideaId?: string | null;
+  strategyId?: string | null;
   title: string;
   question: string;
   context?: string;
@@ -22,7 +24,9 @@ export type DecisionResolution = {
 };
 
 export function validateDecisionDraft(draft: DecisionDraft): string | null {
-  if (!draft.projectId.trim()) return "A project is required.";
+  if (!(draft.projectId?.trim() || draft.ideaId?.trim())) {
+    return "A project or idea is required.";
+  }
   if (!draft.title.trim()) return "A decision title is required.";
   if (!draft.question.trim()) return "A decision question is required.";
   if ((draft.options ?? []).some((option) => !option.label.trim())) return "Decision options must have labels.";

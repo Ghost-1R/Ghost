@@ -15,6 +15,10 @@ export async function rememberResolvedDecision(
   if (decision.status !== "RESOLVED") {
     return { status: "ok", data: null };
   }
+  if (!decision.projectId) {
+    // Idea Lab decisions become project knowledge only after promotion attaches a project.
+    return { status: "ok", data: null };
+  }
   const content = [
     `Question: ${decision.question}`,
     decision.selectedOption ? `Selected: ${decision.selectedOption}` : null,

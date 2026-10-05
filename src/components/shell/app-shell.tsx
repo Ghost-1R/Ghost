@@ -8,6 +8,7 @@ import { GhostCore } from "@/components/ghost/experience";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home" },
+  { href: "/ideas", label: "Idea Lab" },
   { href: "/projects", label: "Projects" },
   { href: "/projects/new", label: "New Project" },
   { href: "/memory", label: "Memory" },
