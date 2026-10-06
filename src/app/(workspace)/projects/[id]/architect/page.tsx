@@ -77,6 +77,7 @@ export default async function ProductArchitectPage({ params }: { params: Promise
   }
 
   if (!architecture.data) {
+    const conversation = await loadLatestConversation(session.supabase, projectId);
     return (
       <div className="stack">
         <div className="page-head">
@@ -96,6 +97,19 @@ export default async function ProductArchitectPage({ params }: { params: Promise
           <ActionForm action={initializeProductArchitectAction} submitLabel="Initialize Product Architect">
             <input type="hidden" name="projectId" value={projectId} />
           </ActionForm>
+        </Panel>
+        <Panel title="Ask Ghost about this product">
+          <p className="quiet">
+            Product Architect is not initialized yet. Answers must say what is unknown until definition records exist.
+          </p>
+          {conversation.status === "error" ? <ErrorState message={conversation.message} /> : null}
+          <GhostConversation
+            projectId={projectId}
+            projectName={project.data.name}
+            conversationId={conversation.status === "ok" ? conversation.data?.id ?? null : null}
+            messages={conversation.status === "ok" ? conversation.data?.messages ?? [] : []}
+            providerConfigured={isModelConfigured()}
+          />
         </Panel>
       </div>
     );

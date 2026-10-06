@@ -167,6 +167,56 @@ export async function evaluateRequirementTrace(supabase: GhostClient, projectId:
       });
       continue;
     }
+    if (requirement.title === "Idea Lab operating loop") {
+      const [ideas, strategies, ideaSource, promoteSource] = await Promise.all([
+        supabase.from("ideas").select("id").limit(1),
+        supabase.from("idea_strategies").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/ideas/workflow.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/ideas/promote.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !ideas.error && !strategies.error;
+      const codeOk =
+        ideaSource.includes("canTransitionIdea") &&
+        ideaSource.includes("computeIdeaReadiness") &&
+        promoteSource.includes("promoted_project_id");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/ideas/workflow.ts; src/lib/ideas/promote.ts; ideas; idea_strategies",
+          ok
+            ? `live ideas table ${ideas.error ? "error" : "ok"}; strategies table ${strategies.error ? "error" : "ok"}; promote path present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
+    if (requirement.title === "Product Architect operating loop") {
+      const [architectures, features, architectSource, readinessSource] = await Promise.all([
+        supabase.from("product_architectures").select("id").limit(1),
+        supabase.from("product_features").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/product-architect/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/product-architect/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !architectures.error && !features.error;
+      const codeOk =
+        architectSource.includes("isRequirementAuthoritative") &&
+        readinessSource.includes("computeProductReadiness") &&
+        readinessSource.includes("BUILD_READY");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/product-architect; product_architectures; product_features",
+          ok
+            ? `live product tables ${architectures.error || features.error ? "error" : "ok"}; readiness and truth modules present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
     traced.push({ ...base, implementationEvidence: null, verificationEvidence: null });
   }
   const lines = traced.map((item) => {
