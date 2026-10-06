@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DashboardHero, HERO_PATH } from "../../components/ghost/hero";
+import { DashboardHero } from "../../components/ghost/hero";
 import { REDACTED } from "../security/redact";
 import {
   autoReadTarget,
@@ -217,18 +217,23 @@ test("conversation hands the reader only the final answer, and the reader has no
 });
 
 test("the dashboard hero carries the brand copy and no invented numbers", () => {
-  const html = renderToStaticMarkup(createElement(DashboardHero));
+  const html = renderToStaticMarkup(createElement(DashboardHero, { activeStageId: "IMPLEMENTATION" }));
   const text = html.replace(/<[^>]+>/g, " ");
-  assert.match(html, /<h1 class="hero-title" id="hero-title" aria-label="Ghost">/);
-  assert.match(text.replace(/\s+/g, ""), /^GHOST/);
-  assert.ok(text.includes("Your second mind"));
-  assert.ok(text.includes("From idea to launch — built your way."));
-  for (const step of HERO_PATH) assert.ok(text.includes(step));
-  assert.deepEqual([...HERO_PATH], ["Plan", "Design", "Build", "Test", "Deploy", "Learn", "Grow"]);
-  assert.match(html, /alt=""/);
-  assert.match(html, /class="hero-art" aria-hidden="true"/);
-  assert.ok(!/[0-9%]/.test(text), `hero text has numbers: ${text}`);
+  assert.match(html, /id="hero-title"/);
+  assert.ok(text.includes("Ghost is your"));
+  assert.ok(text.includes("second mind"));
+  assert.ok(text.includes("Ask Ghost Anything"));
+  assert.ok(text.includes("New Project"));
+  assert.ok(text.includes("Implementation"));
+  assert.ok(text.includes("Build the product"));
+  assert.match(html, /data-active="true"/);
+  assert.ok(!/\b\d{1,3}\s*%/.test(text), `hero text has percentages: ${text}`);
   assert.match(text, /Core\s+IDLE/);
+});
+
+test("dashboard hero no longer exports the old decorative path list", async () => {
+  const mod = await import("@/components/ghost/hero");
+  assert.equal("HERO_PATH" in mod, false);
 });
 
 test("the hero artwork ships at its native high resolution", () => {

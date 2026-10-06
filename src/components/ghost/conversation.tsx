@@ -245,7 +245,6 @@ export function GhostConversation({
   useCoreActivity(pending, latestAnswerId);
   const field = useRef<HTMLTextAreaElement>(null);
   const voice = useVoiceInput(field);
-  const fieldId = useId();
   const hintId = useId();
 
   const providerNotice = providerConfigured ? null : (
@@ -284,18 +283,18 @@ export function GhostConversation({
             <span className="command-mark" aria-hidden="true">
               <GhostCore size="mark" />
             </span>
-            <label className="sr-only" htmlFor={fieldId}>
+            <label className="sr-only" htmlFor="ghost-command">
               Ask Ghost
             </label>
             <textarea
-              id={fieldId}
+              id="ghost-command"
               ref={field}
               name="message"
               rows={1}
               required
               maxLength={4000}
               enterKeyHint="send"
-              placeholder="Ask Ghost anything…"
+              placeholder="Ask about projects, blockers, decisions, bugs, or what to do next..."
               aria-describedby={hintId}
               onKeyDown={submitOnEnter}
             />

@@ -1,44 +1,33 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import path from "node:path";
 import { redirect } from "next/navigation";
 import { GhostConversation } from "@/components/ghost/conversation";
 import { DashboardHero } from "@/components/ghost/hero";
 import { ActionForm } from "@/components/ui/action-form";
-import { EmptyState, ErrorState, Panel } from "@/components/ui/panel";
+import { EmptyState, ErrorState } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { describeProviderPolicy, isModelConfigured } from "@/lib/ai/provider";
+import { isModelConfigured } from "@/lib/ai/provider";
 import { getSession } from "@/lib/auth/session";
 import { loadLatestConversation } from "@/lib/conversation/queries";
+import {
+  buildOperatingMetrics,
+  countOpenDecisionsForProject,
+  mapLifecycleToPipelineStage,
+  OS_PIPELINE_STAGES,
+  pickActiveProject,
+} from "@/lib/dashboard/os";
+import { loadActiveProductCounts, loadDashboardGroundedCounts } from "@/lib/dashboard/queries";
 import { resolveFounderDecision } from "@/lib/decisions/actions";
 import { loadOpenDecisions } from "@/lib/decisions/queries";
 import { formatTimestamp } from "@/lib/format";
-import { listIdeas } from "@/lib/ideas/queries";
-import { loadFounderRules, loadMemoryProposals, loadProjectKnowledge } from "@/lib/memory/queries";
 import { loadRecentActivity } from "@/lib/operations/activity";
 import { loadTodayActions } from "@/lib/operations/actions";
 import { explainTodayPriority } from "@/lib/operations/today";
-import { loadPatterns } from "@/lib/patterns/library";
-import { loadPresentationStatus } from "@/lib/presentation/status";
 import { loadProjectSummaries } from "@/lib/projects/queries";
 
 export const metadata: Metadata = {
   title: "Dashboard",
 };
-
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
-}
-
-function githubConfigured(): boolean {
-  return Boolean(
-    process.env.GITHUB_TOKEN?.trim() || process.env.GH_TOKEN?.trim() || process.env.GITHUB_PAT?.trim(),
-  );
-}
-
-function supabaseConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim());
-}
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -46,304 +35,310 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const summaries = loadProjectSummaries(session.supabase);
-  const provider = describeProviderPolicy();
   const [
     projects,
-    rules,
-    knowledge,
-    proposals,
     conversation,
-    patterns,
-    presentation,
     today,
     openDecisions,
     activity,
-    ideas,
   ] = await Promise.all([
-    summaries,
-    loadFounderRules(session.supabase),
-    loadProjectKnowledge(session.supabase),
-    loadMemoryProposals(session.supabase),
+    loadProjectSummaries(session.supabase),
     loadLatestConversation(session.supabase, null),
-    loadPatterns(path.join(process.cwd(), "ghost-patterns")).catch(() => null),
-    loadPresentationStatus(session.supabase, session.user.id, summaries),
     loadTodayActions(session.supabase),
     loadOpenDecisions(session.supabase),
-    loadRecentActivity(session.supabase),
-    listIdeas(session.supabase),
+    loadRecentActivity(session.supabase, 8),
   ]);
 
-  const activeRules = rules.status === "ok" ? rules.data.filter((rule) => rule.status === "ACTIVE").length : null;
-  const pendingCount =
-    proposals.status === "ok" ? proposals.data.filter((item) => item.status === "PENDING").length : null;
-  const drafts = patterns ? patterns.filter((pattern) => pattern.status === "DRAFT").length : null;
-  const review = presentation.review;
+  const projectList = projects.status === "ok" ? projects.data : [];
+  const decisionList = openDecisions.status === "ok" ? openDecisions.data : [];
+  const todayList = today.status === "ok" ? today.data : [];
+  const activityList = activity.status === "ok" ? activity.data.slice(0, 6) : [];
+  const active = pickActiveProject(projectList);
+  const activeStageId = active ? mapLifecycleToPipelineStage(active.lifecycleStage) : null;
+
+  const grounded =
+    projects.status === "ok"
+      ? await loadDashboardGroundedCounts(
+          session.supabase,
+          projectList.map((project) => project.id),
+        )
+      : null;
+  const productCounts = active
+    ? await loadActiveProductCounts(session.supabase, active.id)
+    : null;
+
+  const openBlockerCount = projectList.reduce((sum, project) => sum + project.openBlockers, 0);
+  const metrics = buildOperatingMetrics({
+    projectCount: projectList.length,
+    openDecisionCount: decisionList.length,
+    openBlockerCount,
+    verifiedItemCount: grounded?.status === "ok" ? grounded.data.verifiedItemCount : null,
+    productionProjectCount: grounded?.status === "ok" ? grounded.data.productionProjectCount : null,
+  });
+
+  const activeDecisionCount = active ? countOpenDecisionsForProject(decisionList, active.id) : 0;
+  const requirementCount =
+    productCounts?.status === "ok" ? productCounts.data.requirementCount : null;
+  const featureCount = productCounts?.status === "ok" ? productCounts.data.featureCount : null;
 
   return (
-    <div className="stack dashboard">
-      <DashboardHero />
-
-      {conversation.status === "error" ? <ErrorState message={conversation.message} /> : null}
-      <GhostConversation
-        projectId={null}
-        projectName={null}
-        conversationId={conversation.status === "ok" ? conversation.data?.id ?? null : null}
-        messages={conversation.status === "ok" ? conversation.data?.messages ?? [] : []}
-        providerConfigured={isModelConfigured()}
-        variant="command"
-      />
-
-      <div className="page-head section-head">
-        <div>
-          <p className="eyebrow">Dashboard</p>
-          <h2>Continue from the real state.</h2>
-        </div>
-        <div className="meta">
-          <Link className="button-secondary" href="/ideas">
-            Idea Lab
-          </Link>
-          <Link className="button" href="/projects/new">
-            New project
-          </Link>
-        </div>
-      </div>
-
-      <Panel title="Idea Lab" action={<Link href="/ideas">All ideas</Link>}>
-        {ideas.status === "error" ? <ErrorState message={ideas.message} /> : null}
-        {ideas.status === "ok" && ideas.data.length === 0 ? (
-          <EmptyState>No ideas captured yet. Capture before creating a project.</EmptyState>
-        ) : null}
-        {ideas.status === "ok" && ideas.data.length > 0 ? (
-          <div className="stack">
-            {ideas.data.slice(0, 5).map((idea) => (
-              <article className="list-item" key={idea.id}>
-                <h3>
-                  <Link href={`/ideas/${idea.id}`}>{idea.title}</Link>
-                </h3>
-                <p className="quiet">
-                  {idea.status} · {idea.readiness}
-                  {idea.summary ? ` · ${idea.summary}` : ""}
-                </p>
-              </article>
-            ))}
-          </div>
-        ) : null}
-      </Panel>
-
-      <Panel title="Today with Ghost">
-        {today.status === "error" ? <ErrorState message={today.message} /> : null}
-        {today.status === "ok" && today.data.length === 0 ? (
-          <EmptyState>Nothing needs your attention right now. Ghost does not invent tasks to fill this list.</EmptyState>
-        ) : null}
-        {today.status === "ok" && today.data.length > 0 ? (
-          <div className="stack">
-            {today.data.map((item) => (
-              <article className="list-item" key={item.id}>
-                <h3>
-                  <Link href={`/projects/${item.projectId}`}>{item.title}</Link>
-                </h3>
-                <p className="quiet">
-                  {item.projectName} · {item.status}
-                  {item.requiresDecision ? " · decision required" : ""} · {item.provenance}
-                </p>
-                <p className="quiet">{explainTodayPriority(item)}</p>
-              </article>
-            ))}
-          </div>
-        ) : null}
-      </Panel>
-
-      <Panel title="Needs your decision">
-        {openDecisions.status === "error" ? <ErrorState message={openDecisions.message} /> : null}
-        {openDecisions.status === "ok" && openDecisions.data.length === 0 ? (
-          <EmptyState>No founder decisions are waiting.</EmptyState>
-        ) : null}
-        {openDecisions.status === "ok" && openDecisions.data.length > 0 ? (
-          <div className="stack">
-            {openDecisions.data.map((decision) => {
-              const href = decision.projectId
-                ? `/projects/${decision.projectId}`
-                : decision.ideaId
-                  ? `/ideas/${decision.ideaId}`
-                  : "/dashboard";
-              return (
-                <article className="list-item" key={decision.id}>
-                  <h3>
-                    <Link href={href}>{decision.title}</Link>
-                  </h3>
-                  <p className="quiet">{decision.question}</p>
-                  {decision.ideaId && !decision.projectId ? (
-                    <p className="quiet">From Idea Lab · Ghost recommends only; you decide.</p>
-                  ) : null}
-                  {decision.recommendation ? <p className="quiet">Ghost recommends: {decision.recommendation}</p> : null}
-                  {decision.options.length > 0 ? (
-                    <ul className="meta">
-                      {decision.options.map((option) => (
-                        <li key={option.id}>{option.label}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  <ActionForm action={resolveFounderDecision} submitLabel="Resolve decision">
-                    <input type="hidden" name="decisionId" value={decision.id} />
-                    <input type="hidden" name="projectId" value={decision.projectId ?? ""} />
-                    <input type="hidden" name="status" value="RESOLVED" />
-                    <label className="field">
-                      <span>Your choice</span>
-                      <input name="selectedOption" required maxLength={200} placeholder="Selected option or answer" />
-                    </label>
-                    <label className="field">
-                      <span>Rationale (optional)</span>
-                      <textarea name="rationale" />
-                    </label>
-                  </ActionForm>
-                </article>
-              );
-            })}
-          </div>
-        ) : null}
-      </Panel>
-
-      <Panel title="Your projects" action={<Link href="/projects">All projects</Link>}>
-        {projects.status === "error" ? <ErrorState message={projects.message} /> : null}
-        {projects.status === "ok" && projects.data.length === 0 ? (
-          <EmptyState>No projects yet. Create your first project.</EmptyState>
-        ) : null}
-        {projects.status === "ok" && projects.data.length > 0 ? (
-          <div className="card-grid">
-            {projects.data.map((project) => (
-              <article className="card" key={project.id}>
-                <h3>
-                  <Link href={`/projects/${project.id}`}>{project.name}</Link>
-                </h3>
-                <p className="quiet">
-                  Lifecycle: {project.lifecycleStage} · {project.currentMilestone || "No milestone recorded."}
-                </p>
-                <ul className="meta">
-                  <li>
-                    <StatusBadge status={project.status} />
-                  </li>
-                  <li>
-                    {project.openBlockers === 0
-                      ? "No open blockers"
-                      : `${project.openBlockers} open blocker${project.openBlockers === 1 ? "" : "s"}`}
-                  </li>
-                  <li>Next: {project.nextAction ?? "No open next action recorded."}</li>
-                </ul>
-              </article>
-            ))}
-          </div>
-        ) : null}
-      </Panel>
-
-      <Panel title="Build progress">
-        {projects.status === "ok" && projects.data.length > 0 ? (
-          <div className="stack">
-            {projects.data.map((project) => (
-              <article className="list-item" key={`progress-${project.id}`}>
-                <h3>
-                  <Link href={`/projects/${project.id}`}>{project.name}</Link>
-                </h3>
-                <p className="quiet">
-                  Stage {project.lifecycleStage}
-                  {project.currentMilestone ? ` · ${project.currentMilestone}` : ""}
-                </p>
-                <p className="quiet">Ghost does not invent completion percentages.</p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <EmptyState>No project lifecycle is recorded yet.</EmptyState>
-        )}
-      </Panel>
-
-      <Panel title="Latest activity">
-        {activity.status === "error" ? <ErrorState message={activity.message} /> : null}
-        {activity.status === "ok" && activity.data.length === 0 ? (
-          <EmptyState>No operational activity is recorded yet.</EmptyState>
-        ) : null}
-        {activity.status === "ok" && activity.data.length > 0 ? (
-          <div className="stack">
-            {activity.data.map((item) => (
-              <article className="list-item" key={item.id}>
-                <h3>
-                  <Link href={item.href}>{item.title}</Link>
-                </h3>
-                <p className="quiet">
-                  {item.projectName} · {formatTimestamp(item.at)}
-                </p>
-                <p className="quiet">{item.detail}</p>
-              </article>
-            ))}
-          </div>
-        ) : null}
-      </Panel>
-
-      <section className="systems" aria-label="Ghost systems">
-        <article className="system-card">
-          <p className="eyebrow">Memory</p>
-          <h3>{activeRules === null ? "Founder rules unavailable" : plural(activeRules, "active founder rule", "active founder rules")}</h3>
-          <ul className="meta">
-            <li>Project knowledge: {knowledge.status === "ok" ? knowledge.data.length : "unavailable"}</li>
-            <li>Pending proposals: {pendingCount === null ? "unavailable" : pendingCount}</li>
-          </ul>
-          <Link className="system-link" href="/memory">
-            Open memory
-          </Link>
-        </article>
-        <article className="system-card">
-          <p className="eyebrow">Patterns</p>
-          <h3>{patterns ? plural(patterns.length, "stored pattern", "stored patterns") : "Patterns unavailable"}</h3>
-          <ul className="meta">
-            <li>{drafts === null ? "Draft count unavailable" : `${plural(drafts, "draft", "drafts")} awaiting approval`}</li>
-          </ul>
-          <Link className="system-link" href="/patterns">
-            Open patterns
-          </Link>
-        </article>
-        <article className="system-card">
-          <p className="eyebrow">Latest review</p>
-          {review ? (
+    <div className="stack os-dashboard">
+      <div className="os-hero-row">
+        <DashboardHero activeStageId={activeStageId} />
+        <section className="os-active-card" aria-label="Active project">
+          <p className="eyebrow">Active Project</p>
+          {active ? (
             <>
-              <h3>
-                <StatusBadge status={review.result} />{" "}
-                {presentation.fresh
-                  ? presentation.hosted
-                    ? "Fresh for this deployment"
-                    : "Fresh for this tree"
-                  : presentation.hosted
-                    ? "For an earlier deployment"
-                    : "For an earlier tree"}
-              </h3>
-              <ul className="meta">
-                <li>Commit {review.commitSha.slice(0, 7)}</li>
-                <li>Checked {formatTimestamp(review.createdAt)}</li>
+              <h2>{active.name}</h2>
+              <p className="quiet">{active.description || "No description recorded."}</p>
+              <ul className="meta os-active-meta">
+                <li>
+                  <StatusBadge status={active.status} />
+                </li>
+                <li className="os-chip">{active.lifecycleStage}</li>
+                {active.openBlockers > 0 ? (
+                  <li className="os-chip os-chip-warn">{active.openBlockers} blocker{active.openBlockers === 1 ? "" : "s"}</li>
+                ) : null}
+                {activeDecisionCount > 0 ? (
+                  <li className="os-chip os-chip-purple">{activeDecisionCount} decision{activeDecisionCount === 1 ? "" : "s"} open</li>
+                ) : null}
               </ul>
+              <ul className="meta">
+                {requirementCount !== null ? <li>Requirements: {requirementCount}</li> : null}
+                {featureCount !== null ? <li>Features: {featureCount}</li> : null}
+                <li>Open Decisions: {activeDecisionCount}</li>
+              </ul>
+              {active.nextAction ? <p className="os-next-line">Next: {active.nextAction}</p> : null}
+              <Link className="button" href={`/projects/${active.id}`}>
+                Open Project →
+              </Link>
             </>
           ) : (
-            <h3>No presentation review recorded</h3>
+            <>
+              <h2>No active project</h2>
+              <p className="quiet">Create a project to give Ghost something to operate.</p>
+              <Link className="button" href="/projects/new">
+                New Project
+              </Link>
+            </>
           )}
-          <Link className="system-link" href="/presentation">
-            Open presentation
-          </Link>
-        </article>
-        <article className="system-card">
-          <p className="eyebrow">Integrations</p>
-          <h3>Connected systems Ghost can prove</h3>
-          <ul className="meta">
-            <li>Supabase: {supabaseConfigured() ? "connected" : "not configured"}</li>
-            <li>
-              Groq: {provider.status === "READY" ? `ready · ${provider.model}` : "not configured"}
+        </section>
+      </div>
+
+      <section className="os-metrics" aria-label="Operating summary">
+        {metrics.map((metric) => (
+          <article className="os-metric" key={metric.key}>
+            <p className="eyebrow">{metric.label}</p>
+            <p className="os-metric-value">{metric.value}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="os-panel" aria-labelledby="pipeline-heading">
+        <div className="os-panel-head">
+          <div>
+            <p className="eyebrow">Project Pipeline</p>
+            <h2 id="pipeline-heading">Where your product is in the Ghost operating system.</h2>
+          </div>
+        </div>
+        <ol className="os-pipeline-horizontal">
+          {OS_PIPELINE_STAGES.map((stage) => (
+            <li key={stage.id} data-active={activeStageId === stage.id ? "true" : "false"}>
+              <strong>{stage.label}</strong>
+              <span>{stage.subtitle}</span>
             </li>
-            <li>GitHub: {githubConfigured() ? "configured (read-only)" : "NOT CONFIGURED"}</li>
-            <li>Render: Ghost deployment platform</li>
-            <li>Vercel: not used for Ghost</li>
-            <li>Paid fallback: {provider.paidFallback}</li>
-          </ul>
-          <Link className="system-link" href="/settings">
-            Open settings
-          </Link>
-        </article>
+          ))}
+        </ol>
+        <p className="quiet os-pipeline-note">
+          Current stage only is highlighted from authoritative lifecycle. Ghost does not invent prior-stage completion.
+        </p>
+      </section>
+
+      <div className="os-attention-grid">
+        <section className="os-panel" aria-labelledby="today-heading">
+          <div className="os-panel-head">
+            <div>
+              <p className="eyebrow">Today with Ghost</p>
+              <h2 id="today-heading">What deserves your attention now.</h2>
+            </div>
+          </div>
+          {today.status === "error" ? <ErrorState message={today.message} /> : null}
+          {today.status === "ok" && todayList.length === 0 ? (
+            <EmptyState>Nothing needs your attention right now. Ghost does not invent tasks to fill this list.</EmptyState>
+          ) : null}
+          {todayList.length > 0 ? (
+            <div className="stack">
+              {todayList.slice(0, 5).map((item) => (
+                <article className="os-row" key={item.id}>
+                  <div>
+                    <h3>
+                      <Link href={`/projects/${item.projectId}`}>{item.title}</Link>
+                    </h3>
+                    <p className="quiet">
+                      {item.projectName} · {item.status}
+                      {item.requiresDecision ? " · decision required" : ""}
+                    </p>
+                    <p className="quiet">{explainTodayPriority(item)}</p>
+                  </div>
+                  <Link className="button-secondary os-row-action" href={`/projects/${item.projectId}`}>
+                    Open →
+                  </Link>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <section className="os-panel os-panel-decision" aria-labelledby="decisions-heading">
+          <div className="os-panel-head">
+            <div>
+              <p className="eyebrow">Needs Your Decision</p>
+              <h2 id="decisions-heading">Choices Ghost will not make for you.</h2>
+            </div>
+          </div>
+          {openDecisions.status === "error" ? <ErrorState message={openDecisions.message} /> : null}
+          {openDecisions.status === "ok" && decisionList.length === 0 ? (
+            <EmptyState>No founder decisions are waiting.</EmptyState>
+          ) : null}
+          {decisionList.length > 0 ? (
+            <div className="stack">
+              {decisionList.slice(0, 6).map((decision) => {
+                const href = decision.projectId
+                  ? `/projects/${decision.projectId}`
+                  : decision.ideaId
+                    ? `/ideas/${decision.ideaId}`
+                    : "/dashboard";
+                const projectName =
+                  projectList.find((project) => project.id === decision.projectId)?.name ??
+                  (decision.ideaId ? "Idea Lab" : "Ghost");
+                return (
+                  <article className="os-row" key={decision.id}>
+                    <div>
+                      <p className="os-row-project">{projectName}</p>
+                      <h3>
+                        <Link href={href}>{decision.title}</Link>
+                      </h3>
+                      <p className="quiet">{decision.question}</p>
+                      {decision.recommendation ? (
+                        <p className="quiet">Ghost recommends: {decision.recommendation}</p>
+                      ) : null}
+                      <ActionForm action={resolveFounderDecision} submitLabel="Resolve">
+                        <input type="hidden" name="decisionId" value={decision.id} />
+                        <input type="hidden" name="projectId" value={decision.projectId ?? ""} />
+                        <input type="hidden" name="status" value="RESOLVED" />
+                        <label className="field">
+                          <span>Your choice</span>
+                          <input name="selectedOption" required maxLength={200} placeholder="Selected option or answer" />
+                        </label>
+                      </ActionForm>
+                    </div>
+                    <Link className="button-secondary os-row-action" href={href}>
+                      Review →
+                    </Link>
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
+        </section>
+      </div>
+
+      <div className="os-lower-grid">
+        <section className="os-panel" aria-labelledby="activity-heading">
+          <div className="os-panel-head">
+            <div>
+              <p className="eyebrow">Recent Activity</p>
+              <h2 id="activity-heading">What actually changed.</h2>
+            </div>
+          </div>
+          {activity.status === "error" ? <ErrorState message={activity.message} /> : null}
+          {activity.status === "ok" && activityList.length === 0 ? (
+            <EmptyState>No operational activity is recorded yet.</EmptyState>
+          ) : null}
+          {activityList.length > 0 ? (
+            <div className="stack">
+              {activityList.map((item) => (
+                <article className="os-row" key={item.id}>
+                  <div>
+                    <h3>
+                      <Link href={item.href}>{item.title}</Link>
+                    </h3>
+                    <p className="quiet">
+                      {item.projectName} · {formatTimestamp(item.at)}
+                    </p>
+                    <p className="quiet">{item.detail}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <section className="os-panel" aria-labelledby="projects-heading">
+          <div className="os-panel-head">
+            <div>
+              <p className="eyebrow">Your Projects</p>
+              <h2 id="projects-heading">The work Ghost is tracking.</h2>
+            </div>
+            <Link href="/projects">All projects</Link>
+          </div>
+          {projects.status === "error" ? <ErrorState message={projects.message} /> : null}
+          {projects.status === "ok" && projectList.length === 0 ? (
+            <EmptyState>No projects yet. Create your first project.</EmptyState>
+          ) : null}
+          {projectList.length > 0 ? (
+            <div className="os-project-grid">
+              {projectList.map((project) => {
+                const decisions = countOpenDecisionsForProject(decisionList, project.id);
+                return (
+                  <article className="os-project-card" key={project.id} data-active={active?.id === project.id ? "true" : "false"}>
+                    <p className="eyebrow">{project.lifecycleStage}</p>
+                    <h3>
+                      <Link href={`/projects/${project.id}`}>{project.name}</Link>
+                    </h3>
+                    <p className="quiet">{project.description || "No description recorded."}</p>
+                    <ul className="meta">
+                      <li>
+                        <StatusBadge status={project.status} />
+                      </li>
+                      <li>
+                        {project.openBlockers} blocker{project.openBlockers === 1 ? "" : "s"}
+                      </li>
+                      <li>
+                        {decisions} decision{decisions === 1 ? "" : "s"}
+                      </li>
+                    </ul>
+                    {project.nextAction ? <p className="quiet">Next: {project.nextAction}</p> : null}
+                    <Link className="button-secondary" href={`/projects/${project.id}`}>
+                      Open Project
+                    </Link>
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
+        </section>
+      </div>
+
+      <section className="os-panel os-ask-panel" id="ask-ghost" aria-labelledby="ask-heading">
+        <div className="os-panel-head">
+          <div>
+            <p className="eyebrow">Ask Ghost</p>
+            <h2 id="ask-heading">Ask about projects, blockers, decisions, bugs, or what to do next.</h2>
+          </div>
+        </div>
+        <p className="quiet">
+          Try: “Checkout is broken — what do we know?” · “Why are orders stuck?” · “What should I test first?”
+        </p>
+        {conversation.status === "error" ? <ErrorState message={conversation.message} /> : null}
+        <GhostConversation
+          projectId={active?.id ?? null}
+          projectName={active?.name ?? null}
+          conversationId={conversation.status === "ok" ? conversation.data?.id ?? null : null}
+          messages={conversation.status === "ok" ? conversation.data?.messages ?? [] : []}
+          providerConfigured={isModelConfigured()}
+          variant="command"
+        />
       </section>
     </div>
   );

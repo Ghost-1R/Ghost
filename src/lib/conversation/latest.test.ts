@@ -50,9 +50,14 @@ test("the command bar sends on Enter, keeps Shift+Enter, and offers voice withou
 
 test("the dashboard shows only real systems state and no invented metrics", () => {
   const page = readFileSync(new URL("../../app/(workspace)/dashboard/page.tsx", import.meta.url), "utf8");
-  assert.ok(page.indexOf("<DashboardHero") < page.indexOf('variant="command"'));
-  assert.ok(page.indexOf('variant="command"') < page.indexOf("Continue from the real state."));
-  assert.ok(!/Math\.random|%<|uptime|velocity|streak/i.test(page));
+  assert.ok(page.includes("<DashboardHero"));
+  assert.ok(page.includes('variant="command"'));
+  assert.ok(page.includes("Today with Ghost"));
+  assert.ok(page.includes("Needs Your Decision"));
+  assert.ok(page.includes("buildOperatingMetrics"));
+  assert.ok(page.includes("Ghost does not invent prior-stage completion"));
+  assert.ok(!/Math\.random|%<|uptime|velocity|streak|78%|Tasks completed|Bugs resolved/i.test(page));
+  assert.ok(!/fake|placeholder analytics|dummy data/i.test(page));
 });
 
 test("command bar motion is compositor-only and stops under reduced motion", () => {
