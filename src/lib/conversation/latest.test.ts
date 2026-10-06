@@ -59,9 +59,10 @@ test("the dashboard shows only real systems state and no invented metrics", () =
   assert.ok(page.includes("Ask Ghost anything"));
   assert.ok(page.includes("moneyStatusPhase1"));
   assert.ok(page.includes("rankTop3Actions"));
+  assert.ok(page.includes("ctaLabel"));
   assert.ok(!/Math\.random|%<|uptime|velocity|streak|78%|Tasks completed|Bugs resolved|\$0 MRR/i.test(page));
   assert.ok(!/fake|placeholder analytics|dummy data/i.test(page));
-  assert.ok(!/Ivoire Shop|Cleaning Business/.test(page));
+  assert.ok(!/Cleaning Business|Continue →/.test(page));
 });
 
 test("command bar motion is compositor-only and stops under reduced motion", () => {

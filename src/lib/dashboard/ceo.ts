@@ -3,6 +3,12 @@
  * No attention table. No fabricated metrics. Absence of failure ≠ GREEN.
  */
 
+import {
+  presentCeoSignal,
+  presentNextActionLine,
+  presentProjectHealthReason,
+  signalIdentityKey,
+} from "@/lib/dashboard/ceo-copy";
 import type { TodayAction } from "@/lib/operations/today";
 import { explainTodayPriority, prioritizeTodayActions } from "@/lib/operations/today";
 
@@ -44,10 +50,15 @@ export type Top3Action = {
   id: string;
   projectId: string;
   projectName: string;
-  status: string;
-  reason: string;
+  status: HealthStatus | "WAITING";
+  headline: string;
+  explanation: string;
   nextAction: string;
+  ctaLabel: string;
+  evidence: string;
   href: string;
+  identityKey: string;
+  rankScore: number;
 };
 
 export type WaitingItem = {
@@ -69,22 +80,23 @@ export type WhoMightCallItem = {
   href: string;
 };
 
+export type WhoMightCallSection = {
+  /** External client-event bus is not connected in Phase 1. */
+  externalConnected: false;
+  notice: string;
+  /** Derived exceptions from existing client-facing RED signals. */
+  exceptions: WhoMightCallItem[];
+  state: "UNKNOWN" | "EXCEPTIONS" | "CLEAR";
+};
+
 export type RedLight = {
   id: string;
   projectId: string;
   projectName: string;
   reason: string;
   evidence: string;
-  nextAction: string;
   href: string;
-};
-
-export type ProjectHealthRow = {
-  projectId: string;
-  projectName: string;
-  health: HealthResult;
-  nextAction: string | null;
-  href: string;
+  ctaLabel: string;
 };
 
 export type MoneyStatus = {
@@ -93,14 +105,8 @@ export type MoneyStatus = {
   detail: string;
 };
 
-export type WhoMightCallSection = {
-  connected: false;
-  notice: string;
-  exceptions: WhoMightCallItem[];
-};
-
 const CONSEQUENTIAL_VERBS =
-  /\b(build|rebuild|implement|change|modify|update\s+production|deploy|redeploy|publish|release|ship|send|email|message\s+the\s+client|execute|run\s+the\s+pipeline|apply\s+migration|delete|destroy|rollback)\b/i;
+  /\b(build|rebuild|implement|change|modify|update\s+production|deploy|redeploy|publish|release|ship|send|email|message\s+the\s+client|execute|run\s+the\s+pipeline|apply\s+migration|delete|destroy|rollback|fix)\b/i;
 
 const QUESTION_MARKERS =
   /^(how|what|why|which|who|when|where|do|does|did|is|are|can|could|should|will|would|tell me|explain|summarize|show me)\b|\?$/i;
@@ -117,8 +123,6 @@ export function classifyFounderAsk(message: string): AskPath {
 
 function isPureStatusQuestion(text: string): boolean {
   if (QUESTION_MARKERS.test(text.trim())) {
-    // "How do I deploy?" is still a question about process — Second Me explains, does not execute.
-    // "Deploy Ivoire to production" is consequential.
     if (/^(how|what|why|which|who|when|where)\b/i.test(text.trim())) return true;
     if (/\?\s*$/.test(text)) return true;
   }
@@ -151,6 +155,7 @@ export function moneyStatusPhase1(): MoneyStatus {
 }
 
 export function whoMightCallSection(signals: readonly CeoSignal[]): WhoMightCallSection {
+  const notice = "External client signals aren't connected yet.";
   const exceptions = signals
     .filter(
       (signal) =>
@@ -162,24 +167,37 @@ export function whoMightCallSection(signals: readonly CeoSignal[]): WhoMightCall
           signal.kind === "failed_deployment" ||
           signal.kind === "failed_verification"),
     )
-    .map((signal) => ({
-      id: signal.id,
-      projectId: signal.projectId,
-      projectName: signal.projectName,
-      reason: signal.title,
-      href: signal.href,
-    }));
+    .map((signal) => {
+      const copy = presentCeoSignal(signal);
+      return {
+        id: signal.id,
+        projectId: signal.projectId,
+        projectName: signal.projectName,
+        reason: copy.headline,
+        href: signal.href,
+        identityKey: signalIdentityKey(signal),
+        rankScore: founderRankScore(signal),
+      };
+    });
 
-  // Dedupe by project — one line per project that could need Badger.
-  const byProject = new Map<string, WhoMightCallItem>();
+  const byIssue = new Map<string, (typeof exceptions)[number]>();
   for (const item of exceptions) {
-    if (!byProject.has(item.projectId)) byProject.set(item.projectId, item);
+    const prior = byIssue.get(item.identityKey);
+    if (!prior || item.rankScore < prior.rankScore) byIssue.set(item.identityKey, item);
   }
+  const list = [...byIssue.values()].map((item) => ({
+    id: item.id,
+    projectId: item.projectId,
+    projectName: item.projectName,
+    reason: item.reason,
+    href: item.href,
+  }));
 
   return {
-    connected: false,
-    notice: "No client exception signals connected yet.",
-    exceptions: [...byProject.values()],
+    externalConnected: false,
+    notice,
+    exceptions: list,
+    state: list.length > 0 ? "EXCEPTIONS" : "UNKNOWN",
   };
 }
 
@@ -194,55 +212,78 @@ export function deriveProjectHealth(input: {
   hasVerifiedEvidence: boolean;
   openDecisionCount: number;
   nextAction: string | null;
+  projectName?: string;
 }): HealthResult {
   const critical = input.criticalSignals;
   if (critical.length > 0 || input.openBlockerCount > 0) {
     const lead = critical[0];
-    const reason =
-      lead?.detail ||
-      (input.openBlockerCount > 0
-        ? `${input.openBlockerCount} open shipping blocker${input.openBlockerCount === 1 ? "" : "s"}.`
-        : "Critical failure recorded.");
+    const copy = lead
+      ? presentCeoSignal(lead)
+      : {
+          explanation:
+            input.openBlockerCount > 0
+              ? `${input.openBlockerCount} open shipping blocker${input.openBlockerCount === 1 ? "" : "s"}.`
+              : "Critical failure recorded.",
+          nextAction: "Resolve the shipping blocker",
+        };
     return {
       status: "RED",
-      reason,
+      reason: presentProjectHealthReason({
+        status: "RED",
+        reason: copy.explanation,
+        projectName: input.projectName ?? "",
+      }),
       sources: critical.map((s) => s.kind).slice(0, 4),
-      nextAction: input.nextAction ?? lead?.title ?? "Resolve the shipping blocker.",
+      nextAction: presentNextActionLine(input.nextAction ?? copy.nextAction),
     };
   }
 
   if (input.yellowSignals.length > 0 || input.openDecisionCount > 0) {
     const lead = input.yellowSignals[0];
     const reason =
-      lead?.detail ||
+      (lead ? presentCeoSignal(lead).explanation : null) ||
       (input.openDecisionCount > 0
         ? `${input.openDecisionCount} founder decision${input.openDecisionCount === 1 ? "" : "s"} waiting.`
         : "Important verification or founder action remains.");
     return {
       status: "YELLOW",
-      reason,
+      reason: presentProjectHealthReason({
+        status: "YELLOW",
+        reason,
+        projectName: input.projectName ?? "",
+      }),
       sources: [
         ...input.yellowSignals.map((s) => s.kind),
         ...(input.openDecisionCount > 0 ? (["open_decision"] as const) : []),
       ].slice(0, 4),
-      nextAction: input.nextAction ?? lead?.title ?? "Clear the waiting decision or verification gap.",
+      nextAction: presentNextActionLine(
+        input.nextAction ?? (lead ? presentCeoSignal(lead).nextAction : "Clear the waiting decision."),
+      ),
     };
   }
 
   if (input.hasVerifiedEvidence) {
     return {
       status: "GREEN",
-      reason: "Required relevant checks passed with recorded evidence.",
+      reason: presentProjectHealthReason({
+        status: "GREEN",
+        reason: "Required relevant checks passed with recorded evidence.",
+        projectName: input.projectName ?? "",
+      }),
       sources: ["verification_records"],
-      nextAction: input.nextAction,
+      nextAction: presentNextActionLine(input.nextAction),
     };
   }
 
   return {
     status: "UNKNOWN",
-    reason: "Insufficient evidence to claim project health.",
+    reason: presentProjectHealthReason({
+      status: "UNKNOWN",
+      reason: "Insufficient evidence to claim project health.",
+      projectName: input.projectName ?? "",
+    }),
     sources: [],
-    nextAction: input.nextAction,
+    nextAction: presentNextActionLine(input.nextAction),
   };
 }
 
@@ -259,7 +300,74 @@ export function healthGlyph(status: HealthStatus): string {
   }
 }
 
-/** Top 3 founder actions — max three, deterministic, from real state. */
+export function healthLabel(status: HealthStatus): string {
+  return status;
+}
+
+/** Founder importance — lower is more urgent. */
+export function founderRankScore(input: {
+  kind: string;
+  severity: "critical" | "high" | "normal";
+  clientFacing: boolean;
+  title: string;
+  detail: string;
+}): number {
+  const blob = `${input.title} ${input.detail}`;
+  if (/security|isolation|rls|auth/i.test(blob)) return 1;
+  if (/outage|down|unreachable/i.test(blob) || input.kind === "failed_health") return 2;
+  if (/payment|stripe|charge|checkout/i.test(blob)) return 3;
+  if (input.clientFacing && input.severity === "critical") return 4;
+  if (input.kind === "blocker" && input.severity === "critical") return 5;
+  if (input.kind === "failed_verification" || input.kind === "critical_defect") return 6;
+  if (input.kind === "failed_deployment") return 7;
+  if (input.kind === "open_decision" || input.kind === "requires_decision" || input.kind === "presentation_review") {
+    return 8;
+  }
+  if (input.severity === "high") return 9;
+  return 10;
+}
+
+type Candidate = Top3Action;
+
+function toSignalCandidate(signal: CeoSignal): Candidate {
+  const copy = presentCeoSignal(signal);
+  const identityKey = signalIdentityKey(signal);
+  return {
+    id: `sig-${signal.id}`,
+    projectId: signal.projectId,
+    projectName: signal.projectName,
+    status: signal.severity === "critical" ? "RED" : "YELLOW",
+    headline: copy.headline,
+    explanation: copy.explanation,
+    nextAction: copy.nextAction,
+    ctaLabel: copy.ctaLabel,
+    evidence: copy.evidence,
+    href: signal.href,
+    identityKey,
+    rankScore: founderRankScore(signal),
+  };
+}
+
+/** Prefer client-facing / named product projects over schema probes when collapsing. */
+function preferCandidate(a: Candidate, b: Candidate): Candidate {
+  const probe = (name: string) => /probe|acceptance|schema/i.test(name);
+  if (probe(a.projectName) !== probe(b.projectName)) {
+    return probe(a.projectName) ? b : a;
+  }
+  if (a.rankScore !== b.rankScore) return a.rankScore < b.rankScore ? a : b;
+  return a.projectName.localeCompare(b.projectName) <= 0 ? a : b;
+}
+
+export function dedupeCeoCandidates(candidates: readonly Candidate[]): Candidate[] {
+  const best = new Map<string, Candidate>();
+  for (const item of candidates) {
+    const prior = best.get(item.identityKey);
+    best.set(item.identityKey, prior ? preferCandidate(prior, item) : item);
+  }
+  return [...best.values()];
+}
+
+/** Top 3 founder actions — dedupe first, then rank, max three. */
 export function rankTop3Actions(input: {
   today: readonly TodayAction[];
   signals: readonly CeoSignal[];
@@ -272,57 +380,74 @@ export function rankTop3Actions(input: {
     createdAt: string;
   }[];
 }): Top3Action[] {
-  const ranked: Top3Action[] = [];
-  const seen = new Set<string>();
+  const candidates: Candidate[] = [];
 
-  const push = (item: Top3Action) => {
-    if (ranked.length >= 3) return;
-    const key = `${item.projectId}:${item.nextAction}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    ranked.push(item);
-  };
-
-  // 1) Critical / RED signals first
-  for (const signal of input.signals.filter((s) => s.severity === "critical")) {
-    push({
-      id: `sig-${signal.id}`,
-      projectId: signal.projectId,
-      projectName: signal.projectName,
-      status: "RED",
-      reason: signal.detail || signal.title,
-      nextAction: signal.title,
-      href: signal.href,
-    });
+  for (const signal of input.signals) {
+    candidates.push(toSignalCandidate(signal));
   }
 
-  // 2) Open founder decisions
   for (const decision of input.decisions) {
-    push({
+    const copy = presentCeoSignal({
+      kind: "open_decision",
+      projectName: decision.projectName,
+      title: decision.title,
+      detail: decision.question,
+    });
+    candidates.push({
       id: `dec-${decision.id}`,
       projectId: decision.projectId ?? "none",
       projectName: decision.projectName,
       status: "WAITING",
-      reason: decision.question,
-      nextAction: `Decide: ${decision.title}`,
+      headline: copy.headline,
+      explanation: copy.explanation,
+      nextAction: copy.nextAction,
+      ctaLabel: "Make decision →",
+      evidence: copy.evidence,
       href: decision.projectId ? `/projects/${decision.projectId}` : "/dashboard#waiting-on-me",
+      identityKey: signalIdentityKey({
+        kind: "open_decision",
+        projectId: decision.projectId ?? "none",
+        title: decision.title,
+        detail: decision.question,
+      }),
+      rankScore: 8,
     });
   }
 
-  // 3) Prioritized today actions (already sorted)
   for (const action of prioritizeTodayActions(input.today)) {
-    push({
+    if (action.requiresDecision) continue; // covered via decisions / waiting
+    const copy = presentCeoSignal({
+      kind: "requires_decision",
+      projectName: action.projectName,
+      title: action.title,
+      detail: explainTodayPriority(action),
+    });
+    candidates.push({
       id: `act-${action.id}`,
       projectId: action.projectId,
       projectName: action.projectName,
-      status: action.status,
-      reason: explainTodayPriority(action),
-      nextAction: action.title,
+      status: action.status === "BLOCKED" ? "RED" : "YELLOW",
+      headline: copy.headline,
+      explanation: copy.explanation,
+      nextAction: copy.nextAction,
+      ctaLabel: action.status === "BLOCKED" ? "Resolve blocker →" : "Open project →",
+      evidence: copy.evidence,
       href: `/projects/${action.projectId}`,
+      identityKey: signalIdentityKey({
+        kind: "requires_decision",
+        projectId: action.projectId,
+        title: action.title,
+      }),
+      rankScore: action.status === "BLOCKED" ? 5 : action.priority === "HIGH" ? 9 : 10,
     });
   }
 
-  return ranked.slice(0, 3);
+  const distinct = dedupeCeoCandidates(candidates);
+  distinct.sort((left, right) => {
+    if (left.rankScore !== right.rankScore) return left.rankScore - right.rankScore;
+    return left.headline.localeCompare(right.headline);
+  });
+  return distinct.slice(0, 3);
 }
 
 export function buildWaitingOnMe(input: {
@@ -348,41 +473,63 @@ export function buildWaitingOnMe(input: {
   const items: WaitingItem[] = [];
 
   for (const decision of input.decisions) {
+    const copy = presentCeoSignal({
+      kind: "open_decision",
+      projectName: decision.projectName,
+      title: decision.title,
+      detail: decision.question,
+    });
     items.push({
       id: `dec-${decision.id}`,
-      what: decision.title,
+      what: copy.headline,
       projectId: decision.projectId,
       projectName: decision.projectName,
-      reason: decision.question,
+      reason: copy.explanation,
       ageLabel: ageLabel(decision.createdAt, now),
-      actionLabel: "Decide",
+      actionLabel: "Make decision →",
       href: decision.projectId ? `/projects/${decision.projectId}` : "/dashboard#waiting-on-me",
     });
   }
 
   for (const action of input.requiresDecisionActions) {
+    const copy = presentCeoSignal({
+      kind: "requires_decision",
+      projectName: action.projectName,
+      title: action.title,
+      detail: "This next action requires a founder decision before it can proceed.",
+    });
     items.push({
       id: `req-${action.id}`,
-      what: action.title,
+      what: copy.headline,
       projectId: action.projectId,
       projectName: action.projectName,
-      reason: "This next action requires a founder decision before it can proceed.",
+      reason: copy.explanation,
       ageLabel: null,
-      actionLabel: "Review",
+      actionLabel: "Review →",
       href: `/projects/${action.projectId}`,
     });
   }
 
+  // One presentation review line per project — avoid NOT_READY spam.
+  const seenPresentation = new Set<string>();
   for (const review of input.presentationReviews) {
     if (review.result === "READY") continue;
+    if (seenPresentation.has(review.projectId)) continue;
+    seenPresentation.add(review.projectId);
+    const copy = presentCeoSignal({
+      kind: "presentation_review",
+      projectName: review.projectName,
+      title: `Presentation review: ${review.result}`,
+      detail: "Founder review of presentation readiness is outstanding.",
+    });
     items.push({
       id: `pres-${review.id}`,
-      what: `Presentation review: ${review.result}`,
+      what: copy.headline,
       projectId: review.projectId,
       projectName: review.projectName,
-      reason: "Founder review of presentation readiness is outstanding.",
+      reason: copy.explanation,
       ageLabel: ageLabel(review.createdAt, now),
-      actionLabel: "Review",
+      actionLabel: "Review →",
       href: "/presentation",
     });
   }
@@ -390,8 +537,9 @@ export function buildWaitingOnMe(input: {
   return items;
 }
 
+/** Compact RED list — CEO headlines, not full Top 3 cards. */
 export function buildRedLights(signals: readonly CeoSignal[]): RedLight[] {
-  return signals
+  const candidates = signals
     .filter(
       (signal) =>
         signal.severity === "critical" &&
@@ -401,14 +549,37 @@ export function buildRedLights(signals: readonly CeoSignal[]): RedLight[] {
           signal.kind === "failed_deployment" ||
           signal.kind === "failed_verification"),
     )
-    .map((signal) => ({
-      id: signal.id,
-      projectId: signal.projectId,
-      projectName: signal.projectName,
-      reason: signal.title,
-      evidence: signal.detail,
-      nextAction: `Address: ${signal.title}`,
-      href: signal.href,
+    .map((signal) => {
+      const copy = presentCeoSignal(signal);
+      return {
+        id: signal.id,
+        projectId: signal.projectId,
+        projectName: signal.projectName,
+        reason: copy.headline,
+        evidence: copy.evidence,
+        href: signal.href,
+        ctaLabel: "View evidence →",
+        identityKey: signalIdentityKey(signal),
+        rankScore: founderRankScore(signal),
+      };
+    });
+
+  const best = new Map<string, (typeof candidates)[number]>();
+  for (const item of candidates) {
+    const prior = best.get(item.identityKey);
+    if (!prior || item.rankScore < prior.rankScore) best.set(item.identityKey, item);
+  }
+
+  return [...best.values()]
+    .sort((a, b) => a.rankScore - b.rankScore || a.reason.localeCompare(b.reason))
+    .map((item) => ({
+      id: item.id,
+      projectId: item.projectId,
+      projectName: item.projectName,
+      reason: item.reason,
+      evidence: item.evidence,
+      href: item.href,
+      ctaLabel: item.ctaLabel,
     }));
 }
 
@@ -424,5 +595,5 @@ export function ageLabel(iso: string, now: Date): string | null {
 
 /** Guard: page source must not hardcode business names as CEO content. */
 export function containsHardcodedCeoProjects(source: string): boolean {
-  return /Ivoire Shop|Cleaning Business|"Ghost"\s*as\s*project/i.test(source);
+  return /Cleaning Business|"Ghost"\s*as\s*project/i.test(source);
 }

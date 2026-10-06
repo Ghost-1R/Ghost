@@ -19,6 +19,7 @@ type NavGroup = {
   id: string;
   label: string;
   items: NavItem[];
+  collapsible?: boolean;
 };
 
 const MOBILE_QUERY = "(max-width: 899px)";
@@ -43,61 +44,41 @@ function contextProjectId(pathname: string, projects: NavProject[]): string | nu
   return projects[0]?.id ?? null;
 }
 
+/** Founder-first primary nav; deeper OS routes remain available under Build / Work. */
 function buildGroups(projectId: string | null): NavGroup[] {
   const project = projectId ? `/projects/${projectId}` : "/projects";
   return [
     {
-      id: "core",
-      label: "Core",
+      id: "primary",
+      label: "Home",
       items: [
         { href: "/dashboard", label: "Dashboard", match: "exact" },
+        { href: "/projects", label: "Projects", match: "exact" },
         { href: projectId ? project : "/projects", label: "Brain" },
-      ],
-    },
-    {
-      id: "think",
-      label: "Think",
-      items: [
-        { href: "/ideas", label: "Idea Lab" },
-        { href: "/ideas", label: "Strategy" },
-      ],
-    },
-    {
-      id: "define",
-      label: "Define",
-      items: [
-        { href: projectId ? `${project}/architect` : "/projects", label: "Product Architect" },
-        { href: projectId ? `${project}/architecture` : "/projects", label: "System Architecture" },
+        { href: "/memory", label: "Activity" },
       ],
     },
     {
       id: "build",
-      label: "Build",
+      label: "Build / Work",
+      collapsible: true,
       items: [
+        { href: "/ideas", label: "Idea Lab" },
+        { href: "/ideas", label: "Strategy" },
+        { href: projectId ? `${project}/architect` : "/projects", label: "Product Architect" },
+        { href: projectId ? `${project}/architecture` : "/projects", label: "System Architecture" },
         { href: projectId ? `${project}/build-plan` : "/projects", label: "Build Plan" },
         { href: projectId ? `${project}/execution` : "/projects", label: "Build Execution" },
-      ],
-    },
-    {
-      id: "verify",
-      label: "Verify",
-      items: [
         { href: projectId ? `${project}/verification` : "/projects", label: "Test & Verification" },
         { href: projectId ? `${project}/deploy` : "/projects", label: "Deploy" },
       ],
     },
     {
-      id: "learn",
-      label: "Learn",
-      items: [
-        { href: "/memory", label: "Memory" },
-        { href: "/patterns", label: "Patterns" },
-      ],
-    },
-    {
       id: "system",
       label: "System",
+      collapsible: true,
       items: [
+        { href: "/patterns", label: "Patterns" },
         { href: "/inspector", label: "Inspector" },
         { href: "/presentation", label: "Presentation" },
         { href: "/settings", label: "Settings" },
@@ -108,6 +89,9 @@ function buildGroups(projectId: string | null): NavGroup[] {
 
 function isCurrent(pathname: string, href: string, match: "exact" | "prefix" = "prefix"): boolean {
   if (href === "/dashboard" || match === "exact") {
+    if (href === "/projects") {
+      return pathname === "/projects" || pathname === "/projects/new";
+    }
     return pathname === href;
   }
   if (href === "/ideas") {
@@ -116,7 +100,14 @@ function isCurrent(pathname: string, href: string, match: "exact" | "prefix" = "
   if (href === "/projects") {
     return pathname === "/projects" || pathname === "/projects/new";
   }
+  if (href === "/memory") {
+    return pathname === "/memory" || pathname.startsWith("/memory/");
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function groupHasCurrent(pathname: string, group: NavGroup): boolean {
+  return group.items.some((item) => isCurrent(pathname, item.href, item.match));
 }
 
 export function AppShell({
@@ -148,9 +139,9 @@ export function AppShell({
           GHOST
         </Link>
         <nav aria-label="Primary" className="os-nav">
-          {groups.map((group) => (
-            <div className="os-nav-group" key={group.id}>
-              <p className="os-nav-label">{group.label}</p>
+          {groups.map((group) => {
+            const currentInGroup = groupHasCurrent(pathname, group);
+            const body = (
               <ul className="nav-list">
                 {group.items.map((item) => {
                   const current = isCurrent(pathname, item.href, item.match);
@@ -172,8 +163,24 @@ export function AppShell({
                   );
                 })}
               </ul>
-            </div>
-          ))}
+            );
+
+            if (group.collapsible) {
+              return (
+                <details className="os-nav-group os-nav-collapse" key={group.id} open={currentInGroup}>
+                  <summary className="os-nav-label os-nav-summary">{group.label}</summary>
+                  {body}
+                </details>
+              );
+            }
+
+            return (
+              <div className="os-nav-group" key={group.id}>
+                <p className="os-nav-label">{group.label}</p>
+                {body}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="os-nav-projects">

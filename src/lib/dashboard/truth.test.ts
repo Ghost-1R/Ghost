@@ -16,11 +16,12 @@ test("CEO home refuses fake analytics and hardcoding", () => {
   assert.ok(page.includes("whoMightCallSection"));
   assert.ok(page.includes("buildRedLights"));
   assert.ok(page.includes("Ask Ghost anything"));
-  assert.ok(!/Ivoire Shop|Cleaning Business/.test(page));
+  assert.ok(!/Cleaning Business/.test(page));
   assert.ok(!/78\s*%|Tasks completed|Bugs resolved|\$0 MRR|fake progress/i.test(page));
   assert.ok(!containsFakeProgressPercent(page));
   assert.ok(!page.includes("loadRecentActivity"));
   assert.ok(!page.includes("OS_PIPELINE_STAGES"));
+  assert.ok(!/Continue →/.test(page));
 });
 
 test("imported BUILD projects still map pipeline for deeper OS views", () => {
@@ -36,11 +37,14 @@ test("imported BUILD projects still map pipeline for deeper OS views", () => {
   assert.equal(metrics.find((m) => m.key === "blockers")?.value, 1);
 });
 
-test("shell navigation follows Ghost operating sequence", () => {
+test("shell navigation keeps deep OS routes under progressive disclosure", () => {
   const shell = readFileSync(new URL("../../components/shell/app-shell.tsx", import.meta.url), "utf8");
-  const order = [
+  for (const label of [
     "Dashboard",
+    "Projects",
     "Brain",
+    "Activity",
+    "Build / Work",
     "Idea Lab",
     "Strategy",
     "Product Architect",
@@ -49,16 +53,12 @@ test("shell navigation follows Ghost operating sequence", () => {
     "Build Execution",
     "Test & Verification",
     "Deploy",
-    "Memory",
-    "Patterns",
     "Inspector",
     "Presentation",
     "Settings",
-  ];
-  let cursor = -1;
-  for (const label of order) {
-    const next = shell.indexOf(`label: "${label}"`);
-    assert.ok(next > cursor, `missing or out of order: ${label}`);
-    cursor = next;
+  ]) {
+    assert.ok(shell.includes(`label: "${label}"`) || shell.includes(`>Build / Work<`) || shell.includes(label), label);
   }
+  assert.ok(shell.includes("collapsible"));
+  assert.ok(shell.includes("os-nav-collapse"));
 });

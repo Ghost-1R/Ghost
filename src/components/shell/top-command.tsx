@@ -20,7 +20,7 @@ export function TopCommandSearch() {
   return (
     <form className="top-command" onSubmit={onSubmit} role="search">
       <label className="sr-only" htmlFor="top-command-input">
-        Search or ask Ghost
+        Ask Ghost anything, or search your work
       </label>
       <input
         id="top-command-input"
@@ -28,7 +28,7 @@ export function TopCommandSearch() {
         type="search"
         name="q"
         autoComplete="off"
-        placeholder="Search projects, ideas, decisions, blockers, or ask Ghost..."
+        placeholder="Ask Ghost anything, or search your work…"
       />
       <button className="button-secondary top-command-go" type="submit">
         Ask

@@ -2053,43 +2053,47 @@ textarea {
   }
 }
 
-/* —— CEO Command Center (Phase 1) —— */
+/* —— CEO Command Center (Phase 1 closure) —— */
 .ceo-home {
   display: grid;
-  gap: 1.1rem;
+  gap: 0.85rem;
 }
 
 .ceo-greeting h1 {
-  margin: 0.2rem 0 0;
-  font-size: clamp(1.85rem, 4vw, 2.6rem);
+  margin: 0.15rem 0 0;
+  font-size: clamp(1.65rem, 3.4vw, 2.25rem);
   letter-spacing: -0.035em;
   line-height: 1.12;
 }
 
 .ceo-lede {
-  margin: 0.45rem 0 0;
+  margin: 0.35rem 0 0;
   max-width: 34rem;
   color: var(--ink);
-  font-size: 1.12rem;
+  font-size: 1.02rem;
   font-weight: 550;
 }
 
 .ceo-panel {
-  padding: 1rem 1.1rem 1.15rem;
+  padding: 0.85rem 0.95rem 0.95rem;
   border: 1px solid var(--line);
-  border-radius: 1.15rem;
+  border-radius: 1rem;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 36%),
     rgba(12, 16, 24, 0.92);
 }
 
 .ceo-panel-head {
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.65rem;
+}
+
+.ceo-panel-head-tight {
+  margin-bottom: 0.55rem;
 }
 
 .ceo-panel-head h2 {
-  margin: 0.15rem 0 0;
-  font-size: 1.08rem;
+  margin: 0.1rem 0 0;
+  font-size: 1rem;
 }
 
 .ceo-panel-head-row {
@@ -2113,54 +2117,133 @@ textarea {
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 0.7rem;
+  gap: 0.5rem;
 }
 
 .ceo-action-list li,
 .ceo-simple-list li,
 .ceo-project-rows li {
-  display: flex;
-  gap: 0.85rem;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 0.85rem 0.9rem;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 0.55rem 0.7rem;
+  align-items: start;
+  padding: 0.65rem 0.75rem;
   border: 1px solid var(--line);
-  border-radius: 0.95rem;
+  border-radius: 0.85rem;
   background: rgba(7, 10, 16, 0.72);
 }
 
-.ceo-action-list li > div,
-.ceo-simple-list li > div,
-.ceo-project-rows li > div {
-  flex: 1;
-  min-width: 0;
+.ceo-simple-list li,
+.ceo-project-rows li {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.ceo-project-rows li {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
 }
 
 .ceo-action-list h3,
 .ceo-simple-list h3,
 .ceo-project-rows h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
+  margin: 0 0 0.15rem;
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+.ceo-action-body {
+  min-width: 0;
+}
+
+.ceo-why {
+  margin: 0;
+  font-size: 0.84rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ceo-action-list li {
+  padding: 0.5rem 0.65rem;
+  gap: 0.45rem 0.55rem;
+}
+
+.ceo-action-list h3 {
+  font-size: 0.92rem;
+}
+
+.ceo-next {
+  margin: 0.2rem 0 0;
+  color: var(--ink);
+  font-size: 0.82rem;
 }
 
 .ceo-rank {
   flex: 0 0 auto;
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 1.45rem;
+  height: 1.45rem;
   display: grid;
   place-items: center;
   border-radius: 999px;
   border: 1px solid rgba(125, 211, 252, 0.35);
   color: var(--accent);
   font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+}
+
+.ceo-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 1.45rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ceo-status-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.ceo-status-red {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.ceo-status-yellow {
+  color: #fcd34d;
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.ceo-status-green {
+  color: #86efac;
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+.ceo-status-unknown,
+.ceo-status-waiting {
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.ceo-status-text {
+  margin-left: 0.15rem;
 }
 
 .ceo-project-label {
-  margin: 0 0 0.2rem;
+  margin: 0 0 0.12rem;
   color: var(--accent);
   font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -2168,8 +2251,8 @@ textarea {
 .ceo-go,
 .ceo-simple-list .button-secondary,
 .ceo-project-rows .button-secondary {
-  flex: 0 0 auto;
   align-self: center;
+  white-space: nowrap;
 }
 
 .ceo-waiting {
@@ -2178,29 +2261,30 @@ textarea {
 
 .ceo-money {
   border-style: dashed;
+  opacity: 0.92;
 }
 
 .ceo-money-detail {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.02em;
+  color: var(--muted);
 }
 
 .ceo-honest {
-  margin: 0 0 0.75rem;
-}
-
-.ceo-health {
-  flex: 0 0 auto;
-  font-size: 1.1rem;
-  line-height: 1.7rem;
+  margin: 0 0 0.55rem;
+  font-size: 0.84rem;
 }
 
 .ceo-next {
-  margin: 0.35rem 0 0;
+  margin: 0.25rem 0 0;
   color: var(--ink);
-  font-size: 0.92rem;
+  font-size: 0.86rem;
+}
+
+.ceo-evidence {
+  font-size: 0.8rem;
 }
 
 .ceo-red {
@@ -2211,16 +2295,39 @@ textarea {
   border-color: rgba(125, 211, 252, 0.28);
 }
 
-/* Phone source order: Top3 → Waiting → Red → Ask → Projects → Call → Money */
+.os-nav-collapse {
+  margin: 0;
+}
+
+.os-nav-summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.os-nav-summary::-webkit-details-marker {
+  display: none;
+}
+
+.os-nav-summary::after {
+  content: "+";
+  float: right;
+  color: var(--faint);
+}
+
+.os-nav-collapse[open] > .os-nav-summary::after {
+  content: "−";
+}
+
+/* Phone source: Greeting → Top3 → Waiting → Red → Ask → Projects → Call → Money */
 @media (min-width: 768px) {
   .ceo-home {
     grid-template-columns: repeat(6, minmax(0, 1fr));
     grid-template-areas:
       "greet greet greet greet greet greet"
       "top3 top3 top3 top3 top3 top3"
-      "call call wait wait money money"
+      "wait wait wait call call call"
       "projects projects projects projects projects projects"
-      "red red red red red red"
+      "red red red money money money"
       "ask ask ask ask ask ask";
   }
 
@@ -2238,23 +2345,44 @@ textarea {
   .ceo-home {
     grid-template-areas:
       "greet greet greet greet greet greet"
-      "top3 top3 top3 top3 top3 top3"
-      "call call wait wait money money"
+      "top3 top3 top3 wait wait wait"
+      "call call call call money money"
       "projects projects projects red red red"
       "ask ask ask ask ask ask";
+    gap: 0.7rem;
+  }
+
+  .ceo-top3 {
+    align-self: start;
+  }
+
+  .ceo-action-list li {
+    padding: 0.45rem 0.6rem;
   }
 }
 
-@media (max-width: 639px) {
-  .ceo-action-list li,
-  .ceo-simple-list li,
-  .ceo-project-rows li {
-    flex-direction: column;
+@media (max-width: 767px) {
+  .ceo-action-list li {
+    grid-template-columns: auto auto minmax(0, 1fr);
   }
 
-  .ceo-go,
+  .ceo-action-list .ceo-go,
   .ceo-simple-list .button-secondary,
   .ceo-project-rows .button-secondary {
+    grid-column: 1 / -1;
     width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .ceo-project-rows li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ceo-home,
+  .ceo-panel,
+  .ceo-action-list li {
+    transition: none;
   }
 }
