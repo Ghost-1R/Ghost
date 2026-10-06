@@ -423,3 +423,76 @@ export async function evaluateSystemArchitectureRegression(supabase: GhostClient
   lines.push("v6 product architecture tables: present");
   return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
 }
+
+const BUILD_PLAN_BUG = "Build Plan domain is incomplete";
+
+export async function evaluateBuildPlanRegression(supabase: GhostClient): Promise<ProbeResult> {
+  const lines = [
+    BUILD_PLAN_BUG,
+    "BUILD PLAN DOMAIN",
+    "BUILD PLAN RLS",
+    "PHASES",
+    "WORK PACKAGES",
+    "DEPENDENCIES",
+    "COVERAGE",
+    "VERIFICATION",
+    "READINESS",
+    "TRUTH BOUNDARY",
+    "V7 REGRESSION",
+  ];
+
+  const tables = await Promise.all([
+    supabase.from("build_plans").select("id").limit(1),
+    supabase.from("build_plan_transitions").select("id").limit(1),
+    supabase.from("build_phases").select("id").limit(1),
+    supabase.from("work_packages").select("id").limit(1),
+    supabase.from("work_package_dependencies").select("id").limit(1),
+    supabase.from("work_package_requirement_links").select("id").limit(1),
+    supabase.from("work_package_feature_links").select("id").limit(1),
+    supabase.from("work_package_architecture_links").select("id").limit(1),
+    supabase.from("work_package_verifications").select("id").limit(1),
+    supabase.from("build_manual_actions").select("id").limit(1),
+    supabase.from("build_config_requirements").select("id").limit(1),
+    supabase.from("build_plan_risks").select("id").limit(1),
+  ]);
+  if (tables.some((result) => result.error && /does not exist|schema cache/i.test(result.error.message))) {
+    lines.push("remote build plan tables: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  if (tables.some((result) => result.error)) {
+    lines.push(`remote build plan tables: ${tables.find((result) => result.error)?.error?.message ?? "error"}`);
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("remote build plan tables: present");
+
+  const decisionColumn = await supabase.from("project_decisions").select("id, build_plan_id").limit(1);
+  if (decisionColumn.error && /build_plan_id|column/i.test(decisionColumn.error.message)) {
+    lines.push("project_decisions build_plan_id: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("project_decisions build_plan_id: present");
+
+  const truthSource = await readFile(path.join(process.cwd(), "src/lib/build-plan/truth.ts"), "utf8").catch(() => "");
+  const workflowSource = await readFile(path.join(process.cwd(), "src/lib/build-plan/workflow.ts"), "utf8").catch(() => "");
+  const hasTruth = truthSource.includes("isPackageImplemented") && truthSource.includes("past Ghost answer");
+  const hasReadiness =
+    workflowSource.includes("computeBuildPlanReadiness") &&
+    workflowSource.includes("detectDependencyCycles") &&
+    workflowSource.includes("BUILD_PLAN_READY");
+  lines.push(`truth boundary module: ${hasTruth ? "present" : "missing"}`);
+  lines.push(`readiness and dependency module: ${hasReadiness ? "present" : "missing"}`);
+  if (!hasTruth || !hasReadiness) {
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+
+  const v7 = await Promise.all([
+    supabase.from("system_architectures").select("id").limit(1),
+    supabase.from("system_components").select("id").limit(1),
+  ]);
+  if (v7.some((result) => result.error)) {
+    lines.push("v7 system architecture tables: unavailable");
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("v7 system architecture tables: present");
+  return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
+}

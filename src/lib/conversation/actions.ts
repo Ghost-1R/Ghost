@@ -23,6 +23,8 @@ import {
   loadProductRequirements,
 } from "@/lib/product-architect/queries";
 import { computeProductReadiness } from "@/lib/product-architect/workflow";
+import { collectBuildPlanItems } from "@/lib/build-plan/context";
+import { loadBuildPlan, loadBuildPlanBundle } from "@/lib/build-plan/queries";
 import { collectSystemArchitectureItems } from "@/lib/system-architecture/context";
 import { loadSystemArchitecture, loadSystemArchitectureBundle } from "@/lib/system-architecture/queries";
 import { explainInspections, inspectionContextItems, inspectionQuestion } from "@/lib/inspector/evidence";
@@ -77,19 +79,31 @@ async function projectContext(
     return null;
   }
 
-  const [milestones, knowledge, blockers, actions, verification, rules, decisions, observation, architecture, systemArchitecture] =
-    await Promise.all([
-      loadMilestones(session.supabase, projectId),
-      loadKnowledge(session.supabase, projectId),
-      loadBlockers(session.supabase, projectId),
-      loadNextActions(session.supabase, projectId),
-      loadVerification(session.supabase, projectId),
-      loadFounderRules(session.supabase),
-      loadOpenDecisions(session.supabase, projectId),
-      loadLatestRepositoryObservation(session.supabase, projectId),
-      loadProductArchitecture(session.supabase, projectId),
-      loadSystemArchitecture(session.supabase, projectId),
-    ]);
+  const [
+    milestones,
+    knowledge,
+    blockers,
+    actions,
+    verification,
+    rules,
+    decisions,
+    observation,
+    architecture,
+    systemArchitecture,
+    buildPlan,
+  ] = await Promise.all([
+    loadMilestones(session.supabase, projectId),
+    loadKnowledge(session.supabase, projectId),
+    loadBlockers(session.supabase, projectId),
+    loadNextActions(session.supabase, projectId),
+    loadVerification(session.supabase, projectId),
+    loadFounderRules(session.supabase),
+    loadOpenDecisions(session.supabase, projectId),
+    loadLatestRepositoryObservation(session.supabase, projectId),
+    loadProductArchitecture(session.supabase, projectId),
+    loadSystemArchitecture(session.supabase, projectId),
+    loadBuildPlan(session.supabase, projectId),
+  ]);
 
   if (
     milestones.status === "error" ||
@@ -101,7 +115,8 @@ async function projectContext(
     decisions.status === "error" ||
     observation.status === "error" ||
     architecture.status === "error" ||
-    systemArchitecture.status === "error"
+    systemArchitecture.status === "error" ||
+    buildPlan.status === "error"
   ) {
     return null;
   }
@@ -137,6 +152,14 @@ async function projectContext(
     const bundle = await loadSystemArchitectureBundle(session.supabase, systemArchitecture.data);
     if (bundle.status === "ok") {
       systemItems = collectSystemArchitectureItems({ question, bundle: bundle.data });
+    }
+  }
+
+  let buildPlanItems: ReturnType<typeof collectBuildPlanItems> = [];
+  if (buildPlan.data) {
+    const bundle = await loadBuildPlanBundle(session.supabase, buildPlan.data);
+    if (bundle.status === "ok") {
+      buildPlanItems = collectBuildPlanItems({ question, bundle: bundle.data });
     }
   }
 
@@ -241,7 +264,8 @@ async function projectContext(
       repositoryObservation: observation.data,
     })
       .concat(productItems)
-      .concat(systemItems),
+      .concat(systemItems)
+      .concat(buildPlanItems),
   };
 }
 

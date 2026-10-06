@@ -188,6 +188,7 @@ export async function evaluateResponsiveSurfaces(input: { baseUrl: string; proje
       { path: `/projects/${input.projectId}`, kind: "project" as const },
       { path: `/projects/${input.projectId}/architect`, kind: "project" as const },
       { path: `/projects/${input.projectId}/architecture`, kind: "project" as const },
+      { path: `/projects/${input.projectId}/build-plan`, kind: "project" as const },
       { path: "/memory", kind: "app" as const },
       { path: "/patterns", kind: "app" as const },
       { path: "/inspector", kind: "app" as const },

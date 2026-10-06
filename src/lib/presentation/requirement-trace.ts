@@ -243,6 +243,32 @@ export async function evaluateRequirementTrace(supabase: GhostClient, projectId:
       });
       continue;
     }
+    if (requirement.title === "Build Plan operating loop") {
+      const [plans, packages, truthSource, workflowSource] = await Promise.all([
+        supabase.from("build_plans").select("id").limit(1),
+        supabase.from("work_packages").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/build-plan/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/build-plan/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !plans.error && !packages.error;
+      const codeOk =
+        truthSource.includes("isPackageImplemented") &&
+        workflowSource.includes("computeBuildPlanReadiness") &&
+        workflowSource.includes("detectDependencyCycles") &&
+        workflowSource.includes("BUILD_PLAN_READY");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/build-plan; build_plans; work_packages",
+          ok
+            ? `live build plan tables ${plans.error || packages.error ? "error" : "ok"}; readiness, dependency, and truth modules present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
     traced.push({ ...base, implementationEvidence: null, verificationEvidence: null });
   }
   const lines = traced.map((item) => {

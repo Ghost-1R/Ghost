@@ -208,6 +208,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <Link className="button" href={`/projects/${detail.id}/architecture`}>
             System Architecture
           </Link>
+          <Link className="button" href={`/projects/${detail.id}/build-plan`}>
+            Build Plan
+          </Link>
         </div>
       </div>
 
@@ -222,6 +225,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </li>
           <li>
             <Link href={`/projects/${detail.id}/architecture`}>Open System Architecture</Link>
+          </li>
+          <li>
+            <Link href={`/projects/${detail.id}/build-plan`}>Open Build Plan</Link>
           </li>
         </ul>
       </Panel>

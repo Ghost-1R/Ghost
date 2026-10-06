@@ -45,6 +45,9 @@ next-env.d.ts
 .ghost/runtime/
 .ghost/presentation/
 .ghost/v7-prod-closure.mts
+.ghost/v8-prod-closure.mts
+.ghost/v8-schema-verify.mts
+.ghost/v8-closure-run.mts
 
 # Editor-local settings (not project truth; keeps inspector tree clean).
 .cursor/

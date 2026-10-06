@@ -40,6 +40,15 @@ type DefaultedTable<Row extends Record<string, unknown>, Required extends keyof 
 type SystemStatus = import("@/lib/system-architecture/types").SystemArchitectureStatus;
 type SystemRecord = import("@/lib/system-architecture/types").SystemRecordStatus;
 type SensitiveClassValue = import("@/lib/system-architecture/types").SensitiveClass;
+type BuildPlanStatusValue = import("@/lib/build-plan/types").BuildPlanStatus;
+type WorkPackageStatusValue = import("@/lib/build-plan/types").WorkPackageStatus;
+type WorkPackagePriorityValue = import("@/lib/build-plan/types").WorkPackagePriority;
+type DependencyEdgeKindValue = import("@/lib/build-plan/types").DependencyEdgeKind;
+type PathCertaintyValue = import("@/lib/build-plan/types").PathCertainty;
+type ArchitectureLinkKindValue = import("@/lib/build-plan/types").ArchitectureLinkKind;
+type VerificationKindValue = import("@/lib/build-plan/types").VerificationKind;
+type ManualActionStatusValue = import("@/lib/build-plan/types").ManualActionStatus;
+type BuildRiskSeverityValue = import("@/lib/build-plan/types").BuildRiskSeverity;
 
 export type Database = {
   public: {
@@ -360,6 +369,7 @@ export type Database = {
           strategy_id: string | null;
           product_architecture_id: string | null;
           system_architecture_id: string | null;
+          build_plan_id: string | null;
           title: string;
           question: string;
           context: string;
@@ -382,6 +392,7 @@ export type Database = {
           strategy_id?: string | null;
           product_architecture_id?: string | null;
           system_architecture_id?: string | null;
+          build_plan_id?: string | null;
           title: string;
           question: string;
           context?: string;
@@ -1118,6 +1129,182 @@ export type Database = {
         },
         "architecture_id" | "project_id" | "question"
       >;
+      build_plans: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          product_architecture_id: string;
+          system_architecture_id: string;
+          summary: string;
+          deployment_sequence: Json;
+          rollback_summary: string;
+          status: BuildPlanStatusValue;
+          note: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "project_id" | "product_architecture_id" | "system_architecture_id"
+      >;
+      build_plan_transitions: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          from_status: BuildPlanStatusValue | null;
+          to_status: BuildPlanStatusValue;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        "plan_id" | "to_status" | "reason"
+      >;
+      build_phases: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          objective: string;
+          position: number;
+          note: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "plan_id" | "project_id" | "human_id" | "name"
+      >;
+      work_packages: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          phase_id: string | null;
+          human_id: string;
+          title: string;
+          objective: string;
+          description: string;
+          status: WorkPackageStatusValue;
+          priority: WorkPackagePriorityValue;
+          likely_code_areas: Json;
+          path_certainty: PathCertaintyValue;
+          database_impact: string;
+          integration_impact: string;
+          security_impact: string;
+          definition_of_done: Json;
+          acceptance_criteria: Json;
+          rollback_consideration: string;
+          irreversible: boolean;
+          risk_note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "plan_id" | "project_id" | "human_id" | "title"
+      >;
+      work_package_dependencies: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          from_package_id: string;
+          to_package_id: string;
+          edge_kind: DependencyEdgeKindValue;
+          note: string;
+          created_at: string;
+        },
+        "plan_id" | "project_id" | "from_package_id" | "to_package_id"
+      >;
+      work_package_requirement_links: DefaultedTable<
+        {
+          work_package_id: string;
+          requirement_id: string;
+          created_at: string;
+        },
+        "work_package_id" | "requirement_id"
+      >;
+      work_package_feature_links: DefaultedTable<
+        {
+          work_package_id: string;
+          feature_id: string;
+          created_at: string;
+        },
+        "work_package_id" | "feature_id"
+      >;
+      work_package_architecture_links: DefaultedTable<
+        {
+          id: string;
+          work_package_id: string;
+          plan_id: string;
+          project_id: string;
+          link_kind: ArchitectureLinkKindValue;
+          record_ref: string;
+          note: string;
+          created_at: string;
+        },
+        "work_package_id" | "plan_id" | "project_id" | "link_kind" | "record_ref"
+      >;
+      work_package_verifications: DefaultedTable<
+        {
+          id: string;
+          work_package_id: string;
+          plan_id: string;
+          project_id: string;
+          kind: VerificationKindValue;
+          description: string;
+          observable_signal: string;
+          position: number;
+          created_at: string;
+        },
+        "work_package_id" | "plan_id" | "project_id" | "kind" | "description"
+      >;
+      build_manual_actions: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          work_package_id: string | null;
+          human_id: string;
+          title: string;
+          description: string;
+          status: ManualActionStatusValue;
+          evidence_note: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "plan_id" | "project_id" | "human_id" | "title"
+      >;
+      build_config_requirements: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          work_package_id: string | null;
+          variable_name: string;
+          purpose: string;
+          environment: string;
+          classification: import("@/lib/system-architecture/types").ConfigClassification;
+          founder_action_required: boolean;
+          created_at: string;
+        },
+        "plan_id" | "project_id" | "variable_name"
+      >;
+      build_plan_risks: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          work_package_id: string | null;
+          human_id: string;
+          description: string;
+          severity: BuildRiskSeverityValue;
+          mitigation: string;
+          created_at: string;
+        },
+        "plan_id" | "project_id" | "human_id" | "description"
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -1183,6 +1370,15 @@ export type Database = {
           transition_actor?: string;
         };
         Returns: Database["public"]["Tables"]["system_architecture_transitions"]["Row"];
+      };
+      record_build_plan_transition: {
+        Args: {
+          target_plan_id: string;
+          next_status: BuildPlanStatusValue;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["build_plan_transitions"]["Row"];
       };
     };
   };
