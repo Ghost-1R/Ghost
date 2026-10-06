@@ -13,6 +13,7 @@ export const PARALLEL_PROBES = [
   "signup-regression",
   "idea-lab-regression",
   "product-architect-regression",
+  "system-architecture-regression",
 ] as const;
 
 export type InspectionStage =

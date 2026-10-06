@@ -217,6 +217,32 @@ export async function evaluateRequirementTrace(supabase: GhostClient, projectId:
       });
       continue;
     }
+    if (requirement.title === "System Architecture operating loop") {
+      const [systems, entities, truthSource, workflowSource] = await Promise.all([
+        supabase.from("system_architectures").select("id").limit(1),
+        supabase.from("system_entities").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/system-architecture/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/system-architecture/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !systems.error && !entities.error;
+      const codeOk =
+        truthSource.includes("isArchitectureImplemented") &&
+        workflowSource.includes("computeSystemReadiness") &&
+        workflowSource.includes("validateSchemaDefects") &&
+        workflowSource.includes("ARCHITECTURE_READY");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/system-architecture; system_architectures; system_entities",
+          ok
+            ? `live system tables ${systems.error || entities.error ? "error" : "ok"}; readiness, schema validation, and truth modules present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
     traced.push({ ...base, implementationEvidence: null, verificationEvidence: null });
   }
   const lines = traced.map((item) => {

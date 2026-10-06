@@ -31,6 +31,16 @@ type Table<Row extends Record<string, unknown>, Insert extends Record<string, un
   Relationships: [];
 };
 
+/** Insert shape: the listed keys are required, every other column is optional (has a database default). */
+type DefaultedTable<Row extends Record<string, unknown>, Required extends keyof Row> = Table<
+  Row,
+  Pick<Row, Required> & Partial<Omit<Row, Required>>
+>;
+
+type SystemStatus = import("@/lib/system-architecture/types").SystemArchitectureStatus;
+type SystemRecord = import("@/lib/system-architecture/types").SystemRecordStatus;
+type SensitiveClassValue = import("@/lib/system-architecture/types").SensitiveClass;
+
 export type Database = {
   public: {
     Tables: {
@@ -349,6 +359,7 @@ export type Database = {
           idea_id: string | null;
           strategy_id: string | null;
           product_architecture_id: string | null;
+          system_architecture_id: string | null;
           title: string;
           question: string;
           context: string;
@@ -370,6 +381,7 @@ export type Database = {
           idea_id?: string | null;
           strategy_id?: string | null;
           product_architecture_id?: string | null;
+          system_architecture_id?: string | null;
           title: string;
           question: string;
           context?: string;
@@ -842,6 +854,270 @@ export type Database = {
           created_at?: string;
         }
       >;
+      system_architectures: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          product_architecture_id: string;
+          summary: string;
+          auth_summary: string;
+          authorization_summary: string;
+          runtime_topology: Json;
+          status: SystemStatus;
+          note: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "project_id" | "product_architecture_id"
+      >;
+      system_architecture_transitions: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          from_status: SystemStatus | null;
+          to_status: SystemStatus;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        "architecture_id" | "to_status" | "reason"
+      >;
+      system_components: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          purpose: string;
+          component_type: import("@/lib/system-architecture/types").SystemComponentType;
+          responsibilities: Json;
+          dependency_refs: Json;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "name"
+      >;
+      system_component_requirements: DefaultedTable<
+        {
+          component_id: string;
+          requirement_id: string;
+          created_at: string;
+        },
+        "component_id" | "requirement_id"
+      >;
+      system_entities: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          purpose: string;
+          ownership_field: string;
+          rls_expectation: string;
+          retention_note: string;
+          sensitive_class: SensitiveClassValue;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "name"
+      >;
+      system_entity_fields: DefaultedTable<
+        {
+          id: string;
+          entity_id: string;
+          architecture_id: string;
+          project_id: string;
+          name: string;
+          data_type: string;
+          nullable: boolean;
+          default_value: string;
+          is_pk: boolean;
+          is_unique: boolean;
+          is_fk: boolean;
+          references_entity_id: string | null;
+          sensitive_class: SensitiveClassValue;
+          note: string;
+          position: number;
+          created_at: string;
+        },
+        "entity_id" | "architecture_id" | "project_id" | "name"
+      >;
+      system_relationships: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          source_entity_id: string;
+          target_entity_id: string;
+          cardinality: import("@/lib/system-architecture/types").RelationshipCardinality;
+          fk_strategy: string;
+          delete_behavior: string;
+          rationale: string;
+          junction_strategy: string;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "source_entity_id" | "target_entity_id" | "cardinality"
+      >;
+      system_interfaces: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          purpose: string;
+          caller: string;
+          receiver: string;
+          operation: string;
+          input_shape: Json;
+          output_shape: Json;
+          auth_required: boolean;
+          failure_behavior: string;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "name"
+      >;
+      system_interface_requirements: DefaultedTable<
+        {
+          interface_id: string;
+          requirement_id: string;
+          created_at: string;
+        },
+        "interface_id" | "requirement_id"
+      >;
+      system_data_flows: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          source_label: string;
+          process_label: string;
+          storage_label: string;
+          result_label: string;
+          steps: Json;
+          component_refs: Json;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "name"
+      >;
+      system_integrations: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          provider: string;
+          purpose: string;
+          required: boolean;
+          data_exchanged: Json;
+          secret_names: Json;
+          failure_impact: string;
+          fallback_behavior: string;
+          cost_note: string;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "provider"
+      >;
+      system_env_configs: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          variable_name: string;
+          purpose: string;
+          classification: import("@/lib/system-architecture/types").ConfigClassification;
+          required_environments: Json;
+          status: SystemRecord;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "variable_name"
+      >;
+      system_technical_risks: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          description: string;
+          severity: import("@/lib/system-architecture/types").TechRiskSeverity;
+          likelihood: string;
+          mitigation: string;
+          linked_component_refs: Json;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "description"
+      >;
+      system_technical_constraints: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          statement: string;
+          constraint_source: string;
+          authoritative: boolean;
+          provenance: string;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "statement"
+      >;
+      system_requirement_coverage: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          requirement_id: string;
+          coverage: import("@/lib/system-architecture/types").CoverageStatus;
+          supporting_refs: Json;
+          gap_note: string;
+          updated_at: string;
+        },
+        "architecture_id" | "project_id" | "requirement_id"
+      >;
+      system_questions: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          question: string;
+          status: import("@/lib/system-architecture/types").SystemQuestionStatus;
+          decision_id: string | null;
+          next_action_id: string | null;
+          resolution: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "architecture_id" | "project_id" | "question"
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -898,6 +1174,15 @@ export type Database = {
           transition_actor?: string;
         };
         Returns: Database["public"]["Tables"]["product_architecture_transitions"]["Row"];
+      };
+      record_system_architecture_transition: {
+        Args: {
+          target_architecture_id: string;
+          next_status: SystemStatus;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["system_architecture_transitions"]["Row"];
       };
     };
   };

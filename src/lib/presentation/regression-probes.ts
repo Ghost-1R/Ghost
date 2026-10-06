@@ -347,3 +347,79 @@ export async function evaluateProductArchitectRegression(supabase: GhostClient):
   lines.push("v5 idea/strategy tables: present");
   return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
 }
+
+const SYSTEM_ARCHITECTURE_BUG = "System Architecture domain is incomplete";
+
+export async function evaluateSystemArchitectureRegression(supabase: GhostClient): Promise<ProbeResult> {
+  const lines = [
+    SYSTEM_ARCHITECTURE_BUG,
+    "SYSTEM ARCHITECTURE DOMAIN",
+    "SYSTEM ARCHITECTURE RLS",
+    "COMPONENTS",
+    "DATABASE DESIGN",
+    "INTERFACES",
+    "COVERAGE",
+    "READINESS",
+    "TRUTH BOUNDARY",
+    "V6 REGRESSION",
+  ];
+
+  const tables = await Promise.all([
+    supabase.from("system_architectures").select("id").limit(1),
+    supabase.from("system_architecture_transitions").select("id").limit(1),
+    supabase.from("system_components").select("id").limit(1),
+    supabase.from("system_entities").select("id").limit(1),
+    supabase.from("system_entity_fields").select("id").limit(1),
+    supabase.from("system_relationships").select("id").limit(1),
+    supabase.from("system_interfaces").select("id").limit(1),
+    supabase.from("system_data_flows").select("id").limit(1),
+    supabase.from("system_integrations").select("id").limit(1),
+    supabase.from("system_env_configs").select("id").limit(1),
+    supabase.from("system_technical_risks").select("id").limit(1),
+    supabase.from("system_technical_constraints").select("id").limit(1),
+    supabase.from("system_requirement_coverage").select("id").limit(1),
+    supabase.from("system_questions").select("id").limit(1),
+  ]);
+  if (tables.some((result) => result.error && /does not exist|schema cache/i.test(result.error.message))) {
+    lines.push("remote system architecture tables: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  if (tables.some((result) => result.error)) {
+    lines.push(`remote system architecture tables: ${tables.find((result) => result.error)?.error?.message ?? "error"}`);
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("remote system architecture tables: present");
+
+  const decisionColumn = await supabase.from("project_decisions").select("id, system_architecture_id").limit(1);
+  if (decisionColumn.error && /system_architecture_id|column/i.test(decisionColumn.error.message)) {
+    lines.push("project_decisions system_architecture_id: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("project_decisions system_architecture_id: present");
+
+  const truthSource = await readFile(path.join(process.cwd(), "src/lib/system-architecture/truth.ts"), "utf8").catch(() => "");
+  const workflowSource = await readFile(path.join(process.cwd(), "src/lib/system-architecture/workflow.ts"), "utf8").catch(
+    () => "",
+  );
+  const hasTruth = truthSource.includes("isArchitectureImplemented") && truthSource.includes("past Ghost answer");
+  const hasReadiness =
+    workflowSource.includes("computeSystemReadiness") &&
+    workflowSource.includes("validateSchemaDefects") &&
+    workflowSource.includes("ARCHITECTURE_READY");
+  lines.push(`truth boundary module: ${hasTruth ? "present" : "missing"}`);
+  lines.push(`readiness and schema validation module: ${hasReadiness ? "present" : "missing"}`);
+  if (!hasTruth || !hasReadiness) {
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+
+  const v6 = await Promise.all([
+    supabase.from("product_architectures").select("id").limit(1),
+    supabase.from("product_requirements").select("id").limit(1),
+  ]);
+  if (v6.some((result) => result.error)) {
+    lines.push("v6 product architecture tables: unavailable");
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("v6 product architecture tables: present");
+  return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
+}

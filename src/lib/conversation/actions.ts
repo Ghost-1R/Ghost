@@ -23,6 +23,8 @@ import {
   loadProductRequirements,
 } from "@/lib/product-architect/queries";
 import { computeProductReadiness } from "@/lib/product-architect/workflow";
+import { collectSystemArchitectureItems } from "@/lib/system-architecture/context";
+import { loadSystemArchitecture, loadSystemArchitectureBundle } from "@/lib/system-architecture/queries";
 import { explainInspections, inspectionContextItems, inspectionQuestion } from "@/lib/inspector/evidence";
 import { explainPresentation, presentationQuestion } from "@/lib/presentation/explain";
 import { listReviews, presentationRoot } from "@/lib/presentation/ledger";
@@ -75,7 +77,7 @@ async function projectContext(
     return null;
   }
 
-  const [milestones, knowledge, blockers, actions, verification, rules, decisions, observation, architecture] =
+  const [milestones, knowledge, blockers, actions, verification, rules, decisions, observation, architecture, systemArchitecture] =
     await Promise.all([
       loadMilestones(session.supabase, projectId),
       loadKnowledge(session.supabase, projectId),
@@ -86,6 +88,7 @@ async function projectContext(
       loadOpenDecisions(session.supabase, projectId),
       loadLatestRepositoryObservation(session.supabase, projectId),
       loadProductArchitecture(session.supabase, projectId),
+      loadSystemArchitecture(session.supabase, projectId),
     ]);
 
   if (
@@ -97,7 +100,8 @@ async function projectContext(
     rules.status === "error" ||
     decisions.status === "error" ||
     observation.status === "error" ||
-    architecture.status === "error"
+    architecture.status === "error" ||
+    systemArchitecture.status === "error"
   ) {
     return null;
   }
@@ -125,6 +129,14 @@ async function projectContext(
         questions: questions.data,
         readiness,
       });
+    }
+  }
+
+  let systemItems: ReturnType<typeof collectSystemArchitectureItems> = [];
+  if (systemArchitecture.data) {
+    const bundle = await loadSystemArchitectureBundle(session.supabase, systemArchitecture.data);
+    if (bundle.status === "ok") {
+      systemItems = collectSystemArchitectureItems({ question, bundle: bundle.data });
     }
   }
 
@@ -227,7 +239,9 @@ async function projectContext(
         recommendation: decision.recommendation,
       })),
       repositoryObservation: observation.data,
-    }).concat(productItems),
+    })
+      .concat(productItems)
+      .concat(systemItems),
   };
 }
 

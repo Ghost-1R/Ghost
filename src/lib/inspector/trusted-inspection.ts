@@ -17,6 +17,7 @@ import {
   evaluateProductArchitectRegression,
   evaluateRepositoryRegression,
   evaluateSignupRegression,
+  evaluateSystemArchitectureRegression,
 } from "@/lib/presentation/regression-probes";
 import { evaluateSecurityBoundary } from "@/lib/presentation/security-probe";
 import { hashWorkingTree } from "@/lib/presentation/tree";
@@ -255,6 +256,7 @@ export async function executeTrustedInspection(input: {
     runProbe("regression", PARALLEL_PROBES[8], () => evaluateSignupRegression(input.supabase, input.projectId)),
     runProbe("regression", PARALLEL_PROBES[9], () => evaluateIdeaLabRegression(input.supabase)),
     runProbe("regression", PARALLEL_PROBES[10], () => evaluateProductArchitectRegression(input.supabase)),
+    runProbe("regression", PARALLEL_PROBES[11], () => evaluateSystemArchitectureRegression(input.supabase)),
   ]);
 
   const after = await hashWorkingTree(input.cwd);
