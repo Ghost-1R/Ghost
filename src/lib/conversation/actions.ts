@@ -27,6 +27,8 @@ import { collectBuildPlanItems } from "@/lib/build-plan/context";
 import { loadBuildPlan, loadBuildPlanBundle } from "@/lib/build-plan/queries";
 import { collectBuildExecutionItems } from "@/lib/build-execution/context";
 import { loadBuildExecution, loadBuildExecutionBundle } from "@/lib/build-execution/queries";
+import { collectVerificationItems } from "@/lib/verification/context";
+import { loadVerificationProgram, loadVerificationBundle } from "@/lib/verification/queries";
 import { collectSystemArchitectureItems } from "@/lib/system-architecture/context";
 import { loadSystemArchitecture, loadSystemArchitectureBundle } from "@/lib/system-architecture/queries";
 import { explainInspections, inspectionContextItems, inspectionQuestion } from "@/lib/inspector/evidence";
@@ -94,6 +96,7 @@ async function projectContext(
     systemArchitecture,
     buildPlan,
     buildExecution,
+    verificationProgram,
   ] = await Promise.all([
     loadMilestones(session.supabase, projectId),
     loadKnowledge(session.supabase, projectId),
@@ -107,6 +110,7 @@ async function projectContext(
     loadSystemArchitecture(session.supabase, projectId),
     loadBuildPlan(session.supabase, projectId),
     loadBuildExecution(session.supabase, projectId),
+    loadVerificationProgram(session.supabase, projectId),
   ]);
 
   if (
@@ -121,7 +125,8 @@ async function projectContext(
     architecture.status === "error" ||
     systemArchitecture.status === "error" ||
     buildPlan.status === "error" ||
-    buildExecution.status === "error"
+    buildExecution.status === "error" ||
+    verificationProgram.status === "error"
   ) {
     return null;
   }
@@ -173,6 +178,14 @@ async function projectContext(
     const bundle = await loadBuildExecutionBundle(session.supabase, buildExecution.data);
     if (bundle.status === "ok") {
       buildExecutionItems = collectBuildExecutionItems({ question, bundle: bundle.data });
+    }
+  }
+
+  let verificationItems: ReturnType<typeof collectVerificationItems> = [];
+  if (verificationProgram.data) {
+    const bundle = await loadVerificationBundle(session.supabase, verificationProgram.data);
+    if (bundle.status === "ok") {
+      verificationItems = collectVerificationItems({ question, bundle: bundle.data });
     }
   }
 
@@ -279,7 +292,8 @@ async function projectContext(
       .concat(productItems)
       .concat(systemItems)
       .concat(buildPlanItems)
-      .concat(buildExecutionItems),
+      .concat(buildExecutionItems)
+      .concat(verificationItems),
   };
 }
 

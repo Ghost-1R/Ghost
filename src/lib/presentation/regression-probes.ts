@@ -568,3 +568,74 @@ export async function evaluateBuildExecutionRegression(supabase: GhostClient): P
   lines.push("v8 build plan tables: present");
   return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
 }
+
+const VERIFICATION_BUG = "Verification domain is incomplete";
+
+export async function evaluateVerificationRegression(supabase: GhostClient): Promise<ProbeResult> {
+  const lines = [
+    VERIFICATION_BUG,
+    "VERIFICATION DOMAIN",
+    "VERIFICATION RLS",
+    "CASES",
+    "EVIDENCE",
+    "DEFECTS",
+    "RETEST",
+    "COMPLETION GATE",
+    "TRUTH BOUNDARY",
+    "V9 REGRESSION",
+  ];
+
+  const tables = await Promise.all([
+    supabase.from("verification_programs").select("id").limit(1),
+    supabase.from("verification_program_transitions").select("id").limit(1),
+    supabase.from("verification_cases").select("id").limit(1),
+    supabase.from("verification_evidence").select("id").limit(1),
+    supabase.from("verification_defects").select("id").limit(1),
+    supabase.from("verification_retest_events").select("id").limit(1),
+  ]);
+  if (tables.some((result) => result.error && /does not exist|schema cache/i.test(result.error.message))) {
+    lines.push("remote verification tables: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  if (tables.some((result) => result.error)) {
+    lines.push(`remote verification tables: ${tables.find((result) => result.error)?.error?.message ?? "error"}`);
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("remote verification tables: present");
+
+  const decisionColumn = await supabase.from("project_decisions").select("id, verification_program_id").limit(1);
+  if (decisionColumn.error && /verification_program_id|column/i.test(decisionColumn.error.message)) {
+    lines.push("project_decisions verification_program_id: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("project_decisions verification_program_id: present");
+
+  const truthSource = await readFile(path.join(process.cwd(), "src/lib/verification/truth.ts"), "utf8").catch(() => "");
+  const workflowSource = await readFile(path.join(process.cwd(), "src/lib/verification/workflow.ts"), "utf8").catch(
+    () => "",
+  );
+  const hasTruth =
+    truthSource.includes("isProgramVerified") &&
+    truthSource.includes("isDeployed") &&
+    truthSource.includes("past Ghost answer");
+  const hasWorkflow =
+    workflowSource.includes("computeVerificationCompletion") &&
+    workflowSource.includes("LEGAL_VERIFICATION_PROGRAM_TRANSITIONS") &&
+    workflowSource.includes("isBlockingDefect");
+  lines.push(`truth boundary module: ${hasTruth ? "present" : "missing"}`);
+  lines.push(`completion and transitions module: ${hasWorkflow ? "present" : "missing"}`);
+  if (!hasTruth || !hasWorkflow) {
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+
+  const v9 = await Promise.all([
+    supabase.from("build_executions").select("id").limit(1),
+    supabase.from("work_package_executions").select("id").limit(1),
+  ]);
+  if (v9.some((result) => result.error)) {
+    lines.push("v9 build execution tables: unavailable");
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("v9 build execution tables: present");
+  return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
+}

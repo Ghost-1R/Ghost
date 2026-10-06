@@ -16,6 +16,7 @@ export const PARALLEL_PROBES = [
   "system-architecture-regression",
   "build-plan-regression",
   "build-execution-regression",
+  "verification-regression",
 ] as const;
 
 export type InspectionStage =

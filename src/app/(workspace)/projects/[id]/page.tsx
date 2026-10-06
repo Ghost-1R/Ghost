@@ -214,6 +214,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <Link className="button" href={`/projects/${detail.id}/execution`}>
             Build Execution
           </Link>
+          <Link className="button" href={`/projects/${detail.id}/verification`}>
+            Verification
+          </Link>
         </div>
       </div>
 
@@ -234,6 +237,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </li>
           <li>
             <Link href={`/projects/${detail.id}/execution`}>Open Build Execution</Link>
+          </li>
+          <li>
+            <Link href={`/projects/${detail.id}/verification`}>Open Verification</Link>
           </li>
         </ul>
       </Panel>

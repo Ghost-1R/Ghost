@@ -295,6 +295,32 @@ export async function evaluateRequirementTrace(supabase: GhostClient, projectId:
       });
       continue;
     }
+    if (requirement.title === "Verification operating loop") {
+      const [programs, cases, truthSource, workflowSource] = await Promise.all([
+        supabase.from("verification_programs").select("id").limit(1),
+        supabase.from("verification_cases").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/verification/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/verification/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !programs.error && !cases.error;
+      const codeOk =
+        truthSource.includes("isProgramVerified") &&
+        truthSource.includes("isDeployed") &&
+        workflowSource.includes("computeVerificationCompletion") &&
+        workflowSource.includes("isBlockingDefect");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/verification; verification_programs; verification_cases",
+          ok
+            ? `live verification tables ${programs.error || cases.error ? "error" : "ok"}; completion and truth modules present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
     traced.push({ ...base, implementationEvidence: null, verificationEvidence: null });
   }
   const lines = traced.map((item) => {

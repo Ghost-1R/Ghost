@@ -55,6 +55,12 @@ type ImplementationEvidenceKindValue = import("@/lib/build-execution/types").Imp
 type ExecutionBlockerStatusValue = import("@/lib/build-execution/types").ExecutionBlockerStatus;
 type UpstreamChangeStatusValue = import("@/lib/build-execution/types").UpstreamChangeStatus;
 type UpstreamArtifactKindValue = import("@/lib/build-execution/types").UpstreamArtifactKind;
+type VerificationProgramStatusValue = import("@/lib/verification/types").VerificationProgramStatus;
+type VerificationCaseStatusValue = import("@/lib/verification/types").VerificationCaseStatus;
+type VerificationCaseKindValue = import("@/lib/verification/types").VerificationCaseKind;
+type VerificationEvidenceKindValue = import("@/lib/verification/types").VerificationEvidenceKind;
+type VerificationDefectStatusValue = import("@/lib/verification/types").VerificationDefectStatus;
+type VerificationDefectSeverityValue = import("@/lib/verification/types").VerificationDefectSeverity;
 
 export type Database = {
   public: {
@@ -377,6 +383,7 @@ export type Database = {
           system_architecture_id: string | null;
           build_plan_id: string | null;
           build_execution_id: string | null;
+          verification_program_id: string | null;
           title: string;
           question: string;
           context: string;
@@ -401,6 +408,7 @@ export type Database = {
           system_architecture_id?: string | null;
           build_plan_id?: string | null;
           build_execution_id?: string | null;
+          verification_program_id?: string | null;
           title: string;
           question: string;
           context?: string;
@@ -1415,6 +1423,126 @@ export type Database = {
         },
         "execution_id" | "project_id" | "artifact_kind" | "issue"
       >;
+      verification_programs: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          build_execution_id: string;
+          build_plan_id: string;
+          product_architecture_id: string;
+          system_architecture_id: string;
+          summary: string;
+          status: VerificationProgramStatusValue;
+          note: string;
+          verified_at: string | null;
+          verified_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "project_id" | "build_execution_id" | "build_plan_id" | "product_architecture_id" | "system_architecture_id"
+      >;
+      verification_program_transitions: DefaultedTable<
+        {
+          id: string;
+          program_id: string;
+          from_status: VerificationProgramStatusValue | null;
+          to_status: VerificationProgramStatusValue;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        "program_id" | "to_status" | "reason"
+      >;
+      verification_cases: DefaultedTable<
+        {
+          id: string;
+          program_id: string;
+          project_id: string;
+          human_id: string;
+          title: string;
+          purpose: string;
+          case_kind: VerificationCaseKindValue;
+          is_automated: boolean;
+          is_required: boolean;
+          is_regression: boolean;
+          status: VerificationCaseStatusValue;
+          preconditions: string;
+          expected_result: string;
+          actual_result: string;
+          work_package_id: string | null;
+          package_execution_id: string | null;
+          plan_verification_id: string | null;
+          requirement_id: string | null;
+          feature_id: string | null;
+          source: string;
+          provenance: string;
+          started_at: string | null;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "program_id" | "project_id" | "human_id" | "title"
+      >;
+      verification_evidence: DefaultedTable<
+        {
+          id: string;
+          case_id: string;
+          program_id: string;
+          project_id: string;
+          kind: VerificationEvidenceKindValue;
+          reference: string;
+          summary: string;
+          is_automated: boolean;
+          source: string;
+          provenance: string;
+          created_at: string;
+          created_by: string | null;
+        },
+        "case_id" | "program_id" | "project_id" | "kind" | "reference"
+      >;
+      verification_defects: DefaultedTable<
+        {
+          id: string;
+          program_id: string;
+          project_id: string;
+          case_id: string;
+          human_id: string;
+          title: string;
+          description: string;
+          severity: VerificationDefectSeverityValue;
+          blocking: boolean;
+          status: VerificationDefectStatusValue;
+          resolution: string;
+          package_execution_id: string | null;
+          requirement_id: string | null;
+          feature_id: string | null;
+          retest_case_id: string | null;
+          discovered_at: string;
+          resolved_at: string | null;
+          closed_at: string | null;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "program_id" | "project_id" | "case_id" | "human_id" | "title"
+      >;
+      verification_retest_events: DefaultedTable<
+        {
+          id: string;
+          defect_id: string;
+          program_id: string;
+          project_id: string;
+          case_id: string;
+          result_status: VerificationCaseStatusValue;
+          evidence_id: string | null;
+          note: string;
+          created_at: string;
+          created_by: string | null;
+        },
+        "defect_id" | "program_id" | "project_id" | "case_id" | "result_status"
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -1498,6 +1626,15 @@ export type Database = {
           transition_actor?: string;
         };
         Returns: Database["public"]["Tables"]["build_execution_transitions"]["Row"];
+      };
+      record_verification_program_transition: {
+        Args: {
+          target_program_id: string;
+          next_status: VerificationProgramStatusValue;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["verification_program_transitions"]["Row"];
       };
     };
   };
