@@ -61,6 +61,15 @@ type VerificationCaseKindValue = import("@/lib/verification/types").Verification
 type VerificationEvidenceKindValue = import("@/lib/verification/types").VerificationEvidenceKind;
 type VerificationDefectStatusValue = import("@/lib/verification/types").VerificationDefectStatus;
 type VerificationDefectSeverityValue = import("@/lib/verification/types").VerificationDefectSeverity;
+type ReleaseStatusValue = import("@/lib/deployment-release/types").ReleaseStatus;
+type DeploymentAttemptStatusValue = import("@/lib/deployment-release/types").DeploymentAttemptStatus;
+type DeploymentEnvironmentTypeValue = import("@/lib/deployment-release/types").DeploymentEnvironmentType;
+type ConfigPresenceStatusValue = import("@/lib/deployment-release/types").ConfigPresenceStatus;
+type ReleaseMigrationStatusValue = import("@/lib/deployment-release/types").ReleaseMigrationStatus;
+type DeploymentHealthStatusValue = import("@/lib/deployment-release/types").DeploymentHealthStatus;
+type RollbackStatusValue = import("@/lib/deployment-release/types").RollbackStatus;
+type DeploymentManualActionStatusValue = import("@/lib/deployment-release/types").DeploymentManualActionStatus;
+type DeploymentEvidenceKindValue = import("@/lib/deployment-release/types").DeploymentEvidenceKind;
 
 export type Database = {
   public: {
@@ -384,6 +393,8 @@ export type Database = {
           build_plan_id: string | null;
           build_execution_id: string | null;
           verification_program_id: string | null;
+          release_id: string | null;
+          deployment_id: string | null;
           title: string;
           question: string;
           context: string;
@@ -409,6 +420,8 @@ export type Database = {
           build_plan_id?: string | null;
           build_execution_id?: string | null;
           verification_program_id?: string | null;
+          release_id?: string | null;
+          deployment_id?: string | null;
           title: string;
           question: string;
           context?: string;
@@ -1543,6 +1556,213 @@ export type Database = {
         },
         "defect_id" | "program_id" | "project_id" | "case_id" | "result_status"
       >;
+      deployment_environments: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          name: string;
+          environment_type: DeploymentEnvironmentTypeValue;
+          provider: string;
+          application_url: string;
+          health_endpoint: string;
+          service_identity: string;
+          is_active: boolean;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "project_id" | "name" | "environment_type"
+      >;
+      releases: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          verification_program_id: string;
+          build_execution_id: string;
+          build_plan_id: string;
+          product_architecture_id: string;
+          system_architecture_id: string;
+          environment_id: string | null;
+          human_id: string;
+          summary: string;
+          status: ReleaseStatusValue;
+          source_branch: string;
+          source_commit_sha: string;
+          release_version: string;
+          deployment_sequence: string[];
+          rollback_strategy: string;
+          rollback_target_release_id: string | null;
+          rollback_target_commit_sha: string;
+          note: string;
+          deployed_at: string | null;
+          production_verified_at: string | null;
+          production_verified_by: string | null;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        },
+        | "project_id"
+        | "verification_program_id"
+        | "build_execution_id"
+        | "build_plan_id"
+        | "product_architecture_id"
+        | "system_architecture_id"
+        | "human_id"
+      >;
+      release_transitions: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          from_status: ReleaseStatusValue | null;
+          to_status: ReleaseStatusValue;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        "release_id" | "to_status" | "reason"
+      >;
+      release_config_requirements: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          project_id: string;
+          environment_id: string | null;
+          variable_name: string;
+          is_required: boolean;
+          is_secret: boolean;
+          presence: ConfigPresenceStatusValue;
+          verified_at: string | null;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "release_id" | "project_id" | "variable_name"
+      >;
+      release_migrations: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          project_id: string;
+          environment_id: string | null;
+          migration_path: string;
+          is_required: boolean;
+          status: ReleaseMigrationStatusValue;
+          applied_at: string | null;
+          evidence_ref: string;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "release_id" | "project_id" | "migration_path"
+      >;
+      deployments: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          project_id: string;
+          environment_id: string;
+          human_id: string;
+          status: DeploymentAttemptStatusValue;
+          provider: string;
+          provider_deployment_id: string;
+          expected_commit_sha: string;
+          live_commit_sha: string;
+          deployment_url: string;
+          failure_reason: string;
+          started_at: string | null;
+          completed_at: string | null;
+          inspector_result: string;
+          presentation_result: string;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        },
+        "release_id" | "project_id" | "environment_id" | "human_id"
+      >;
+      deployment_evidence: DefaultedTable<
+        {
+          id: string;
+          deployment_id: string;
+          release_id: string;
+          project_id: string;
+          kind: DeploymentEvidenceKindValue;
+          reference: string;
+          summary: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          created_by: string | null;
+        },
+        "deployment_id" | "release_id" | "project_id" | "kind" | "reference"
+      >;
+      deployment_health_checks: DefaultedTable<
+        {
+          id: string;
+          deployment_id: string;
+          release_id: string;
+          project_id: string;
+          check_name: string;
+          status: DeploymentHealthStatusValue;
+          expected_value: string;
+          observed_value: string;
+          evidence_ref: string;
+          checked_at: string | null;
+          note: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "deployment_id" | "release_id" | "project_id" | "check_name"
+      >;
+      deployment_manual_actions: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          project_id: string;
+          deployment_id: string | null;
+          title: string;
+          instruction: string;
+          is_required: boolean;
+          status: DeploymentManualActionStatusValue;
+          evidence_ref: string;
+          completed_at: string | null;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "release_id" | "project_id" | "title"
+      >;
+      release_rollbacks: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          project_id: string;
+          target_release_id: string | null;
+          target_commit_sha: string;
+          status: RollbackStatusValue;
+          reason: string;
+          evidence_ref: string;
+          requested_at: string | null;
+          completed_at: string | null;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "release_id" | "project_id"
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -1635,6 +1855,15 @@ export type Database = {
           transition_actor?: string;
         };
         Returns: Database["public"]["Tables"]["verification_program_transitions"]["Row"];
+      };
+      record_release_transition: {
+        Args: {
+          target_release_id: string;
+          next_status: ReleaseStatusValue;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["release_transitions"]["Row"];
       };
     };
   };

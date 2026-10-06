@@ -321,6 +321,33 @@ export async function evaluateRequirementTrace(supabase: GhostClient, projectId:
       });
       continue;
     }
+    if (requirement.title === "Deployment operating loop") {
+      const [releases, deployments, truthSource, workflowSource] = await Promise.all([
+        supabase.from("releases").select("id").limit(1),
+        supabase.from("deployments").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/deployment-release/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/deployment-release/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !releases.error && !deployments.error;
+      const codeOk =
+        truthSource.includes("isReleaseDeployed") &&
+        truthSource.includes("isProductionVerified") &&
+        workflowSource.includes("computeDeploymentReadiness") &&
+        workflowSource.includes("computeProductionVerification") &&
+        workflowSource.includes("shasMatch");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/deployment-release; releases; deployments",
+          ok
+            ? `live deployment tables ${releases.error || deployments.error ? "error" : "ok"}; readiness, production gate, and truth modules present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
     traced.push({ ...base, implementationEvidence: null, verificationEvidence: null });
   }
   const lines = traced.map((item) => {

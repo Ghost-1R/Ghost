@@ -639,3 +639,83 @@ export async function evaluateVerificationRegression(supabase: GhostClient): Pro
   lines.push("v9 build execution tables: present");
   return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
 }
+
+const DEPLOYMENT_BUG = "Deployment domain is incomplete";
+
+export async function evaluateDeploymentRegression(supabase: GhostClient): Promise<ProbeResult> {
+  const lines = [
+    DEPLOYMENT_BUG,
+    "DEPLOYMENT DOMAIN",
+    "DEPLOYMENT RLS",
+    "RELEASES",
+    "CONFIGURATION PRESENCE",
+    "MIGRATIONS",
+    "EVIDENCE",
+    "HEALTH CHECKS",
+    "ROLLBACK",
+    "TRUTH BOUNDARY",
+    "V11 REGRESSION",
+  ];
+
+  const tables = await Promise.all([
+    supabase.from("deployment_environments").select("id").limit(1),
+    supabase.from("releases").select("id").limit(1),
+    supabase.from("release_transitions").select("id").limit(1),
+    supabase.from("release_config_requirements").select("id").limit(1),
+    supabase.from("release_migrations").select("id").limit(1),
+    supabase.from("deployments").select("id").limit(1),
+    supabase.from("deployment_evidence").select("id").limit(1),
+    supabase.from("deployment_health_checks").select("id").limit(1),
+    supabase.from("deployment_manual_actions").select("id").limit(1),
+    supabase.from("release_rollbacks").select("id").limit(1),
+  ]);
+  if (tables.some((result) => result.error && /does not exist|schema cache/i.test(result.error.message))) {
+    lines.push("remote deployment tables: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  if (tables.some((result) => result.error)) {
+    lines.push(`remote deployment tables: ${tables.find((result) => result.error)?.error?.message ?? "error"}`);
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("remote deployment tables: present");
+
+  const decisionColumns = await supabase.from("project_decisions").select("id, release_id, deployment_id").limit(1);
+  if (decisionColumns.error && /release_id|deployment_id|column/i.test(decisionColumns.error.message)) {
+    lines.push("project_decisions release_id and deployment_id: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("project_decisions release_id and deployment_id: present");
+
+  const truthSource = await readFile(path.join(process.cwd(), "src/lib/deployment-release/truth.ts"), "utf8").catch(() => "");
+  const workflowSource = await readFile(path.join(process.cwd(), "src/lib/deployment-release/workflow.ts"), "utf8").catch(
+    () => "",
+  );
+  const hasTruth =
+    truthSource.includes("isReleaseDeployed") &&
+    truthSource.includes("isProductionVerified") &&
+    truthSource.includes("isVerifiedButNotDeployed") &&
+    truthSource.includes("VERIFIED ≠ DEPLOYED ≠ PRODUCTION_VERIFIED") &&
+    truthSource.includes("past Ghost answer");
+  const hasWorkflow =
+    workflowSource.includes("computeDeploymentReadiness") &&
+    workflowSource.includes("computeProductionVerification") &&
+    workflowSource.includes("LEGAL_RELEASE_TRANSITIONS") &&
+    workflowSource.includes("shasMatch") &&
+    workflowSource.includes("rejectSecretConfigValue");
+  lines.push(`truth boundary module: ${hasTruth ? "present" : "missing"}`);
+  lines.push(`readiness, production gate, and transitions module: ${hasWorkflow ? "present" : "missing"}`);
+  if (!hasTruth || !hasWorkflow) {
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+
+  const v11 = await Promise.all([
+    supabase.from("verification_programs").select("id").limit(1),
+    supabase.from("verification_cases").select("id").limit(1),
+  ]);
+  if (v11.some((result) => result.error)) {
+    lines.push("v11 verification tables: unavailable");
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("v11 verification tables: present");
+  return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
+}

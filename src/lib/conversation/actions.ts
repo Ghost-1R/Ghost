@@ -29,6 +29,8 @@ import { collectBuildExecutionItems } from "@/lib/build-execution/context";
 import { loadBuildExecution, loadBuildExecutionBundle } from "@/lib/build-execution/queries";
 import { collectVerificationItems } from "@/lib/verification/context";
 import { loadVerificationProgram, loadVerificationBundle } from "@/lib/verification/queries";
+import { collectReleaseItems } from "@/lib/deployment-release/context";
+import { loadLatestRelease, loadReleaseBundle } from "@/lib/deployment-release/queries";
 import { collectSystemArchitectureItems } from "@/lib/system-architecture/context";
 import { loadSystemArchitecture, loadSystemArchitectureBundle } from "@/lib/system-architecture/queries";
 import { explainInspections, inspectionContextItems, inspectionQuestion } from "@/lib/inspector/evidence";
@@ -97,6 +99,7 @@ async function projectContext(
     buildPlan,
     buildExecution,
     verificationProgram,
+    latestRelease,
   ] = await Promise.all([
     loadMilestones(session.supabase, projectId),
     loadKnowledge(session.supabase, projectId),
@@ -111,6 +114,7 @@ async function projectContext(
     loadBuildPlan(session.supabase, projectId),
     loadBuildExecution(session.supabase, projectId),
     loadVerificationProgram(session.supabase, projectId),
+    loadLatestRelease(session.supabase, projectId),
   ]);
 
   if (
@@ -126,7 +130,8 @@ async function projectContext(
     systemArchitecture.status === "error" ||
     buildPlan.status === "error" ||
     buildExecution.status === "error" ||
-    verificationProgram.status === "error"
+    verificationProgram.status === "error" ||
+    latestRelease.status === "error"
   ) {
     return null;
   }
@@ -187,6 +192,17 @@ async function projectContext(
     if (bundle.status === "ok") {
       verificationItems = collectVerificationItems({ question, bundle: bundle.data });
     }
+  }
+
+  let releaseItems: ReturnType<typeof collectReleaseItems> = [];
+  if (latestRelease.data) {
+    const bundle = await loadReleaseBundle(session.supabase, latestRelease.data);
+    if (bundle.status === "ok") {
+      releaseItems = collectReleaseItems({ question, bundle: bundle.data });
+    }
+  }
+  if (releaseItems.some((item) => item.type === "truth_boundary")) {
+    verificationItems = verificationItems.filter((item) => !item.id.startsWith("verification-truth-"));
   }
 
   const ghost = assembleProjectContext({
@@ -293,7 +309,8 @@ async function projectContext(
       .concat(systemItems)
       .concat(buildPlanItems)
       .concat(buildExecutionItems)
-      .concat(verificationItems),
+      .concat(verificationItems)
+      .concat(releaseItems),
   };
 }
 

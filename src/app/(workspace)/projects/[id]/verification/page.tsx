@@ -183,6 +183,11 @@ export default async function VerificationPage({ params }: { params: Promise<{ i
               Build Execution
             </Link>
           </li>
+          <li>
+            <Link className="button-secondary" href={`/projects/${projectId}/deploy`}>
+              Deploy
+            </Link>
+          </li>
         </ul>
       </div>
 
