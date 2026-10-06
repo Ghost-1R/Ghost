@@ -44,6 +44,7 @@ next-env.d.ts
 # Local inspector and approval records. These are owner-scoped runtime evidence, not project truth.
 .ghost/runtime/
 .ghost/presentation/
+.ghost/v7-prod-closure.mts
 
 # Editor-local settings (not project truth; keeps inspector tree clean).
 .cursor/
