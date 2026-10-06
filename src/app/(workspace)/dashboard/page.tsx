@@ -2,32 +2,37 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GhostConversation } from "@/components/ghost/conversation";
-import { DashboardHero } from "@/components/ghost/hero";
 import { ActionForm } from "@/components/ui/action-form";
 import { EmptyState, ErrorState } from "@/components/ui/panel";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { isModelConfigured } from "@/lib/ai/provider";
 import { getSession } from "@/lib/auth/session";
 import { loadLatestConversation } from "@/lib/conversation/queries";
 import {
-  buildOperatingMetrics,
-  countOpenDecisionsForProject,
-  mapLifecycleToPipelineStage,
-  OS_PIPELINE_STAGES,
-  pickActiveProject,
-} from "@/lib/dashboard/os";
-import { loadActiveProductCounts, loadDashboardGroundedCounts } from "@/lib/dashboard/queries";
+  buildRedLights,
+  buildWaitingOnMe,
+  deriveProjectHealth,
+  healthGlyph,
+  moneyStatusPhase1,
+  rankTop3Actions,
+  whoMightCallSection,
+  type CeoSignal,
+} from "@/lib/dashboard/ceo";
+import { loadCeoSignals } from "@/lib/dashboard/ceo-queries";
 import { resolveFounderDecision } from "@/lib/decisions/actions";
 import { loadOpenDecisions } from "@/lib/decisions/queries";
-import { formatTimestamp } from "@/lib/format";
-import { loadRecentActivity } from "@/lib/operations/activity";
 import { loadTodayActions } from "@/lib/operations/actions";
-import { explainTodayPriority } from "@/lib/operations/today";
 import { loadProjectSummaries } from "@/lib/projects/queries";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
+  title: "Command Center",
 };
+
+function greetingLine(now = new Date()): string {
+  const hour = now.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -35,310 +40,279 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const [
-    projects,
-    conversation,
-    today,
-    openDecisions,
-    activity,
-  ] = await Promise.all([
+  const profile = await session.supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", session.user.id)
+    .maybeSingle();
+  const founderName =
+    profile.data?.display_name?.trim() ||
+    session.user.email?.split("@")[0] ||
+    "Founder";
+
+  const [projects, conversation, today, openDecisions] = await Promise.all([
     loadProjectSummaries(session.supabase),
     loadLatestConversation(session.supabase, null),
     loadTodayActions(session.supabase),
     loadOpenDecisions(session.supabase),
-    loadRecentActivity(session.supabase, 8),
   ]);
 
   const projectList = projects.status === "ok" ? projects.data : [];
   const decisionList = openDecisions.status === "ok" ? openDecisions.data : [];
   const todayList = today.status === "ok" ? today.data : [];
-  const activityList = activity.status === "ok" ? activity.data.slice(0, 6) : [];
-  const active = pickActiveProject(projectList);
-  const activeStageId = active ? mapLifecycleToPipelineStage(active.lifecycleStage) : null;
 
-  const grounded =
+  const signalBundle =
     projects.status === "ok"
-      ? await loadDashboardGroundedCounts(
+      ? await loadCeoSignals(
           session.supabase,
-          projectList.map((project) => project.id),
+          projectList.map((project) => ({ id: project.id, name: project.name })),
         )
       : null;
-  const productCounts = active
-    ? await loadActiveProductCounts(session.supabase, active.id)
-    : null;
 
-  const openBlockerCount = projectList.reduce((sum, project) => sum + project.openBlockers, 0);
-  const metrics = buildOperatingMetrics({
-    projectCount: projectList.length,
-    openDecisionCount: decisionList.length,
-    openBlockerCount,
-    verifiedItemCount: grounded?.status === "ok" ? grounded.data.verifiedItemCount : null,
-    productionProjectCount: grounded?.status === "ok" ? grounded.data.productionProjectCount : null,
+  const signals: CeoSignal[] = signalBundle?.status === "ok" ? signalBundle.data.signals : [];
+  const verifiedIds =
+    signalBundle?.status === "ok" ? signalBundle.data.verifiedProjectIds : new Set<string>();
+  const presentationReviews =
+    signalBundle?.status === "ok" ? signalBundle.data.presentationReviews : [];
+
+  const decisionsForCeo = decisionList.map((decision) => ({
+    id: decision.id,
+    projectId: decision.projectId,
+    projectName:
+      projectList.find((project) => project.id === decision.projectId)?.name ??
+      (decision.ideaId ? "Idea Lab" : "Workspace"),
+    title: decision.title,
+    question: decision.question,
+    createdAt: decision.createdAt,
+  }));
+
+  const top3 = rankTop3Actions({
+    today: todayList,
+    signals,
+    decisions: decisionsForCeo,
   });
 
-  const activeDecisionCount = active ? countOpenDecisionsForProject(decisionList, active.id) : 0;
-  const requirementCount =
-    productCounts?.status === "ok" ? productCounts.data.requirementCount : null;
-  const featureCount = productCounts?.status === "ok" ? productCounts.data.featureCount : null;
+  const waiting = buildWaitingOnMe({
+    decisions: decisionsForCeo,
+    requiresDecisionActions: todayList.filter((action) => action.requiresDecision),
+    presentationReviews,
+  });
+
+  const whoMightCall = whoMightCallSection(signals);
+  const redLights = buildRedLights(signals);
+  const money = moneyStatusPhase1();
+
+  const projectRows = projectList.map((project) => {
+    const projectSignals = signals.filter((signal) => signal.projectId === project.id);
+    const critical = projectSignals.filter((signal) => signal.severity === "critical");
+    const yellow = projectSignals.filter((signal) => signal.severity === "high");
+    const openDecisionCount = decisionList.filter((decision) => decision.projectId === project.id).length;
+    const health = deriveProjectHealth({
+      openBlockerCount: project.openBlockers,
+      criticalSignals: critical,
+      yellowSignals: yellow,
+      hasVerifiedEvidence: verifiedIds.has(project.id),
+      openDecisionCount,
+      nextAction: project.nextAction,
+    });
+    return {
+      projectId: project.id,
+      projectName: project.name,
+      health,
+      nextAction: health.nextAction ?? project.nextAction,
+      href: `/projects/${project.id}`,
+    };
+  });
 
   return (
-    <div className="stack os-dashboard">
-      <div className="os-hero-row">
-        <DashboardHero activeStageId={activeStageId} />
-        <section className="os-active-card" aria-label="Active project">
-          <p className="eyebrow">Active Project</p>
-          {active ? (
-            <>
-              <h2>{active.name}</h2>
-              <p className="quiet">{active.description || "No description recorded."}</p>
-              <ul className="meta os-active-meta">
-                <li>
-                  <StatusBadge status={active.status} />
-                </li>
-                <li className="os-chip">{active.lifecycleStage}</li>
-                {active.openBlockers > 0 ? (
-                  <li className="os-chip os-chip-warn">{active.openBlockers} blocker{active.openBlockers === 1 ? "" : "s"}</li>
-                ) : null}
-                {activeDecisionCount > 0 ? (
-                  <li className="os-chip os-chip-purple">{activeDecisionCount} decision{activeDecisionCount === 1 ? "" : "s"} open</li>
-                ) : null}
-              </ul>
-              <ul className="meta">
-                {requirementCount !== null ? <li>Requirements: {requirementCount}</li> : null}
-                {featureCount !== null ? <li>Features: {featureCount}</li> : null}
-                <li>Open Decisions: {activeDecisionCount}</li>
-              </ul>
-              {active.nextAction ? <p className="os-next-line">Next: {active.nextAction}</p> : null}
-              <Link className="button" href={`/projects/${active.id}`}>
-                Open Project →
-              </Link>
-            </>
-          ) : (
-            <>
-              <h2>No active project</h2>
-              <p className="quiet">Create a project to give Ghost something to operate.</p>
-              <Link className="button" href="/projects/new">
-                New Project
-              </Link>
-            </>
-          )}
-        </section>
-      </div>
+    <div className="ceo-home">
+      <header className="ceo-greeting">
+        <p className="eyebrow">Ghost · Second Me</p>
+        <h1>
+          {greetingLine()}, {founderName}.
+        </h1>
+        <p className="ceo-lede">Here&apos;s what needs you today.</p>
+      </header>
 
-      <section className="os-metrics" aria-label="Operating summary">
-        {metrics.map((metric) => (
-          <article className="os-metric" key={metric.key}>
-            <p className="eyebrow">{metric.label}</p>
-            <p className="os-metric-value">{metric.value}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="os-panel" aria-labelledby="pipeline-heading">
-        <div className="os-panel-head">
-          <div>
-            <p className="eyebrow">Project Pipeline</p>
-            <h2 id="pipeline-heading">Where your product is in the Ghost operating system.</h2>
-          </div>
+      <section className="ceo-panel ceo-top3" aria-labelledby="top3-heading">
+        <div className="ceo-panel-head">
+          <p className="eyebrow">Top 3 Actions</p>
+          <h2 id="top3-heading">What needs you.</h2>
         </div>
-        <ol className="os-pipeline-horizontal">
-          {OS_PIPELINE_STAGES.map((stage) => (
-            <li key={stage.id} data-active={activeStageId === stage.id ? "true" : "false"}>
-              <strong>{stage.label}</strong>
-              <span>{stage.subtitle}</span>
-            </li>
-          ))}
-        </ol>
-        <p className="quiet os-pipeline-note">
-          Current stage only is highlighted from authoritative lifecycle. Ghost does not invent prior-stage completion.
-        </p>
+        {top3.length === 0 ? (
+          <EmptyState>Nothing urgent is recorded right now. Ghost does not invent work to fill this list.</EmptyState>
+        ) : (
+          <ol className="ceo-action-list">
+            {top3.map((item, index) => (
+              <li key={item.id}>
+                <span className="ceo-rank" aria-hidden="true">
+                  {index + 1}
+                </span>
+                <div>
+                  <p className="ceo-project-label">{item.projectName}</p>
+                  <h3>{item.nextAction}</h3>
+                  <p className="quiet">
+                    {item.status} · {item.reason}
+                  </p>
+                </div>
+                <Link className="button-secondary ceo-go" href={item.href}>
+                  Continue →
+                </Link>
+              </li>
+            ))}
+          </ol>
+        )}
       </section>
 
-      <div className="os-attention-grid">
-        <section className="os-panel" aria-labelledby="today-heading">
-          <div className="os-panel-head">
-            <div>
-              <p className="eyebrow">Today with Ghost</p>
-              <h2 id="today-heading">What deserves your attention now.</h2>
-            </div>
-          </div>
-          {today.status === "error" ? <ErrorState message={today.message} /> : null}
-          {today.status === "ok" && todayList.length === 0 ? (
-            <EmptyState>Nothing needs your attention right now. Ghost does not invent tasks to fill this list.</EmptyState>
-          ) : null}
-          {todayList.length > 0 ? (
-            <div className="stack">
-              {todayList.slice(0, 5).map((item) => (
-                <article className="os-row" key={item.id}>
-                  <div>
-                    <h3>
-                      <Link href={`/projects/${item.projectId}`}>{item.title}</Link>
-                    </h3>
-                    <p className="quiet">
-                      {item.projectName} · {item.status}
-                      {item.requiresDecision ? " · decision required" : ""}
-                    </p>
-                    <p className="quiet">{explainTodayPriority(item)}</p>
-                  </div>
-                  <Link className="button-secondary os-row-action" href={`/projects/${item.projectId}`}>
-                    Open →
-                  </Link>
-                </article>
-              ))}
-            </div>
-          ) : null}
-        </section>
+      <section className="ceo-panel ceo-waiting" aria-labelledby="waiting-heading" id="waiting-on-me">
+        <div className="ceo-panel-head">
+          <p className="eyebrow">Waiting on Me</p>
+          <h2 id="waiting-heading">Decisions and reviews only you can clear.</h2>
+        </div>
+        {openDecisions.status === "error" ? <ErrorState message={openDecisions.message} /> : null}
+        {waiting.length === 0 ? (
+          <EmptyState>Nothing is waiting on you.</EmptyState>
+        ) : (
+          <ul className="ceo-simple-list">
+            {waiting.map((item) => (
+              <li key={item.id}>
+                <div>
+                  <p className="ceo-project-label">{item.projectName}</p>
+                  <h3>{item.what}</h3>
+                  <p className="quiet">
+                    {item.reason}
+                    {item.ageLabel ? ` · ${item.ageLabel}` : ""}
+                  </p>
+                  {item.id.startsWith("dec-") ? (
+                    <ActionForm action={resolveFounderDecision} submitLabel={item.actionLabel}>
+                      <input type="hidden" name="decisionId" value={item.id.replace(/^dec-/, "")} />
+                      <input type="hidden" name="projectId" value={item.projectId ?? ""} />
+                      <input type="hidden" name="status" value="RESOLVED" />
+                      <label className="field">
+                        <span>Your choice</span>
+                        <input name="selectedOption" required maxLength={200} placeholder="Selected option or answer" />
+                      </label>
+                    </ActionForm>
+                  ) : null}
+                </div>
+                <Link className="button-secondary" href={item.href}>
+                  {item.actionLabel} →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-        <section className="os-panel os-panel-decision" aria-labelledby="decisions-heading">
-          <div className="os-panel-head">
-            <div>
-              <p className="eyebrow">Needs Your Decision</p>
-              <h2 id="decisions-heading">Choices Ghost will not make for you.</h2>
-            </div>
-          </div>
-          {openDecisions.status === "error" ? <ErrorState message={openDecisions.message} /> : null}
-          {openDecisions.status === "ok" && decisionList.length === 0 ? (
-            <EmptyState>No founder decisions are waiting.</EmptyState>
-          ) : null}
-          {decisionList.length > 0 ? (
-            <div className="stack">
-              {decisionList.slice(0, 6).map((decision) => {
-                const href = decision.projectId
-                  ? `/projects/${decision.projectId}`
-                  : decision.ideaId
-                    ? `/ideas/${decision.ideaId}`
-                    : "/dashboard";
-                const projectName =
-                  projectList.find((project) => project.id === decision.projectId)?.name ??
-                  (decision.ideaId ? "Idea Lab" : "Ghost");
-                return (
-                  <article className="os-row" key={decision.id}>
-                    <div>
-                      <p className="os-row-project">{projectName}</p>
-                      <h3>
-                        <Link href={href}>{decision.title}</Link>
-                      </h3>
-                      <p className="quiet">{decision.question}</p>
-                      {decision.recommendation ? (
-                        <p className="quiet">Ghost recommends: {decision.recommendation}</p>
-                      ) : null}
-                      <ActionForm action={resolveFounderDecision} submitLabel="Resolve">
-                        <input type="hidden" name="decisionId" value={decision.id} />
-                        <input type="hidden" name="projectId" value={decision.projectId ?? ""} />
-                        <input type="hidden" name="status" value="RESOLVED" />
-                        <label className="field">
-                          <span>Your choice</span>
-                          <input name="selectedOption" required maxLength={200} placeholder="Selected option or answer" />
-                        </label>
-                      </ActionForm>
-                    </div>
-                    <Link className="button-secondary os-row-action" href={href}>
-                      Review →
-                    </Link>
-                  </article>
-                );
-              })}
-            </div>
-          ) : null}
-        </section>
-      </div>
+      <section className="ceo-panel ceo-red" aria-labelledby="red-heading">
+        <div className="ceo-panel-head">
+          <p className="eyebrow">Red Lights</p>
+          <h2 id="red-heading">Shipping blockers only.</h2>
+        </div>
+        {redLights.length === 0 ? (
+          <EmptyState>No known shipping blockers.</EmptyState>
+        ) : (
+          <ul className="ceo-simple-list">
+            {redLights.map((light) => (
+              <li key={light.id}>
+                <div>
+                  <p className="ceo-project-label">{light.projectName}</p>
+                  <h3>{light.reason}</h3>
+                  <p className="quiet">{light.evidence}</p>
+                  <p className="ceo-next">{light.nextAction}</p>
+                </div>
+                <Link className="button-secondary" href={light.href}>
+                  Fix →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-      <div className="os-lower-grid">
-        <section className="os-panel" aria-labelledby="activity-heading">
-          <div className="os-panel-head">
-            <div>
-              <p className="eyebrow">Recent Activity</p>
-              <h2 id="activity-heading">What actually changed.</h2>
-            </div>
-          </div>
-          {activity.status === "error" ? <ErrorState message={activity.message} /> : null}
-          {activity.status === "ok" && activityList.length === 0 ? (
-            <EmptyState>No operational activity is recorded yet.</EmptyState>
-          ) : null}
-          {activityList.length > 0 ? (
-            <div className="stack">
-              {activityList.map((item) => (
-                <article className="os-row" key={item.id}>
-                  <div>
-                    <h3>
-                      <Link href={item.href}>{item.title}</Link>
-                    </h3>
-                    <p className="quiet">
-                      {item.projectName} · {formatTimestamp(item.at)}
-                    </p>
-                    <p className="quiet">{item.detail}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : null}
-        </section>
-
-        <section className="os-panel" aria-labelledby="projects-heading">
-          <div className="os-panel-head">
-            <div>
-              <p className="eyebrow">Your Projects</p>
-              <h2 id="projects-heading">The work Ghost is tracking.</h2>
-            </div>
-            <Link href="/projects">All projects</Link>
-          </div>
-          {projects.status === "error" ? <ErrorState message={projects.message} /> : null}
-          {projects.status === "ok" && projectList.length === 0 ? (
-            <EmptyState>No projects yet. Create your first project.</EmptyState>
-          ) : null}
-          {projectList.length > 0 ? (
-            <div className="os-project-grid">
-              {projectList.map((project) => {
-                const decisions = countOpenDecisionsForProject(decisionList, project.id);
-                return (
-                  <article className="os-project-card" key={project.id} data-active={active?.id === project.id ? "true" : "false"}>
-                    <p className="eyebrow">{project.lifecycleStage}</p>
-                    <h3>
-                      <Link href={`/projects/${project.id}`}>{project.name}</Link>
-                    </h3>
-                    <p className="quiet">{project.description || "No description recorded."}</p>
-                    <ul className="meta">
-                      <li>
-                        <StatusBadge status={project.status} />
-                      </li>
-                      <li>
-                        {project.openBlockers} blocker{project.openBlockers === 1 ? "" : "s"}
-                      </li>
-                      <li>
-                        {decisions} decision{decisions === 1 ? "" : "s"}
-                      </li>
-                    </ul>
-                    {project.nextAction ? <p className="quiet">Next: {project.nextAction}</p> : null}
-                    <Link className="button-secondary" href={`/projects/${project.id}`}>
-                      Open Project
-                    </Link>
-                  </article>
-                );
-              })}
-            </div>
-          ) : null}
-        </section>
-      </div>
-
-      <section className="os-panel os-ask-panel" id="ask-ghost" aria-labelledby="ask-heading">
-        <div className="os-panel-head">
-          <div>
-            <p className="eyebrow">Ask Ghost</p>
-            <h2 id="ask-heading">Ask about projects, blockers, decisions, bugs, or what to do next.</h2>
-          </div>
+      <section className="ceo-panel ceo-ask" id="ask-ghost" aria-labelledby="ask-heading">
+        <div className="ceo-panel-head">
+          <p className="eyebrow">Ask Ghost</p>
+          <h2 id="ask-heading">Ask Ghost anything…</h2>
         </div>
         <p className="quiet">
-          Try: “Checkout is broken — what do we know?” · “Why are orders stuck?” · “What should I test first?”
+          Questions answer immediately from Project Brain. Build, deploy, publish, send, and other consequential
+          actions stay gated in the operating system.
         </p>
         {conversation.status === "error" ? <ErrorState message={conversation.message} /> : null}
         <GhostConversation
-          projectId={active?.id ?? null}
-          projectName={active?.name ?? null}
+          projectId={null}
+          projectName={null}
           conversationId={conversation.status === "ok" ? conversation.data?.id ?? null : null}
           messages={conversation.status === "ok" ? conversation.data?.messages ?? [] : []}
           providerConfigured={isModelConfigured()}
           variant="command"
         />
+      </section>
+
+      <section className="ceo-panel ceo-projects" aria-labelledby="projects-heading">
+        <div className="ceo-panel-head ceo-panel-head-row">
+          <div>
+            <p className="eyebrow">Projects</p>
+            <h2 id="projects-heading">Health, reason, next step.</h2>
+          </div>
+          <Link href="/projects">All projects</Link>
+        </div>
+        {projects.status === "error" ? <ErrorState message={projects.message} /> : null}
+        {projects.status === "ok" && projectRows.length === 0 ? <EmptyState>No projects yet.</EmptyState> : null}
+        {projectRows.length > 0 ? (
+          <ul className="ceo-project-rows">
+            {projectRows.map((row) => (
+              <li key={row.projectId}>
+                <span className="ceo-health" title={row.health.status} aria-label={row.health.status}>
+                  {healthGlyph(row.health.status)}
+                </span>
+                <div>
+                  <h3>
+                    <Link href={row.href}>{row.projectName}</Link>
+                  </h3>
+                  <p className="quiet">{row.health.reason}</p>
+                  {row.nextAction ? <p className="ceo-next">Next: {row.nextAction}</p> : null}
+                </div>
+                <Link className="button-secondary" href={row.href}>
+                  Open →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+
+      <section className="ceo-panel ceo-call" aria-labelledby="call-heading" id="who-might-call">
+        <div className="ceo-panel-head">
+          <p className="eyebrow">Who Might Call Me</p>
+          <h2 id="call-heading">Exceptions only.</h2>
+        </div>
+        <p className="ceo-honest quiet">{whoMightCall.notice}</p>
+        {whoMightCall.exceptions.length === 0 ? (
+          <EmptyState>No recorded client-facing exceptions right now.</EmptyState>
+        ) : (
+          <ul className="ceo-simple-list">
+            {whoMightCall.exceptions.map((item) => (
+              <li key={item.id}>
+                <div>
+                  <p className="ceo-project-label">{item.projectName}</p>
+                  <p>{item.reason}</p>
+                </div>
+                <Link href={item.href}>Open →</Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="ceo-panel ceo-money" aria-labelledby="money-heading">
+        <div className="ceo-panel-head">
+          <p className="eyebrow">Money</p>
+          <h2 id="money-heading">{money.label}</h2>
+        </div>
+        <p className="ceo-money-detail">{money.detail}</p>
+        <p className="quiet">Ghost will not invent revenue, MRR, or failed charges.</p>
       </section>
     </div>
   );

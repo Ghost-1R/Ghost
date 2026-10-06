@@ -6,6 +6,7 @@ import { prepareReply } from "@/lib/ai/reply";
 import type { ConversationTurn } from "@/lib/ai/types";
 import type { ActionState } from "@/lib/action-state";
 import { getSession } from "@/lib/auth/session";
+import { askPathGrounding, classifyFounderAsk } from "@/lib/dashboard/ceo";
 import { assembleGlobalContext, assembleProjectContext } from "@/lib/brain/context";
 import { isSupportedVerified } from "@/lib/brain/verification";
 import { reuseUnansweredUserMessage } from "@/lib/conversation/idempotency";
@@ -767,6 +768,9 @@ export async function sendGhostMessage(
     productionVerified: loaded?.productionVerified ?? false,
   });
 
+  const askPath = classifyFounderAsk(message);
+  const pathAwareGrounding = [grounding.data, askPathGrounding(askPath)].filter(Boolean).join("\n\n");
+
   const selection = resolveModelProvider();
   let reply: Awaited<ReturnType<typeof prepareReply>>;
   try {
@@ -774,7 +778,7 @@ export async function sendGhostMessage(
       requestedProjectId: contextProjectId,
       visibleProjectId: contextProjectId,
       context,
-      grounding: grounding.data,
+      grounding: pathAwareGrounding,
       messages: grounding.messages.flatMap((turn) =>
         turn.role === "user" || turn.role === "assistant" ? [{ role: turn.role, content: turn.content }] : [],
       ),

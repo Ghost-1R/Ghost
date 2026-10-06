@@ -294,7 +294,7 @@ export function GhostConversation({
               required
               maxLength={4000}
               enterKeyHint="send"
-              placeholder="Ask about projects, blockers, decisions, bugs, or what to do next..."
+              placeholder="Ask Ghost anything…"
               aria-describedby={hintId}
               onKeyDown={submitOnEnter}
             />

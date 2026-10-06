@@ -2052,3 +2052,209 @@ textarea {
     transform: none;
   }
 }
+
+/* —— CEO Command Center (Phase 1) —— */
+.ceo-home {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.ceo-greeting h1 {
+  margin: 0.2rem 0 0;
+  font-size: clamp(1.85rem, 4vw, 2.6rem);
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+}
+
+.ceo-lede {
+  margin: 0.45rem 0 0;
+  max-width: 34rem;
+  color: var(--ink);
+  font-size: 1.12rem;
+  font-weight: 550;
+}
+
+.ceo-panel {
+  padding: 1rem 1.1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 36%),
+    rgba(12, 16, 24, 0.92);
+}
+
+.ceo-panel-head {
+  margin-bottom: 0.85rem;
+}
+
+.ceo-panel-head h2 {
+  margin: 0.15rem 0 0;
+  font-size: 1.08rem;
+}
+
+.ceo-panel-head-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.ceo-top3 {
+  border-color: rgba(125, 211, 252, 0.28);
+  background:
+    linear-gradient(160deg, rgba(56, 189, 248, 0.08), transparent 45%),
+    rgba(10, 14, 22, 0.94);
+}
+
+.ceo-action-list,
+.ceo-simple-list,
+.ceo-project-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.ceo-action-list li,
+.ceo-simple-list li,
+.ceo-project-rows li {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.95rem;
+  background: rgba(7, 10, 16, 0.72);
+}
+
+.ceo-action-list li > div,
+.ceo-simple-list li > div,
+.ceo-project-rows li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.ceo-action-list h3,
+.ceo-simple-list h3,
+.ceo-project-rows h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.ceo-rank {
+  flex: 0 0 auto;
+  width: 1.7rem;
+  height: 1.7rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  color: var(--accent);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.78rem;
+}
+
+.ceo-project-label {
+  margin: 0 0 0.2rem;
+  color: var(--accent);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ceo-go,
+.ceo-simple-list .button-secondary,
+.ceo-project-rows .button-secondary {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.ceo-waiting {
+  border-color: rgba(196, 181, 253, 0.28);
+}
+
+.ceo-money {
+  border-style: dashed;
+}
+
+.ceo-money-detail {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.ceo-honest {
+  margin: 0 0 0.75rem;
+}
+
+.ceo-health {
+  flex: 0 0 auto;
+  font-size: 1.1rem;
+  line-height: 1.7rem;
+}
+
+.ceo-next {
+  margin: 0.35rem 0 0;
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.ceo-red {
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+.ceo-ask {
+  border-color: rgba(125, 211, 252, 0.28);
+}
+
+/* Phone source order: Top3 → Waiting → Red → Ask → Projects → Call → Money */
+@media (min-width: 768px) {
+  .ceo-home {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-areas:
+      "greet greet greet greet greet greet"
+      "top3 top3 top3 top3 top3 top3"
+      "call call wait wait money money"
+      "projects projects projects projects projects projects"
+      "red red red red red red"
+      "ask ask ask ask ask ask";
+  }
+
+  .ceo-greeting { grid-area: greet; }
+  .ceo-top3 { grid-area: top3; }
+  .ceo-waiting { grid-area: wait; }
+  .ceo-call { grid-area: call; }
+  .ceo-money { grid-area: money; }
+  .ceo-projects { grid-area: projects; }
+  .ceo-red { grid-area: red; }
+  .ceo-ask { grid-area: ask; }
+}
+
+@media (min-width: 1280px) {
+  .ceo-home {
+    grid-template-areas:
+      "greet greet greet greet greet greet"
+      "top3 top3 top3 top3 top3 top3"
+      "call call wait wait money money"
+      "projects projects projects red red red"
+      "ask ask ask ask ask ask";
+  }
+}
+
+@media (max-width: 639px) {
+  .ceo-action-list li,
+  .ceo-simple-list li,
+  .ceo-project-rows li {
+    flex-direction: column;
+  }
+
+  .ceo-go,
+  .ceo-simple-list .button-secondary,
+  .ceo-project-rows .button-secondary {
+    width: 100%;
+  }
+}

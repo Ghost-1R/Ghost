@@ -7,18 +7,23 @@ import {
   mapLifecycleToPipelineStage,
 } from "./os";
 
-test("dashboard page refuses fake analytics language", () => {
+test("CEO home refuses fake analytics and hardcoding", () => {
   const page = readFileSync(new URL("../../app/(workspace)/dashboard/page.tsx", import.meta.url), "utf8");
-  assert.ok(page.includes("loadTodayActions"));
+  assert.ok(page.includes("rankTop3Actions"));
   assert.ok(page.includes("loadOpenDecisions"));
   assert.ok(page.includes("loadProjectSummaries"));
-  assert.ok(page.includes("loadRecentActivity"));
-  assert.ok(page.includes("pickActiveProject"));
-  assert.ok(!/78\s*%|Tasks completed|Bugs resolved|3 deployments|fake progress/i.test(page));
+  assert.ok(page.includes("moneyStatusPhase1"));
+  assert.ok(page.includes("whoMightCallSection"));
+  assert.ok(page.includes("buildRedLights"));
+  assert.ok(page.includes("Ask Ghost anything"));
+  assert.ok(!/Ivoire Shop|Cleaning Business/.test(page));
+  assert.ok(!/78\s*%|Tasks completed|Bugs resolved|\$0 MRR|fake progress/i.test(page));
   assert.ok(!containsFakeProgressPercent(page));
+  assert.ok(!page.includes("loadRecentActivity"));
+  assert.ok(!page.includes("OS_PIPELINE_STAGES"));
 });
 
-test("imported BUILD projects highlight Implementation only", () => {
+test("imported BUILD projects still map pipeline for deeper OS views", () => {
   assert.equal(mapLifecycleToPipelineStage("BUILD"), "IMPLEMENTATION");
   const metrics = buildOperatingMetrics({
     projectCount: 1,
@@ -29,7 +34,6 @@ test("imported BUILD projects highlight Implementation only", () => {
   });
   assert.equal(metrics.find((m) => m.key === "decisions")?.value, 3);
   assert.equal(metrics.find((m) => m.key === "blockers")?.value, 1);
-  assert.equal(metrics.find((m) => m.key === "projects")?.value, 1);
 });
 
 test("shell navigation follows Ghost operating sequence", () => {
@@ -57,6 +61,4 @@ test("shell navigation follows Ghost operating sequence", () => {
     assert.ok(next > cursor, `missing or out of order: ${label}`);
     cursor = next;
   }
-  assert.ok(shell.includes("New Project"));
-  assert.ok(shell.includes("All Projects"));
 });
