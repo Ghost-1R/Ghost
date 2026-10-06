@@ -269,6 +269,32 @@ export async function evaluateRequirementTrace(supabase: GhostClient, projectId:
       });
       continue;
     }
+    if (requirement.title === "Build Execution operating loop") {
+      const [executions, packageExecutions, truthSource, workflowSource] = await Promise.all([
+        supabase.from("build_executions").select("id").limit(1),
+        supabase.from("work_package_executions").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/build-execution/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/build-execution/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !executions.error && !packageExecutions.error;
+      const codeOk =
+        truthSource.includes("isExecutionImplemented") &&
+        truthSource.includes("isVerified") &&
+        workflowSource.includes("computeExecutionCompletion") &&
+        workflowSource.includes("refreshDerivedPackageStatuses");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/build-execution; build_executions; work_package_executions",
+          ok
+            ? `live build execution tables ${executions.error || packageExecutions.error ? "error" : "ok"}; readiness, completion, and truth modules present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
     traced.push({ ...base, implementationEvidence: null, verificationEvidence: null });
   }
   const lines = traced.map((item) => {

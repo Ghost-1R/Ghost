@@ -11,6 +11,7 @@ import { evaluateResponsiveSurfaces, sessionCookies } from "@/lib/presentation/r
 import { isExcludedRepositoryPath } from "@/lib/repository/exclude";
 import { readGitState } from "@/lib/repository/local-git";
 import {
+  evaluateBuildExecutionRegression,
   evaluateBuildPlanRegression,
   evaluateConversationRegression,
   evaluateIdeaLabRegression,
@@ -259,6 +260,7 @@ export async function executeTrustedInspection(input: {
     runProbe("regression", PARALLEL_PROBES[10], () => evaluateProductArchitectRegression(input.supabase)),
     runProbe("regression", PARALLEL_PROBES[11], () => evaluateSystemArchitectureRegression(input.supabase)),
     runProbe("regression", PARALLEL_PROBES[12], () => evaluateBuildPlanRegression(input.supabase)),
+    runProbe("regression", PARALLEL_PROBES[13], () => evaluateBuildExecutionRegression(input.supabase)),
   ]);
 
   const after = await hashWorkingTree(input.cwd);

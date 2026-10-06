@@ -193,6 +193,11 @@ export default async function BuildPlanPage({ params }: { params: Promise<{ id: 
               System Architecture
             </Link>
           </li>
+          <li>
+            <Link className="button-secondary" href={`/projects/${projectId}/execution`}>
+              Build Execution
+            </Link>
+          </li>
         </ul>
       </div>
 

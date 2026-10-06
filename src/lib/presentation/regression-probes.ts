@@ -496,3 +496,75 @@ export async function evaluateBuildPlanRegression(supabase: GhostClient): Promis
   lines.push("v7 system architecture tables: present");
   return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
 }
+
+const BUILD_EXECUTION_BUG = "Build Execution domain is incomplete";
+
+export async function evaluateBuildExecutionRegression(supabase: GhostClient): Promise<ProbeResult> {
+  const lines = [
+    BUILD_EXECUTION_BUG,
+    "BUILD EXECUTION DOMAIN",
+    "BUILD EXECUTION RLS",
+    "PACKAGE EXECUTIONS",
+    "EVIDENCE",
+    "BLOCKERS",
+    "UPSTREAM",
+    "READINESS",
+    "COMPLETION GATE",
+    "TRUTH BOUNDARY",
+    "V8 REGRESSION",
+  ];
+
+  const tables = await Promise.all([
+    supabase.from("build_executions").select("id").limit(1),
+    supabase.from("build_execution_transitions").select("id").limit(1),
+    supabase.from("work_package_executions").select("id").limit(1),
+    supabase.from("implementation_evidence").select("id").limit(1),
+    supabase.from("execution_blockers").select("id").limit(1),
+    supabase.from("execution_upstream_changes").select("id").limit(1),
+  ]);
+  if (tables.some((result) => result.error && /does not exist|schema cache/i.test(result.error.message))) {
+    lines.push("remote build execution tables: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  if (tables.some((result) => result.error)) {
+    lines.push(`remote build execution tables: ${tables.find((result) => result.error)?.error?.message ?? "error"}`);
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("remote build execution tables: present");
+
+  const decisionColumn = await supabase.from("project_decisions").select("id, build_execution_id").limit(1);
+  if (decisionColumn.error && /build_execution_id|column/i.test(decisionColumn.error.message)) {
+    lines.push("project_decisions build_execution_id: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("project_decisions build_execution_id: present");
+
+  const truthSource = await readFile(path.join(process.cwd(), "src/lib/build-execution/truth.ts"), "utf8").catch(() => "");
+  const workflowSource = await readFile(path.join(process.cwd(), "src/lib/build-execution/workflow.ts"), "utf8").catch(
+    () => "",
+  );
+  const hasTruth =
+    truthSource.includes("isExecutionImplemented") &&
+    truthSource.includes("isVerified") &&
+    truthSource.includes("past Ghost answer");
+  const hasWorkflow =
+    workflowSource.includes("computeExecutionCompletion") &&
+    workflowSource.includes("refreshDerivedPackageStatuses") &&
+    workflowSource.includes("LEGAL_BUILD_EXECUTION_TRANSITIONS");
+  lines.push(`truth boundary module: ${hasTruth ? "present" : "missing"}`);
+  lines.push(`readiness and completion module: ${hasWorkflow ? "present" : "missing"}`);
+  if (!hasTruth || !hasWorkflow) {
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+
+  const v8 = await Promise.all([
+    supabase.from("build_plans").select("id").limit(1),
+    supabase.from("work_packages").select("id").limit(1),
+  ]);
+  if (v8.some((result) => result.error)) {
+    lines.push("v8 build plan tables: unavailable");
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("v8 build plan tables: present");
+  return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
+}

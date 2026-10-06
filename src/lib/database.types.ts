@@ -49,6 +49,12 @@ type ArchitectureLinkKindValue = import("@/lib/build-plan/types").ArchitectureLi
 type VerificationKindValue = import("@/lib/build-plan/types").VerificationKind;
 type ManualActionStatusValue = import("@/lib/build-plan/types").ManualActionStatus;
 type BuildRiskSeverityValue = import("@/lib/build-plan/types").BuildRiskSeverity;
+type BuildExecutionStatusValue = import("@/lib/build-execution/types").BuildExecutionStatus;
+type PackageExecutionStatusValue = import("@/lib/build-execution/types").PackageExecutionStatus;
+type ImplementationEvidenceKindValue = import("@/lib/build-execution/types").ImplementationEvidenceKind;
+type ExecutionBlockerStatusValue = import("@/lib/build-execution/types").ExecutionBlockerStatus;
+type UpstreamChangeStatusValue = import("@/lib/build-execution/types").UpstreamChangeStatus;
+type UpstreamArtifactKindValue = import("@/lib/build-execution/types").UpstreamArtifactKind;
 
 export type Database = {
   public: {
@@ -370,6 +376,7 @@ export type Database = {
           product_architecture_id: string | null;
           system_architecture_id: string | null;
           build_plan_id: string | null;
+          build_execution_id: string | null;
           title: string;
           question: string;
           context: string;
@@ -393,6 +400,7 @@ export type Database = {
           product_architecture_id?: string | null;
           system_architecture_id?: string | null;
           build_plan_id?: string | null;
+          build_execution_id?: string | null;
           title: string;
           question: string;
           context?: string;
@@ -1305,6 +1313,108 @@ export type Database = {
         },
         "plan_id" | "project_id" | "human_id" | "description"
       >;
+      build_executions: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          build_plan_id: string;
+          product_architecture_id: string;
+          system_architecture_id: string;
+          summary: string;
+          status: BuildExecutionStatusValue;
+          note: string;
+          implemented_at: string | null;
+          implemented_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "project_id" | "build_plan_id" | "product_architecture_id" | "system_architecture_id"
+      >;
+      build_execution_transitions: DefaultedTable<
+        {
+          id: string;
+          execution_id: string;
+          from_status: BuildExecutionStatusValue | null;
+          to_status: BuildExecutionStatusValue;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        "execution_id" | "to_status" | "reason"
+      >;
+      work_package_executions: DefaultedTable<
+        {
+          id: string;
+          execution_id: string;
+          project_id: string;
+          work_package_id: string;
+          status: PackageExecutionStatusValue;
+          implementation_notes: string;
+          started_at: string | null;
+          completed_at: string | null;
+          started_by: string | null;
+          completed_by: string | null;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "execution_id" | "project_id" | "work_package_id"
+      >;
+      implementation_evidence: DefaultedTable<
+        {
+          id: string;
+          package_execution_id: string;
+          execution_id: string;
+          project_id: string;
+          kind: ImplementationEvidenceKindValue;
+          reference: string;
+          summary: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          created_by: string | null;
+        },
+        "package_execution_id" | "execution_id" | "project_id" | "kind" | "reference"
+      >;
+      execution_blockers: DefaultedTable<
+        {
+          id: string;
+          package_execution_id: string;
+          execution_id: string;
+          project_id: string;
+          description: string;
+          status: ExecutionBlockerStatusValue;
+          resolution: string;
+          created_at: string;
+          created_by: string | null;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          source: string;
+          provenance: string;
+        },
+        "package_execution_id" | "execution_id" | "project_id" | "description"
+      >;
+      execution_upstream_changes: DefaultedTable<
+        {
+          id: string;
+          execution_id: string;
+          project_id: string;
+          package_execution_id: string | null;
+          artifact_kind: UpstreamArtifactKindValue;
+          artifact_ref: string;
+          issue: string;
+          status: UpstreamChangeStatusValue;
+          decision_id: string | null;
+          resolution: string;
+          created_at: string;
+          resolved_at: string | null;
+          source: string;
+          provenance: string;
+        },
+        "execution_id" | "project_id" | "artifact_kind" | "issue"
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -1379,6 +1489,15 @@ export type Database = {
           transition_actor?: string;
         };
         Returns: Database["public"]["Tables"]["build_plan_transitions"]["Row"];
+      };
+      record_build_execution_transition: {
+        Args: {
+          target_execution_id: string;
+          next_status: BuildExecutionStatusValue;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["build_execution_transitions"]["Row"];
       };
     };
   };

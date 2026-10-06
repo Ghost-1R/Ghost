@@ -25,6 +25,8 @@ import {
 import { computeProductReadiness } from "@/lib/product-architect/workflow";
 import { collectBuildPlanItems } from "@/lib/build-plan/context";
 import { loadBuildPlan, loadBuildPlanBundle } from "@/lib/build-plan/queries";
+import { collectBuildExecutionItems } from "@/lib/build-execution/context";
+import { loadBuildExecution, loadBuildExecutionBundle } from "@/lib/build-execution/queries";
 import { collectSystemArchitectureItems } from "@/lib/system-architecture/context";
 import { loadSystemArchitecture, loadSystemArchitectureBundle } from "@/lib/system-architecture/queries";
 import { explainInspections, inspectionContextItems, inspectionQuestion } from "@/lib/inspector/evidence";
@@ -91,6 +93,7 @@ async function projectContext(
     architecture,
     systemArchitecture,
     buildPlan,
+    buildExecution,
   ] = await Promise.all([
     loadMilestones(session.supabase, projectId),
     loadKnowledge(session.supabase, projectId),
@@ -103,6 +106,7 @@ async function projectContext(
     loadProductArchitecture(session.supabase, projectId),
     loadSystemArchitecture(session.supabase, projectId),
     loadBuildPlan(session.supabase, projectId),
+    loadBuildExecution(session.supabase, projectId),
   ]);
 
   if (
@@ -116,7 +120,8 @@ async function projectContext(
     observation.status === "error" ||
     architecture.status === "error" ||
     systemArchitecture.status === "error" ||
-    buildPlan.status === "error"
+    buildPlan.status === "error" ||
+    buildExecution.status === "error"
   ) {
     return null;
   }
@@ -160,6 +165,14 @@ async function projectContext(
     const bundle = await loadBuildPlanBundle(session.supabase, buildPlan.data);
     if (bundle.status === "ok") {
       buildPlanItems = collectBuildPlanItems({ question, bundle: bundle.data });
+    }
+  }
+
+  let buildExecutionItems: ReturnType<typeof collectBuildExecutionItems> = [];
+  if (buildExecution.data) {
+    const bundle = await loadBuildExecutionBundle(session.supabase, buildExecution.data);
+    if (bundle.status === "ok") {
+      buildExecutionItems = collectBuildExecutionItems({ question, bundle: bundle.data });
     }
   }
 
@@ -265,7 +278,8 @@ async function projectContext(
     })
       .concat(productItems)
       .concat(systemItems)
-      .concat(buildPlanItems),
+      .concat(buildPlanItems)
+      .concat(buildExecutionItems),
   };
 }
 
