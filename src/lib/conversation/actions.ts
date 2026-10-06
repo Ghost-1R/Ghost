@@ -15,6 +15,14 @@ import type { ContextItem } from "@/lib/ghost-context/types";
 import { detectMemoryIntent } from "@/lib/ghost-context/memory-intent";
 import { collectIdeaItems } from "@/lib/ideas/context";
 import { loadIdea, loadIdeaEvidence, loadIdeaStrategy, loadIdeaValidations } from "@/lib/ideas/queries";
+import { collectProductArchitectItems } from "@/lib/product-architect/context";
+import {
+  loadProductArchitecture,
+  loadProductFeatures,
+  loadProductQuestions,
+  loadProductRequirements,
+} from "@/lib/product-architect/queries";
+import { computeProductReadiness } from "@/lib/product-architect/workflow";
 import { explainInspections, inspectionContextItems, inspectionQuestion } from "@/lib/inspector/evidence";
 import { explainPresentation, presentationQuestion } from "@/lib/presentation/explain";
 import { listReviews, presentationRoot } from "@/lib/presentation/ledger";
@@ -67,16 +75,18 @@ async function projectContext(
     return null;
   }
 
-  const [milestones, knowledge, blockers, actions, verification, rules, decisions, observation] = await Promise.all([
-    loadMilestones(session.supabase, projectId),
-    loadKnowledge(session.supabase, projectId),
-    loadBlockers(session.supabase, projectId),
-    loadNextActions(session.supabase, projectId),
-    loadVerification(session.supabase, projectId),
-    loadFounderRules(session.supabase),
-    loadOpenDecisions(session.supabase, projectId),
-    loadLatestRepositoryObservation(session.supabase, projectId),
-  ]);
+  const [milestones, knowledge, blockers, actions, verification, rules, decisions, observation, architecture] =
+    await Promise.all([
+      loadMilestones(session.supabase, projectId),
+      loadKnowledge(session.supabase, projectId),
+      loadBlockers(session.supabase, projectId),
+      loadNextActions(session.supabase, projectId),
+      loadVerification(session.supabase, projectId),
+      loadFounderRules(session.supabase),
+      loadOpenDecisions(session.supabase, projectId),
+      loadLatestRepositoryObservation(session.supabase, projectId),
+      loadProductArchitecture(session.supabase, projectId),
+    ]);
 
   if (
     milestones.status === "error" ||
@@ -86,9 +96,36 @@ async function projectContext(
     verification.status === "error" ||
     rules.status === "error" ||
     decisions.status === "error" ||
-    observation.status === "error"
+    observation.status === "error" ||
+    architecture.status === "error"
   ) {
     return null;
+  }
+
+  let productItems: Awaited<ReturnType<typeof collectProductArchitectItems>> = [];
+  if (architecture.data) {
+    const [requirements, features, questions] = await Promise.all([
+      loadProductRequirements(session.supabase, architecture.data.id),
+      loadProductFeatures(session.supabase, architecture.data.id),
+      loadProductQuestions(session.supabase, architecture.data.id),
+    ]);
+    if (requirements.status === "ok" && features.status === "ok" && questions.status === "ok") {
+      const readiness = computeProductReadiness({
+        architecture: architecture.data,
+        requirements: requirements.data,
+        features: features.data,
+        openQuestions: questions.data,
+        openCriticalDecisions: decisions.data.filter((decision) => decision.status === "OPEN").length,
+      });
+      productItems = collectProductArchitectItems({
+        question,
+        architecture: architecture.data,
+        requirements: requirements.data,
+        features: features.data,
+        questions: questions.data,
+        readiness,
+      });
+    }
   }
 
   const ghost = assembleProjectContext({
@@ -190,7 +227,7 @@ async function projectContext(
         recommendation: decision.recommendation,
       })),
       repositoryObservation: observation.data,
-    }),
+    }).concat(productItems),
   };
 }
 

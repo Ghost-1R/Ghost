@@ -200,7 +200,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <p className="eyebrow">Project</p>
           <h1>{detail.name}</h1>
         </div>
-        <StatusBadge status={detail.status} />
+        <div className="meta">
+          <StatusBadge status={detail.status} />
+          <Link className="button" href={`/projects/${detail.id}/architect`}>
+            Product Architect
+          </Link>
+        </div>
       </div>
 
       <Panel title="What we are building">
@@ -209,6 +214,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <li>Lifecycle: {detail.lifecycleStage}</li>
           <li>Status: {detail.status.replaceAll("_", " ")}</li>
           <li>Record updated: {formatTimestamp(detail.updatedAt)}</li>
+          <li>
+            <Link href={`/projects/${detail.id}/architect`}>Open Product Architect</Link>
+          </li>
         </ul>
       </Panel>
 

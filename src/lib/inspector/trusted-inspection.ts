@@ -14,6 +14,7 @@ import {
   evaluateConversationRegression,
   evaluateIdeaLabRegression,
   evaluateModelProviderRegression,
+  evaluateProductArchitectRegression,
   evaluateRepositoryRegression,
   evaluateSignupRegression,
 } from "@/lib/presentation/regression-probes";
@@ -253,6 +254,7 @@ export async function executeTrustedInspection(input: {
     runProbe("regression", PARALLEL_PROBES[7], () => evaluateRepositoryRegression(input.cwd)),
     runProbe("regression", PARALLEL_PROBES[8], () => evaluateSignupRegression(input.supabase, input.projectId)),
     runProbe("regression", PARALLEL_PROBES[9], () => evaluateIdeaLabRegression(input.supabase)),
+    runProbe("regression", PARALLEL_PROBES[10], () => evaluateProductArchitectRegression(input.supabase)),
   ]);
 
   const after = await hashWorkingTree(input.cwd);

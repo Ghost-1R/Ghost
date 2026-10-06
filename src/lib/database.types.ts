@@ -348,6 +348,7 @@ export type Database = {
           project_id: string | null;
           idea_id: string | null;
           strategy_id: string | null;
+          product_architecture_id: string | null;
           title: string;
           question: string;
           context: string;
@@ -368,6 +369,7 @@ export type Database = {
           project_id?: string | null;
           idea_id?: string | null;
           strategy_id?: string | null;
+          product_architecture_id?: string | null;
           title: string;
           question: string;
           context?: string;
@@ -614,6 +616,232 @@ export type Database = {
           summary?: string;
         }
       >;
+      product_architectures: Table<
+        {
+          id: string;
+          project_id: string;
+          idea_id: string | null;
+          strategy_id: string | null;
+          what: string;
+          why: string;
+          who: string;
+          outcome: string;
+          non_goals: Json;
+          assumptions: Json;
+          risks: Json;
+          constraints_json: Json;
+          status: import("@/lib/product-architect/types").ProductArchitectureStatus;
+          note: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          project_id: string;
+          idea_id?: string | null;
+          strategy_id?: string | null;
+          what?: string;
+          why?: string;
+          who?: string;
+          outcome?: string;
+          non_goals?: Json;
+          assumptions?: Json;
+          risks?: Json;
+          constraints_json?: Json;
+          status?: import("@/lib/product-architect/types").ProductArchitectureStatus;
+          note?: string;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      product_architecture_transitions: Table<
+        {
+          id: string;
+          architecture_id: string;
+          from_status: import("@/lib/product-architect/types").ProductArchitectureStatus | null;
+          to_status: import("@/lib/product-architect/types").ProductArchitectureStatus;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          from_status?: import("@/lib/product-architect/types").ProductArchitectureStatus | null;
+          to_status: import("@/lib/product-architect/types").ProductArchitectureStatus;
+          changed_at?: string;
+          changed_by?: string | null;
+          actor?: string;
+          reason: string;
+        }
+      >;
+      product_requirements: Table<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          title: string;
+          description: string;
+          req_type: import("@/lib/product-architect/types").RequirementType;
+          priority: import("@/lib/product-architect/types").ProductPriority;
+          approval_status: import("@/lib/product-architect/types").RequirementApproval;
+          acceptance_criteria: Json;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          title: string;
+          description?: string;
+          req_type?: import("@/lib/product-architect/types").RequirementType;
+          priority?: import("@/lib/product-architect/types").ProductPriority;
+          approval_status?: import("@/lib/product-architect/types").RequirementApproval;
+          acceptance_criteria?: Json;
+          source?: string;
+          provenance?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      product_features: Table<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          purpose: string;
+          priority: import("@/lib/product-architect/types").ProductPriority;
+          status: import("@/lib/product-architect/types").FeatureStatus;
+          acceptance_criteria: Json;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          purpose?: string;
+          priority?: import("@/lib/product-architect/types").ProductPriority;
+          status?: import("@/lib/product-architect/types").FeatureStatus;
+          acceptance_criteria?: Json;
+          source?: string;
+          provenance?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      product_feature_requirements: Table<
+        {
+          feature_id: string;
+          requirement_id: string;
+          created_at: string;
+        },
+        {
+          feature_id: string;
+          requirement_id: string;
+          created_at?: string;
+        }
+      >;
+      product_flows: Table<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          actor: string;
+          starting_condition: string;
+          steps: Json;
+          expected_outcome: string;
+          edge_cases: Json;
+          feature_id: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          actor?: string;
+          starting_condition?: string;
+          steps?: Json;
+          expected_outcome?: string;
+          edge_cases?: Json;
+          feature_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      product_questions: Table<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          question: string;
+          status: import("@/lib/product-architect/types").ProductQuestionStatus;
+          decision_id: string | null;
+          next_action_id: string | null;
+          resolution: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          project_id: string;
+          question: string;
+          status?: import("@/lib/product-architect/types").ProductQuestionStatus;
+          decision_id?: string | null;
+          next_action_id?: string | null;
+          resolution?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      product_dependencies: Table<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          from_kind: import("@/lib/product-architect/types").DependencyKind;
+          from_ref: string;
+          to_kind: import("@/lib/product-architect/types").DependencyKind;
+          to_ref: string;
+          status: import("@/lib/product-architect/types").DependencyStatus;
+          note: string;
+          created_at: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          project_id: string;
+          from_kind: import("@/lib/product-architect/types").DependencyKind;
+          from_ref: string;
+          to_kind: import("@/lib/product-architect/types").DependencyKind;
+          to_ref: string;
+          status?: import("@/lib/product-architect/types").DependencyStatus;
+          note?: string;
+          created_at?: string;
+        }
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -661,6 +889,15 @@ export type Database = {
           transition_actor?: string;
         };
         Returns: Database["public"]["Tables"]["idea_transitions"]["Row"];
+      };
+      record_product_architecture_transition: {
+        Args: {
+          target_architecture_id: string;
+          next_status: import("@/lib/product-architect/types").ProductArchitectureStatus;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["product_architecture_transitions"]["Row"];
       };
     };
   };

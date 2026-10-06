@@ -290,3 +290,60 @@ export async function evaluateIdeaLabRegression(supabase: GhostClient): Promise<
   lines.push("v4 operating tables: present");
   return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
 }
+
+const PRODUCT_ARCHITECT_BUG = "Product Architect domain is incomplete";
+
+export async function evaluateProductArchitectRegression(supabase: GhostClient): Promise<ProbeResult> {
+  const lines = [
+    PRODUCT_ARCHITECT_BUG,
+    "PRODUCT ARCHITECT DOMAIN",
+    "PRODUCT ARCHITECT RLS",
+    "REQUIREMENTS",
+    "FEATURES",
+    "READINESS",
+    "TRUTH BOUNDARY",
+    "V5 REGRESSION",
+  ];
+
+  const tables = await Promise.all([
+    supabase.from("product_architectures").select("id").limit(1),
+    supabase.from("product_architecture_transitions").select("id").limit(1),
+    supabase.from("product_requirements").select("id").limit(1),
+    supabase.from("product_features").select("id").limit(1),
+    supabase.from("product_flows").select("id").limit(1),
+    supabase.from("product_questions").select("id").limit(1),
+    supabase.from("product_dependencies").select("id").limit(1),
+  ]);
+  if (tables.some((result) => result.error && /does not exist|schema cache/i.test(result.error.message))) {
+    lines.push("remote product architect tables: missing");
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  if (tables.some((result) => result.error)) {
+    lines.push(`remote product architect tables: ${tables.find((result) => result.error)?.error?.message ?? "error"}`);
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("remote product architect tables: present");
+
+  const truthSource = await readFile(path.join(process.cwd(), "src/lib/product-architect/truth.ts"), "utf8").catch(() => "");
+  const workflowSource = await readFile(path.join(process.cwd(), "src/lib/product-architect/workflow.ts"), "utf8").catch(
+    () => "",
+  );
+  const hasTruth = truthSource.includes("isRequirementAuthoritative") && truthSource.includes("past Ghost answer");
+  const hasReadiness = workflowSource.includes("computeProductReadiness") && workflowSource.includes("BUILD_READY");
+  lines.push(`truth boundary module: ${hasTruth ? "present" : "missing"}`);
+  lines.push(`readiness module: ${hasReadiness ? "present" : "missing"}`);
+  if (!hasTruth || !hasReadiness) {
+    return { status: "failed", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+
+  const v5 = await Promise.all([
+    supabase.from("ideas").select("id").limit(1),
+    supabase.from("idea_strategies").select("id").limit(1),
+  ]);
+  if (v5.some((result) => result.error)) {
+    lines.push("v5 idea/strategy tables: unavailable");
+    return { status: "blocked", exitCode: 1, output: redactSecrets(lines.join("\n")) };
+  }
+  lines.push("v5 idea/strategy tables: present");
+  return { status: "passed", exitCode: 0, output: redactSecrets(lines.join("\n")) };
+}
