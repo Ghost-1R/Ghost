@@ -193,26 +193,36 @@ function LatestExchange({
     return null;
   }
   return (
-    <section className="latest" aria-labelledby="latest-title">
+    <section className="latest" aria-labelledby="latest-title" data-exchange-key={exchange.exchangeKey ?? undefined}>
       <div className="latest-head">
         <h2 className="eyebrow" id="latest-title">
           Latest from Ghost
         </h2>
         {messages.length > 0 ? (
           <button className="latest-open" type="button" onClick={() => setOpen(true)}>
-            Open conversation <span className="latest-count">{messages.length} messages</span>
+            Open conversation{" "}
+            <span className="latest-count">
+              {messages.length} {messages.length === 1 ? "message" : "messages"}
+            </span>
           </button>
         ) : null}
       </div>
-      {exchange.ask ? (
-        <p className="latest-ask">
-          <span className="sr-only">You asked: </span>
-          {exchange.ask}
-        </p>
-      ) : null}
-      {exchange.thinking ? <Thinking /> : null}
-      {exchange.answer ? <LatestAnswer answer={exchange.answer} key={exchange.answer.id} /> : null}
-      {exchange.unanswered ? <p className="quiet">Ghost did not store an answer for this request.</p> : null}
+      <div className="latest-exchange" key={exchange.exchangeKey ?? "empty"}>
+        {exchange.ask ? (
+          <p className="latest-ask" data-role="ask">
+            <span className="sr-only">You asked: </span>
+            {exchange.ask}
+          </p>
+        ) : null}
+        {exchange.thinking ? <Thinking /> : null}
+        {exchange.answer ? <LatestAnswer answer={exchange.answer} key={exchange.answer.id} /> : null}
+        {exchange.unanswered ? (
+          <p className="quiet latest-unanswered" role="status">
+            No answer was saved for this question. It looks like an incomplete exchange — not a live failure
+            right now. Ask again anytime; Ghost will not invent a reply.
+          </p>
+        ) : null}
+      </div>
       <ConversationDialog messages={messages} open={open} onClose={() => setOpen(false)} />
     </section>
   );
@@ -246,6 +256,15 @@ export function GhostConversation({
   const field = useRef<HTMLTextAreaElement>(null);
   const voice = useVoiceInput(field);
   const hintId = useId();
+
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (wasPending.current && !pending && field.current) {
+      // After a completed turn, clear the dock so the next ask is visually isolated.
+      field.current.value = "";
+    }
+    wasPending.current = pending;
+  }, [pending]);
 
   const providerNotice = providerConfigured ? null : (
     <p className="notice" role="status">
@@ -294,7 +313,7 @@ export function GhostConversation({
               required
               maxLength={4000}
               enterKeyHint="send"
-              placeholder="Ask Ghost anything…"
+              placeholder="What do you need to know or decide?"
               aria-describedby={hintId}
               onKeyDown={submitOnEnter}
             />
@@ -305,7 +324,7 @@ export function GhostConversation({
             {voice.snapshot.message}
           </p>
           <p className="command-hint" id={hintId}>
-            Enter sends · Shift+Enter adds a line · Ghost answers from your Project Brain and says when something is unknown.
+            Enter to send · Shift+Enter for a new line · Answers stay grounded in Project Brain
           </p>
         </div>
         {feedback}

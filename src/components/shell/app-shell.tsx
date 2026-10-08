@@ -44,32 +44,32 @@ function contextProjectId(pathname: string, projects: NavProject[]): string | nu
   return projects[0]?.id ?? null;
 }
 
-/** Founder-first primary nav; deeper OS routes remain available under Build / Work. */
+/** Companion-first primary nav; deeper OS routes stay under Build / System. */
 function buildGroups(projectId: string | null): NavGroup[] {
   const project = projectId ? `/projects/${projectId}` : "/projects";
   return [
     {
       id: "primary",
-      label: "Home",
+      label: "Ghost",
       items: [
-        { href: "/dashboard", label: "Dashboard", match: "exact" },
+        { href: "/dashboard#ask-ghost", label: "Ask Ghost", match: "exact" },
+        { href: "/dashboard", label: "Home", match: "exact" },
+        { href: projectId ? project : "/projects", label: "Active Project" },
         { href: "/projects", label: "Projects", match: "exact" },
-        { href: projectId ? project : "/projects", label: "Brain" },
-        { href: "/memory", label: "Activity" },
+        { href: "/memory", label: "Memory" },
       ],
     },
     {
       id: "build",
-      label: "Build / Work",
+      label: "Build",
       collapsible: true,
       items: [
         { href: "/ideas", label: "Idea Lab" },
-        { href: "/ideas", label: "Strategy" },
         { href: projectId ? `${project}/architect` : "/projects", label: "Product Architect" },
         { href: projectId ? `${project}/architecture` : "/projects", label: "System Architecture" },
         { href: projectId ? `${project}/build-plan` : "/projects", label: "Build Plan" },
         { href: projectId ? `${project}/execution` : "/projects", label: "Build Execution" },
-        { href: projectId ? `${project}/verification` : "/projects", label: "Test & Verification" },
+        { href: projectId ? `${project}/verification` : "/projects", label: "Verification" },
         { href: projectId ? `${project}/deploy` : "/projects", label: "Deploy" },
       ],
     },
@@ -88,22 +88,27 @@ function buildGroups(projectId: string | null): NavGroup[] {
 }
 
 function isCurrent(pathname: string, href: string, match: "exact" | "prefix" = "prefix"): boolean {
-  if (href === "/dashboard" || match === "exact") {
-    if (href === "/projects") {
+  const pathOnly = href.split("#")[0] ?? href;
+  // Ask Ghost is an in-page jump; do not steal Home's active state.
+  if (href.includes("#ask-ghost")) {
+    return false;
+  }
+  if (match === "exact") {
+    if (pathOnly === "/projects") {
       return pathname === "/projects" || pathname === "/projects/new";
     }
-    return pathname === href;
+    return pathname === pathOnly;
   }
-  if (href === "/ideas") {
+  if (pathOnly === "/ideas") {
     return pathname === "/ideas" || pathname.startsWith("/ideas/");
   }
-  if (href === "/projects") {
+  if (pathOnly === "/projects") {
     return pathname === "/projects" || pathname === "/projects/new";
   }
-  if (href === "/memory") {
+  if (pathOnly === "/memory") {
     return pathname === "/memory" || pathname.startsWith("/memory/");
   }
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return pathname === pathOnly || pathname.startsWith(`${pathOnly}/`);
 }
 
 function groupHasCurrent(pathname: string, group: NavGroup): boolean {
@@ -148,7 +153,9 @@ export function AppShell({
                   return (
                     <li key={`${group.id}-${item.label}`}>
                       <Link
-                        className="nav-link"
+                        className={
+                          item.href.includes("#ask-ghost") ? "nav-link nav-link-accent" : "nav-link"
+                        }
                         href={item.href}
                         aria-current={current ? "page" : undefined}
                         aria-busy={pending === item.href}
@@ -183,30 +190,28 @@ export function AppShell({
           })}
         </nav>
 
-        <div className="os-nav-projects">
-          <p className="os-nav-label">Projects</p>
-          <ul className="nav-list">
-            {projects.slice(0, 6).map((project) => (
-              <li key={project.id}>
-                <Link
-                  className="nav-link"
-                  href={`/projects/${project.id}`}
-                  aria-current={activeId === project.id && pathname.startsWith(`/projects/${project.id}`) ? "page" : undefined}
-                >
-                  {project.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <div className="os-nav-project-actions">
-            <Link className="nav-link nav-link-accent" href="/projects/new">
-              + New Project
-            </Link>
-            <Link className="nav-link" href="/projects">
-              All Projects
-            </Link>
+        {projects.length > 1 ? (
+          <div className="os-nav-projects">
+            <p className="os-nav-label">Switch project</p>
+            <ul className="nav-list">
+              {projects.slice(0, 6).map((project) => (
+                <li key={project.id}>
+                  <Link
+                    className="nav-link"
+                    href={`/projects/${project.id}`}
+                    aria-current={
+                      activeId === project.id && pathname.startsWith(`/projects/${project.id}`)
+                        ? "page"
+                        : undefined
+                    }
+                  >
+                    {project.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
+        ) : null}
 
         <div className="sidebar-footer">
           <form action={signOut}>
@@ -227,13 +232,13 @@ export function AppShell({
           >
             {open ? "Close" : "Menu"}
           </button>
-          <TopCommandSearch />
+          {pathname === "/dashboard" ? <div className="topbar-spacer" aria-hidden="true" /> : <TopCommandSearch />}
           <div className="topbar-actions">
-            <Link className="button" href="/projects/new">
-              New Project
+            <Link className="button" href="/dashboard#ask-ghost">
+              Ask Ghost
             </Link>
             <Link className="button-secondary topbar-profile" href="/settings" title={email ?? "Settings"}>
-              {email ? email.split("@")[0] : "Profile"}
+              Account
             </Link>
           </div>
         </header>

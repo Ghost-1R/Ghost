@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
+import { IBM_Plex_Mono, Instrument_Sans, Syne } from "next/font/google";
 import { ExperienceProvider } from "@/components/ghost/experience";
 import "./globals.css";
+
+const display = Syne({
+  subsets: ["latin"],
+  variable: "--font-display-family",
+});
 
 const sans = Instrument_Sans({
   subsets: ["latin"],
@@ -24,7 +29,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body>
         <a className="skip-link" href="#main">
           Skip to content

@@ -25,14 +25,16 @@ import { loadTodayActions } from "@/lib/operations/actions";
 import { loadProjectSummaries } from "@/lib/projects/queries";
 
 export const metadata: Metadata = {
-  title: "Command Center",
+  title: "Home",
 };
 
-function greetingLine(now = new Date()): string {
-  const hour = now.getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
+/** Prefer a real display name; otherwise a neutral greeting (never an email handle). */
+function companionGreeting(displayName: string | null | undefined): string {
+  const name = displayName?.trim() ?? "";
+  if (name.length >= 2 && !name.includes("@") && !/^ghost[-_]/i.test(name)) {
+    return `Welcome back, ${name}.`;
+  }
+  return "Welcome back.";
 }
 
 export default async function DashboardPage() {
@@ -46,10 +48,7 @@ export default async function DashboardPage() {
     .select("display_name")
     .eq("id", session.user.id)
     .maybeSingle();
-  const founderName =
-    profile.data?.display_name?.trim() ||
-    session.user.email?.split("@")[0] ||
-    "Founder";
+  const greeting = companionGreeting(profile.data?.display_name);
 
   const [projects, conversation, today, openDecisions] = await Promise.all([
     loadProjectSummaries(session.supabase),
@@ -120,75 +119,83 @@ export default async function DashboardPage() {
     return {
       projectId: project.id,
       projectName: project.name,
+      description: project.description,
       health,
       nextAction: health.nextAction,
       href: `/projects/${project.id}`,
     };
   });
 
+  const activeProject =
+    projectRows.find((row) => row.health.status === "RED") ??
+    projectRows.find((row) => row.health.status === "YELLOW") ??
+    projectRows[0] ??
+    null;
+
   return (
-    <div className="ceo-home">
-      <header className="ceo-greeting">
-        <p className="eyebrow">Ghost · Second Me</p>
-        <h1>
-          {greetingLine()}, {founderName}.
-        </h1>
-        <p className="ceo-lede">Here&apos;s what needs you today.</p>
+    <div className="ghost-home">
+      <header className="ghost-home-hero">
+        <p className="ghost-brand">GHOST</p>
+        <h1>{greeting}</h1>
+        <p className="ghost-home-lede">Your second mind — ask, decide, and keep building.</p>
       </header>
 
-      <section className="ceo-panel ceo-top3" aria-labelledby="top3-heading">
-        <div className="ceo-panel-head ceo-panel-head-tight">
-          <p className="eyebrow">Top 3 Actions</p>
-          <h2 id="top3-heading">What needs you.</h2>
+      <section className="ghost-home-ask" id="ask-ghost" aria-labelledby="ask-heading">
+        <div className="ghost-home-section-head">
+          <h2 id="ask-heading">Ask Ghost</h2>
+          <p className="quiet">
+            Grounded in Project Brain. Consequential actions stay gated until you approve them.
+          </p>
         </div>
-        {top3.length === 0 ? (
-          <EmptyState>Nothing urgent is recorded right now. Ghost does not invent work to fill this list.</EmptyState>
-        ) : (
-          <ol className="ceo-action-list">
-            {top3.map((item, index) => (
-              <li key={item.id} data-status={item.status}>
-                <span className="ceo-rank" aria-hidden="true">
-                  {index + 1}
-                </span>
-                <span className={`ceo-status ceo-status-${item.status.toLowerCase()}`}>
-                  <span className="ceo-status-dot" aria-hidden="true" />
-                  <span className="sr-only">Status: </span>
-                  {item.status}
-                </span>
-                <div className="ceo-action-body">
-                  <p className="ceo-project-label">{item.projectName}</p>
-                  <h3>{item.headline}</h3>
-                  <p className="quiet ceo-why">{item.explanation}</p>
-                  <p className="ceo-next">Next: {item.nextAction}</p>
-                </div>
-                <Link className="button-secondary ceo-go" href={item.href}>
-                  {item.ctaLabel}
-                </Link>
-              </li>
-            ))}
-          </ol>
-        )}
+        {conversation.status === "error" ? (
+          <ErrorState message="Conversation could not be loaded right now. Your projects and decisions below are still available." />
+        ) : null}
+        <GhostConversation
+          projectId={null}
+          projectName={null}
+          conversationId={conversation.status === "ok" ? conversation.data?.id ?? null : null}
+          messages={conversation.status === "ok" ? conversation.data?.messages ?? [] : []}
+          providerConfigured={isModelConfigured()}
+          variant="command"
+        />
       </section>
 
-      <section className="ceo-panel ceo-waiting" aria-labelledby="waiting-heading" id="waiting-on-me">
-        <div className="ceo-panel-head ceo-panel-head-tight">
-          <p className="eyebrow">Waiting on Me</p>
-          <h2 id="waiting-heading">Approvals and decisions only you can clear.</h2>
-        </div>
-        {openDecisions.status === "error" ? <ErrorState message={openDecisions.message} /> : null}
-        {waiting.length === 0 ? (
-          <EmptyState>Nothing is waiting on you.</EmptyState>
-        ) : (
-          <ul className="ceo-simple-list ceo-compact-list">
-            {waiting.map((item) => (
-              <li key={item.id}>
-                <div>
+      <div className="ghost-home-triad">
+        <section className="ghost-home-rail" aria-labelledby="truth-heading">
+          <h2 id="truth-heading">What is true</h2>
+          {redLights.length === 0 ? (
+            <EmptyState>No known shipping blockers from connected evidence.</EmptyState>
+          ) : (
+            <ul className="ghost-home-rail-list">
+              {redLights.slice(0, 4).map((light) => (
+                <li key={light.id}>
+                  <p className="ceo-project-label">{light.projectName}</p>
+                  <p>{light.reason}</p>
+                  <Link href={light.href}>{light.ctaLabel}</Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section
+          className="ghost-home-rail ghost-home-rail-decision"
+          aria-labelledby="decision-heading"
+          id="waiting-on-me"
+        >
+          <h2 id="decision-heading">Needs a decision</h2>
+          {openDecisions.status === "error" ? (
+            <ErrorState message="Open decisions could not be loaded. Try again shortly." />
+          ) : null}
+          {waiting.length === 0 ? (
+            <EmptyState>Nothing is waiting on you.</EmptyState>
+          ) : (
+            <ul className="ghost-home-rail-list">
+              {waiting.slice(0, 4).map((item) => (
+                <li key={item.id}>
                   <p className="ceo-project-label">{item.projectName}</p>
-                  <h3>{item.what}</h3>
-                  <p className="quiet">
-                    {item.reason}
-                    {item.ageLabel ? ` · ${item.ageLabel}` : ""}
-                  </p>
+                  <p>{item.what}</p>
+                  <p className="quiet">{item.reason}</p>
                   {item.id.startsWith("dec-") ? (
                     <ActionForm action={resolveFounderDecision} submitLabel="Resolve">
                       <input type="hidden" name="decisionId" value={item.id.replace(/^dec-/, "")} />
@@ -199,133 +206,131 @@ export default async function DashboardPage() {
                         <input name="selectedOption" required maxLength={200} placeholder="Selected option or answer" />
                       </label>
                     </ActionForm>
-                  ) : null}
-                </div>
-                <Link className="button-secondary" href={item.href}>
-                  {item.actionLabel}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                  ) : (
+                    <Link href={item.href}>{item.actionLabel}</Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-      <section className="ceo-panel ceo-call" aria-labelledby="call-heading" id="who-might-call">
-        <div className="ceo-panel-head ceo-panel-head-tight">
-          <p className="eyebrow">Who Might Call Me</p>
-          <h2 id="call-heading">Exceptions only.</h2>
-        </div>
-        <p className="ceo-honest quiet">{whoMightCall.notice}</p>
-        {whoMightCall.exceptions.length === 0 ? (
-          <EmptyState>No current client-facing exceptions found from connected signals.</EmptyState>
-        ) : (
-          <ul className="ceo-simple-list ceo-compact-list">
-            {whoMightCall.exceptions.map((item) => (
-              <li key={item.id}>
-                <div>
-                  <p className="ceo-project-label">{item.projectName}</p>
-                  <p>{item.reason}</p>
-                </div>
-                <Link className="button-secondary" href={item.href}>
-                  Open project →
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        <section className="ghost-home-rail" aria-labelledby="next-heading">
+          <h2 id="next-heading">What happens next</h2>
+          {top3.length === 0 ? (
+            <EmptyState>Nothing urgent is recorded. Ghost does not invent work.</EmptyState>
+          ) : (
+            <ol className="ghost-home-rail-list ghost-home-next-list">
+              {top3.map((item, index) => (
+                <li key={item.id} data-status={item.status}>
+                  <span className="ceo-rank" aria-hidden="true">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <p className="ceo-project-label">{item.projectName}</p>
+                    <p>{item.headline}</p>
+                    <p className="ceo-next">Next: {item.nextAction}</p>
+                    <Link href={item.href}>{item.ctaLabel}</Link>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      </div>
 
-      <section className="ceo-panel ceo-projects" aria-labelledby="projects-heading">
-        <div className="ceo-panel-head ceo-panel-head-row ceo-panel-head-tight">
-          <div>
-            <p className="eyebrow">Projects</p>
-            <h2 id="projects-heading">Health, reason, next step.</h2>
+      {activeProject ? (
+        <section className="ghost-home-active" aria-labelledby="active-project-heading">
+          <div className="ghost-home-section-head ghost-home-section-head-row">
+            <div>
+              <p className="eyebrow">Active project</p>
+              <h2 id="active-project-heading">{activeProject.projectName}</h2>
+            </div>
+            <Link className="button" href={activeProject.href}>
+              Open Project Brain
+            </Link>
           </div>
-          <Link href="/projects">All projects</Link>
-        </div>
-        {projects.status === "error" ? <ErrorState message={projects.message} /> : null}
-        {projects.status === "ok" && projectRows.length === 0 ? <EmptyState>No projects yet.</EmptyState> : null}
-        {projectRows.length > 0 ? (
-          <ul className="ceo-project-rows">
+          <div className="ghost-home-active-body">
+            <span
+              className={`ceo-status ceo-status-${activeProject.health.status.toLowerCase()}`}
+              title={healthLabel(activeProject.health.status)}
+            >
+              <span className="ceo-status-dot" aria-hidden="true" />
+              <span aria-hidden="true">{healthGlyph(activeProject.health.status)}</span>
+              <span className="ceo-status-text">{healthLabel(activeProject.health.status)}</span>
+            </span>
+            <p className="quiet">{activeProject.health.reason}</p>
+            {activeProject.nextAction ? <p className="ceo-next">Next: {activeProject.nextAction}</p> : null}
+          </div>
+        </section>
+      ) : (
+        <section className="ghost-home-active" aria-labelledby="active-project-heading">
+          <div className="ghost-home-section-head ghost-home-section-head-row">
+            <div>
+              <p className="eyebrow">Active project</p>
+              <h2 id="active-project-heading">No project yet</h2>
+            </div>
+            <Link className="button" href="/projects/new">
+              Start a project
+            </Link>
+          </div>
+          <EmptyState>Create a project so Ghost has a home for truth, decisions, and next steps.</EmptyState>
+        </section>
+      )}
+
+      {projectRows.length > 1 ? (
+        <section className="ghost-home-projects" aria-labelledby="projects-heading">
+          <div className="ghost-home-section-head ghost-home-section-head-row">
+            <h2 id="projects-heading">Projects</h2>
+            <Link href="/projects">All projects</Link>
+          </div>
+          <ul className="ghost-home-project-rows">
             {projectRows.map((row) => (
               <li key={row.projectId} data-status={row.health.status}>
-                <span
-                  className={`ceo-status ceo-status-${row.health.status.toLowerCase()}`}
-                  title={healthLabel(row.health.status)}
-                >
+                <span className={`ceo-status ceo-status-${row.health.status.toLowerCase()}`}>
                   <span className="ceo-status-dot" aria-hidden="true" />
-                  <span aria-hidden="true">{healthGlyph(row.health.status)}</span>
-                  <span className="sr-only">Status: {healthLabel(row.health.status)}</span>
                   <span className="ceo-status-text">{healthLabel(row.health.status)}</span>
                 </span>
                 <div>
                   <h3>
                     <Link href={row.href}>{row.projectName}</Link>
                   </h3>
-                  <p className="quiet">{row.health.reason}</p>
                   {row.nextAction ? <p className="ceo-next">Next: {row.nextAction}</p> : null}
                 </div>
-                <Link className="button-secondary" href={row.href}>
-                  Open project →
-                </Link>
               </li>
             ))}
           </ul>
-        ) : null}
-      </section>
+        </section>
+      ) : null}
 
-      <section className="ceo-panel ceo-red" aria-labelledby="red-heading">
-        <div className="ceo-panel-head ceo-panel-head-tight">
-          <p className="eyebrow">Red Lights</p>
-          <h2 id="red-heading">Every current shipping blocker.</h2>
-        </div>
-        {redLights.length === 0 ? (
-          <EmptyState>No known shipping blockers.</EmptyState>
-        ) : (
-          <ul className="ceo-simple-list ceo-compact-list">
-            {redLights.map((light) => (
-              <li key={light.id}>
-                <div>
-                  <p className="ceo-project-label">{light.projectName}</p>
-                  <h3>{light.reason}</h3>
-                  <p className="quiet ceo-evidence">{light.evidence}</p>
-                </div>
-                <Link className="button-secondary" href={light.href}>
-                  {light.ctaLabel}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {projects.status === "error" ? <ErrorState message="Projects could not be loaded right now." /> : null}
 
-      <section className="ceo-panel ceo-money" aria-labelledby="money-heading">
-        <div className="ceo-panel-head ceo-panel-head-tight">
-          <p className="eyebrow">Money</p>
-          <h2 id="money-heading">{money.label}</h2>
+      <details className="ghost-home-more">
+        <summary>More context</summary>
+        <div className="ghost-home-more-grid">
+          <section aria-labelledby="call-heading">
+            <h3 id="call-heading">Who might call</h3>
+            <p className="quiet">{whoMightCall.notice}</p>
+            {whoMightCall.exceptions.length === 0 ? (
+              <EmptyState>No current client-facing exceptions from connected signals.</EmptyState>
+            ) : (
+              <ul className="ghost-home-rail-list">
+                {whoMightCall.exceptions.map((item) => (
+                  <li key={item.id}>
+                    <p className="ceo-project-label">{item.projectName}</p>
+                    <p>{item.reason}</p>
+                    <Link href={item.href}>Open project</Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section aria-labelledby="money-heading">
+            <h3 id="money-heading">{money.label}</h3>
+            <p className="quiet">{money.detail}</p>
+          </section>
         </div>
-        <p className="ceo-money-detail">{money.detail}</p>
-      </section>
-
-      <section className="ceo-panel ceo-ask" id="ask-ghost" aria-labelledby="ask-heading">
-        <div className="ceo-panel-head ceo-panel-head-tight">
-          <p className="eyebrow">Ask Ghost</p>
-          <h2 id="ask-heading">Ask Ghost anything…</h2>
-        </div>
-        <p className="quiet">
-          Questions answer immediately from Project Brain. Build, deploy, publish, send, and other consequential
-          actions stay gated in the operating system.
-        </p>
-        {conversation.status === "error" ? <ErrorState message={conversation.message} /> : null}
-        <GhostConversation
-          projectId={null}
-          projectName={null}
-          conversationId={conversation.status === "ok" ? conversation.data?.id ?? null : null}
-          messages={conversation.status === "ok" ? conversation.data?.messages ?? [] : []}
-          providerConfigured={isModelConfigured()}
-          variant="command"
-        />
-      </section>
+      </details>
     </div>
   );
 }

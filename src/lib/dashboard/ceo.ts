@@ -149,8 +149,8 @@ export function askPathGrounding(path: AskPath): string {
 export function moneyStatusPhase1(): MoneyStatus {
   return {
     state: "UNKNOWN",
-    label: "UNKNOWN",
-    detail: "Financial source not connected.",
+    label: "Money",
+    detail: "Financial source not connected yet — Ghost will not invent figures.",
   };
 }
 
@@ -301,7 +301,16 @@ export function healthGlyph(status: HealthStatus): string {
 }
 
 export function healthLabel(status: HealthStatus): string {
-  return status;
+  switch (status) {
+    case "RED":
+      return "Needs attention";
+    case "YELLOW":
+      return "Watch closely";
+    case "GREEN":
+      return "On track";
+    case "UNKNOWN":
+      return "Needs evidence";
+  }
 }
 
 /** Founder importance — lower is more urgent. */

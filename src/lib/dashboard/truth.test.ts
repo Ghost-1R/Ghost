@@ -15,7 +15,11 @@ test("CEO home refuses fake analytics and hardcoding", () => {
   assert.ok(page.includes("moneyStatusPhase1"));
   assert.ok(page.includes("whoMightCallSection"));
   assert.ok(page.includes("buildRedLights"));
-  assert.ok(page.includes("Ask Ghost anything"));
+  assert.ok(page.includes("Ask Ghost"));
+  assert.ok(page.includes("id=\"ask-ghost\""));
+  assert.ok(page.includes("What is true"));
+  assert.ok(page.includes("Needs a decision"));
+  assert.ok(page.includes("What happens next"));
   assert.ok(!/Cleaning Business/.test(page));
   assert.ok(!/78\s*%|Tasks completed|Bugs resolved|\$0 MRR|fake progress/i.test(page));
   assert.ok(!containsFakeProgressPercent(page));
@@ -40,25 +44,27 @@ test("imported BUILD projects still map pipeline for deeper OS views", () => {
 test("shell navigation keeps deep OS routes under progressive disclosure", () => {
   const shell = readFileSync(new URL("../../components/shell/app-shell.tsx", import.meta.url), "utf8");
   for (const label of [
-    "Dashboard",
+    "Ask Ghost",
+    "Home",
+    "Active Project",
     "Projects",
-    "Brain",
-    "Activity",
-    "Build / Work",
+    "Memory",
     "Idea Lab",
-    "Strategy",
     "Product Architect",
     "System Architecture",
     "Build Plan",
     "Build Execution",
-    "Test & Verification",
+    "Verification",
     "Deploy",
     "Inspector",
     "Presentation",
     "Settings",
   ]) {
-    assert.ok(shell.includes(`label: "${label}"`) || shell.includes(`>Build / Work<`) || shell.includes(label), label);
+    assert.ok(shell.includes(`label: "${label}"`) || shell.includes(label), label);
   }
+  assert.ok(!shell.includes("/agent-tasks"), "interface release must not expose Agent Tasks without schema");
   assert.ok(shell.includes("collapsible"));
   assert.ok(shell.includes("os-nav-collapse"));
+  assert.ok(shell.includes('label: "Build"'));
+  assert.ok(shell.includes('label: "System"'));
 });

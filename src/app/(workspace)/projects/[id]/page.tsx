@@ -194,65 +194,32 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       : null;
 
   return (
-    <div className="stack">
-      <div className="page-head">
-        <div>
-          <p className="eyebrow">Project</p>
-          <h1>{detail.name}</h1>
-        </div>
-        <div className="meta">
+    <div className="stack project-home">
+      <header className="project-home-hero">
+        <p className="eyebrow">Active project</p>
+        <div className="page-head">
+          <div>
+            <h1>{detail.name}</h1>
+            <p className="quiet project-home-lede">
+              {detail.description || "No description recorded."}
+            </p>
+          </div>
           <StatusBadge status={detail.status} />
-          <Link className="button" href={`/projects/${detail.id}/architect`}>
-            Product Architect
-          </Link>
-          <Link className="button" href={`/projects/${detail.id}/architecture`}>
-            System Architecture
-          </Link>
-          <Link className="button" href={`/projects/${detail.id}/build-plan`}>
-            Build Plan
-          </Link>
-          <Link className="button" href={`/projects/${detail.id}/execution`}>
-            Build Execution
-          </Link>
-          <Link className="button" href={`/projects/${detail.id}/verification`}>
-            Verification
-          </Link>
-          <Link className="button" href={`/projects/${detail.id}/deploy`}>
-            Deploy
-          </Link>
         </div>
-      </div>
-
-      <Panel title="What we are building">
-        <p>{detail.description || "No description recorded."}</p>
-        <ul className="meta">
-          <li>Lifecycle: {detail.lifecycleStage}</li>
-          <li>Status: {detail.status.replaceAll("_", " ")}</li>
-          <li>Record updated: {formatTimestamp(detail.updatedAt)}</li>
-          <li>
-            <Link href={`/projects/${detail.id}/architect`}>Open Product Architect</Link>
-          </li>
-          <li>
-            <Link href={`/projects/${detail.id}/architecture`}>Open System Architecture</Link>
-          </li>
-          <li>
-            <Link href={`/projects/${detail.id}/build-plan`}>Open Build Plan</Link>
-          </li>
-          <li>
-            <Link href={`/projects/${detail.id}/execution`}>Open Build Execution</Link>
-          </li>
-          <li>
-            <Link href={`/projects/${detail.id}/verification`}>Open Verification</Link>
-          </li>
-          <li>
-            <Link href={`/projects/${detail.id}/deploy`}>Open Deploy</Link>
-          </li>
-        </ul>
-      </Panel>
+        <nav className="project-home-lanes" aria-label="Project workflows">
+          <Link href={`/projects/${detail.id}/architect`}>Architect</Link>
+          <Link href={`/projects/${detail.id}/architecture`}>Architecture</Link>
+          <Link href={`/projects/${detail.id}/build-plan`}>Build Plan</Link>
+          <Link href={`/projects/${detail.id}/execution`}>Execution</Link>
+          <Link href={`/projects/${detail.id}/verification`}>Verification</Link>
+          <Link href={`/projects/${detail.id}/deploy`}>Deploy</Link>
+        </nav>
+      </header>
 
       <Panel title="Operating state">
         <ul className="meta">
           <li>Lifecycle stage: {detail.lifecycleStage}</li>
+          <li>Status: {detail.status.replaceAll("_", " ")}</li>
           <li>Current milestone: {detail.currentMilestone || "None recorded"}</li>
           <li>Next action: {nextAction?.title ?? "No open next action recorded."}</li>
           <li>
@@ -263,6 +230,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             Pending decisions:{" "}
             {pendingDecisions.length === 0 ? "None" : pendingDecisions.length}
           </li>
+          <li>Record updated: {formatTimestamp(detail.updatedAt)}</li>
         </ul>
         {lifecycleRows[0] ? (
           <p className="quiet">
