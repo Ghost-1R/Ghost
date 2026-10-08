@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { GhostContext } from "../brain/types";
+import { brandMockFetch } from "./live-provider-mode";
 import { classifyProviderFailure, describeProviderPolicy, describeProviderStatus, ProviderError, resolveModelProvider } from "./provider";
 import { prepareReply } from "./reply";
 
@@ -36,10 +37,15 @@ type Call = { url: string; headers: Record<string, string>; body: { model?: stri
 
 function recorder(respond: (url: string) => Response | Promise<Response>) {
   const calls: Call[] = [];
-  const fetchImpl = async (url: string, init: RequestInit) => {
-    calls.push({ url, headers: init.headers as Record<string, string>, body: JSON.parse(String(init.body)) });
-    return respond(url);
-  };
+  const fetchImpl = brandMockFetch(async (url: string | URL | Request, init?: RequestInit) => {
+    const href = String(url);
+    calls.push({
+      url: href,
+      headers: (init?.headers as Record<string, string> | undefined) ?? {},
+      body: JSON.parse(String(init?.body ?? "{}")),
+    });
+    return respond(href);
+  });
   return { calls, fetchImpl };
 }
 

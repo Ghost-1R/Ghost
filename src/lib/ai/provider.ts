@@ -1,4 +1,5 @@
 import { redactSecrets } from "../security/redact";
+import { assertOutboundLiveModelCallAllowed } from "./live-provider-mode";
 import type { ModelProvider, ModelRequest, ModelResponse } from "./types";
 
 export type ProviderId = "groq" | "openai" | "anthropic" | "xai";
@@ -22,7 +23,7 @@ export type ProviderSelection = {
 };
 
 type ProviderEnv = Record<string, string | undefined>;
-type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
+type FetchLike = (url: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
@@ -123,12 +124,23 @@ function openAiCompatibleProvider(input: {
   apiKey: string;
   model: string;
   fetchImpl: FetchLike;
+  env: ProviderEnv;
 }): ModelProvider {
-  const { id, label, baseUrl, apiKey, model, fetchImpl } = input;
+  const { id, label, baseUrl, apiKey, model, fetchImpl, env } = input;
 
   return {
     id,
     async complete(request): Promise<ModelResponse> {
+      try {
+        assertOutboundLiveModelCallAllowed(env, fetchImpl);
+      } catch (error) {
+        throw new ProviderError(
+          "PROVIDER_UNAVAILABLE",
+          id,
+          model,
+          error instanceof Error ? error.message : "NO_LIVE_PROVIDER_CALLS",
+        );
+      }
       console.info("ghost.model.invoke", { provider: id, model });
       const startedAt = Date.now();
       let response: Response;
@@ -176,10 +188,20 @@ function openAiCompatibleProvider(input: {
   };
 }
 
-function anthropicProvider(apiKey: string, model: string, fetchImpl: FetchLike): ModelProvider {
+function anthropicProvider(apiKey: string, model: string, fetchImpl: FetchLike, env: ProviderEnv): ModelProvider {
   return {
     id: "anthropic",
     async complete(request): Promise<ModelResponse> {
+      try {
+        assertOutboundLiveModelCallAllowed(env, fetchImpl);
+      } catch (error) {
+        throw new ProviderError(
+          "PROVIDER_UNAVAILABLE",
+          "anthropic",
+          model,
+          error instanceof Error ? error.message : "NO_LIVE_PROVIDER_CALLS",
+        );
+      }
       let response: Response;
       try {
         response = await fetchImpl("https://api.anthropic.com/v1/messages", {
@@ -254,7 +276,7 @@ export function resolveModelProvider(env: ProviderEnv = process.env, fetchImpl: 
   const id = choice as ProviderId;
   const provider =
     id === "anthropic"
-      ? anthropicProvider(apiKey, model, fetchImpl)
+      ? anthropicProvider(apiKey, model, fetchImpl, env)
       : openAiCompatibleProvider({
           id,
           label: spec.label,
@@ -262,6 +284,7 @@ export function resolveModelProvider(env: ProviderEnv = process.env, fetchImpl: 
           apiKey,
           model,
           fetchImpl,
+          env,
         });
   return { status: "READY", providerId: id, model, paid: spec.paid, detail: `${spec.label} ${model}`, provider };
 }
