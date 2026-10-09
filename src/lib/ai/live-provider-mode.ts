@@ -25,6 +25,13 @@ export function brandMockFetch<T extends (url: string | URL | Request, init?: Re
   return fetchImpl;
 }
 
+/** Normalize fetch() input to a comparable URL string without unsafe casts. */
+export function resolveFetchInputUrl(input: string | URL | Request): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}
+
 export function isBrandedMockFetch(fetchImpl: unknown): boolean {
   return typeof fetchImpl === "function" && Boolean((fetchImpl as unknown as Record<symbol, unknown>)[GHOST_MOCK_FETCH]);
 }

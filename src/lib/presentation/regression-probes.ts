@@ -4,6 +4,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { createClient } from "@supabase/supabase-js";
 import type { GhostClient } from "@/lib/auth/session";
+import { resolveFetchInputUrl } from "@/lib/ai/live-provider-mode";
 import { prepareReply } from "@/lib/ai/reply";
 import { ProviderError, resolveModelProvider } from "@/lib/ai/provider";
 import { redactSecrets } from "@/lib/security/redact";
@@ -121,7 +122,8 @@ async function paidFallbackCalls(): Promise<{ statuses: string[]; paidCalls: num
   for (const [status, code] of failures) {
     const selection = resolveModelProvider(
       { GHOST_MODEL_PROVIDER: "groq", GROQ_API_KEY: "probe-invalid", OPENAI_API_KEY: "probe-paid", XAI_API_KEY: "probe-paid" },
-      async (url) => {
+      async (input) => {
+        const url = resolveFetchInputUrl(input);
         if (url.startsWith("https://api.groq.com/")) {
           freeCalls += 1;
         } else {

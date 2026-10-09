@@ -7,6 +7,7 @@ import {
   brandMockFetch,
   isLiveProviderTestAuthorized,
   isNoLiveProviderCallsMode,
+  resolveFetchInputUrl,
 } from "./live-provider-mode";
 import { ProviderError, resolveModelProvider } from "./provider";
 
@@ -94,4 +95,12 @@ test("live provider test authorization requires explicit flag without NO_LIVE", 
   const env: Record<string, string | undefined> = {};
   armNoLiveProviderCallsForReleaseGate(env);
   assert.equal(env.GHOST_NO_LIVE_PROVIDER_CALLS, "1");
+});
+
+test("resolveFetchInputUrl accepts string, URL, and Request inputs", () => {
+  const href = "https://api.groq.com/openai/v1/chat/completions";
+  assert.equal(resolveFetchInputUrl(href), href);
+  assert.equal(resolveFetchInputUrl(new URL(href)), href);
+  assert.equal(resolveFetchInputUrl(new Request(href)), href);
+  assert.equal(resolveFetchInputUrl(href).startsWith("https://api.groq.com/"), true);
 });
