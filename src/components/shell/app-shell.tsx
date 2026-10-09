@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSyncExternalStore, useState, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, useState, type ReactNode } from "react";
 import { signOut } from "@/lib/auth/actions";
 import { GhostCore } from "@/components/ghost/experience";
 import { TopCommandSearch } from "@/components/shell/top-command";
@@ -127,7 +127,13 @@ export function AppShell({
   const pathname = usePathname();
   const [openPath, setOpenPath] = useState<string | null>(null);
   const [pendingNav, setPendingNav] = useState<{ href: string; from: string } | null>(null);
-  const mobile = useSyncExternalStore(subscribeToMobile, getMobileSnapshot, getMobileServerSnapshot);
+  // Keep the first paint identical to SSR (desktop shell), then apply the real viewport.
+  const [viewportReady, setViewportReady] = useState(false);
+  useEffect(() => {
+    setViewportReady(true);
+  }, []);
+  const mobileMedia = useSyncExternalStore(subscribeToMobile, getMobileSnapshot, getMobileServerSnapshot);
+  const mobile = viewportReady ? mobileMedia : false;
   const open = openPath === pathname;
   const pending = pendingNav?.from === pathname ? pendingNav.href : null;
   const activeId = contextProjectId(pathname, projects);
@@ -138,7 +144,12 @@ export function AppShell({
       {mobile && open ? (
         <button className="backdrop" type="button" aria-label="Close navigation" onClick={() => setOpenPath(null)} />
       ) : null}
-      <aside id="app-nav" className="sidebar os-sidebar" data-open={open} inert={mobile && !open ? true : undefined}>
+      <aside
+        id="app-nav"
+        className="sidebar os-sidebar"
+        data-open={open ? "true" : "false"}
+        {...(mobile && !open ? { inert: true as const } : {})}
+      >
         <Link className="wordmark" href="/dashboard">
           <GhostCore size="mark" />
           GHOST
@@ -158,7 +169,7 @@ export function AppShell({
                         }
                         href={item.href}
                         aria-current={current ? "page" : undefined}
-                        aria-busy={pending === item.href}
+                        aria-busy={pending === item.href ? true : undefined}
                         onClick={() => {
                           if (!current) setPendingNav({ href: item.href, from: pathname });
                           if (mobile) setOpenPath(null);

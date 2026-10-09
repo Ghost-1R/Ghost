@@ -13,6 +13,8 @@ import { companionIntentGrounding } from "@/lib/companion/grounding";
 import { boundCompanionHistory } from "@/lib/companion/history";
 import { selectCompanionProjectItems } from "@/lib/companion/context";
 import { checkResponseRelevance } from "@/lib/companion/relevance";
+import { companionPersonalityGrounding } from "@/lib/preferences/personality";
+import { loadFounderPreferences } from "@/lib/preferences/store";
 import { assembleGlobalContext, assembleProjectContext } from "@/lib/brain/context";
 import { isSupportedVerified } from "@/lib/brain/verification";
 import { reuseUnansweredUserMessage } from "@/lib/conversation/idempotency";
@@ -808,9 +810,13 @@ export async function sendGhostMessage(
   });
 
   const askPath = classifyFounderAsk(message);
+  const founderPrefs = await loadFounderPreferences(session.supabase, session.user.id);
+  const personality =
+    founderPrefs.status === "ok" ? companionPersonalityGrounding(founderPrefs.data) : "";
   const pathAwareGrounding = [
     grounding.data,
     companionIntentGrounding(companionIntent, companionFocus),
+    personality,
     askPathGrounding(askPath, message),
   ]
     .filter(Boolean)
