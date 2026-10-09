@@ -4,6 +4,13 @@
  */
 
 import {
+  askPathFromIntent,
+  classifyCompanionIntent,
+  classifyFounderAsk as classifyFounderAskFromCompanion,
+} from "@/lib/companion/intent";
+import { companionIntentGrounding } from "@/lib/companion/grounding";
+import { resolveProjectFocus } from "@/lib/companion/focus";
+import {
   presentCeoSignal,
   presentNextActionLine,
   presentProjectHealthReason,
@@ -11,6 +18,8 @@ import {
 } from "@/lib/dashboard/ceo-copy";
 import type { TodayAction } from "@/lib/operations/today";
 import { explainTodayPriority, prioritizeTodayActions } from "@/lib/operations/today";
+
+export { classifyCompanionIntent, askPathFromIntent };
 
 export const HEALTH_STATUSES = ["RED", "YELLOW", "GREEN", "UNKNOWN"] as const;
 export type HealthStatus = (typeof HEALTH_STATUSES)[number];
@@ -105,45 +114,21 @@ export type MoneyStatus = {
   detail: string;
 };
 
-const CONSEQUENTIAL_VERBS =
-  /\b(build|rebuild|implement|change|modify|update\s+production|deploy|redeploy|publish|release|ship|send|email|message\s+the\s+client|execute|run\s+the\s+pipeline|apply\s+migration|delete|destroy|rollback|fix)\b/i;
-
-const QUESTION_MARKERS =
-  /^(how|what|why|which|who|when|where|do|does|did|is|are|can|could|should|will|would|tell me|explain|summarize|show me)\b|\?$/i;
-
-/** Questions stay Second Me. Consequential verbs request the gated execution path. */
+/** Questions and discovery stay Second Me. Consequential actions use the gated path. */
 export function classifyFounderAsk(message: string): AskPath {
-  const text = message.trim();
-  if (!text) return "SECOND_ME";
-  if (CONSEQUENTIAL_VERBS.test(text) && !isPureStatusQuestion(text)) {
-    return "CONSEQUENTIAL";
-  }
-  return "SECOND_ME";
+  return classifyFounderAskFromCompanion(message);
 }
 
-function isPureStatusQuestion(text: string): boolean {
-  if (QUESTION_MARKERS.test(text.trim())) {
-    if (/^(how|what|why|which|who|when|where)\b/i.test(text.trim())) return true;
-    if (/\?\s*$/.test(text)) return true;
+export function askPathGrounding(path: AskPath, message = ""): string {
+  if (!message) {
+    if (path === "SECOND_ME") {
+      return companionIntentGrounding("QUESTION", { kind: "none" });
+    }
+    return companionIntentGrounding("CONSEQUENTIAL_ACTION", { kind: "none" });
   }
-  return false;
-}
-
-export function askPathGrounding(path: AskPath): string {
-  if (path === "SECOND_ME") {
-    return [
-      "Ask path: SECOND_ME (question only).",
-      "Answer immediately from Project Brain and recorded evidence.",
-      "Do not start build, deploy, publish, send, or other execution workflows.",
-      "Do not ask the founder for build/deploy approval unless they explicitly requested that action.",
-    ].join(" ");
-  }
-  return [
-    "Ask path: CONSEQUENTIAL (founder requested an action).",
-    "Do not silently execute money, public posts, customer messages, production deploy, or destructive operations.",
-    "Explain what is recorded, what is missing, and which Ghost operating-system step (decision, inspection, deploy) must happen next.",
-    "Ghost conversation cannot mutate project lifecycle by itself.",
-  ].join(" ");
+  const intent = classifyCompanionIntent(message);
+  const focus = resolveProjectFocus({ message, intent, projects: [], lockedProjectId: null });
+  return companionIntentGrounding(intent, focus);
 }
 
 export function moneyStatusPhase1(): MoneyStatus {

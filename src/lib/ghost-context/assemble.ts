@@ -326,9 +326,12 @@ export function selectGrounding(input: {
   messages: Array<{ role: string; content: string }>;
   projectId: string | null;
   productionVerified: boolean;
+  /** When provided, skips default boundConversation — used by companion topic isolation. */
+  historyMessages?: Array<{ role: string; content: string }>;
 }): { data: string; sources: SourceRef[]; count: number; messages: Array<{ role: "user" | "assistant"; content: string }> } {
   const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
-  for (const message of boundConversation(input.messages)) {
+  const sourceMessages = input.historyMessages ?? boundConversation(input.messages);
+  for (const message of sourceMessages) {
     if (message.role === "user" || message.role === "assistant") {
       messages.push({ role: message.role, content: message.content });
     }

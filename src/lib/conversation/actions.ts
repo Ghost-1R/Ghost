@@ -7,6 +7,12 @@ import type { ConversationTurn } from "@/lib/ai/types";
 import type { ActionState } from "@/lib/action-state";
 import { getSession } from "@/lib/auth/session";
 import { askPathGrounding, classifyFounderAsk } from "@/lib/dashboard/ceo";
+import { classifyCompanionIntent } from "@/lib/companion/intent";
+import { resolveProjectFocus } from "@/lib/companion/focus";
+import { companionIntentGrounding } from "@/lib/companion/grounding";
+import { boundCompanionHistory } from "@/lib/companion/history";
+import { selectCompanionProjectItems } from "@/lib/companion/context";
+import { checkResponseRelevance } from "@/lib/companion/relevance";
 import { assembleGlobalContext, assembleProjectContext } from "@/lib/brain/context";
 import { isSupportedVerified } from "@/lib/brain/verification";
 import { reuseUnansweredUserMessage } from "@/lib/conversation/idempotency";
@@ -371,10 +377,24 @@ export async function sendGhostMessage(
     return { error: "Ghost could not read your project state.", notice: null };
   }
 
+  const namedProjects = summaries.data.map((project) => ({ id: project.id, name: project.name }));
+  const companionIntent = classifyCompanionIntent(message);
+  const companionFocus = resolveProjectFocus({
+    message,
+    intent: companionIntent,
+    projects: namedProjects,
+    lockedProjectId: visibleProjectId,
+  });
+  const exploratoryProposal =
+    companionFocus.kind === "new_proposal" ||
+    companionIntent === "NEW_IDEA" ||
+    (companionIntent === "PROJECT_DISCOVERY" && companionFocus.kind !== "one" && companionFocus.kind !== "several");
+
+  // Exploratory planning must not inherit a stale project page lock (avoids dumping unrelated Project Brain).
   const resolution = resolveAuthorizedProject({
     message,
-    lockedProjectId: visibleProjectId,
-    projects: summaries.data.map((project) => ({ id: project.id, name: project.name })),
+    lockedProjectId: exploratoryProposal ? null : visibleProjectId,
+    projects: namedProjects,
   });
 
   if (resolution.kind === "ambiguous") {
@@ -392,8 +412,8 @@ export async function sendGhostMessage(
   }
 
   const contextProjectId = resolution.kind === "global" ? null : resolution.id;
-  const loaded = contextProjectId ? await projectContext(session, contextProjectId, message) : null;
-  if (contextProjectId && !loaded) {
+  const loaded = contextProjectId && !exploratoryProposal ? await projectContext(session, contextProjectId, message) : null;
+  if (contextProjectId && !exploratoryProposal && !loaded) {
     return { error: "Ghost could not read that project's records.", notice: null };
   }
 
@@ -422,17 +442,34 @@ export async function sendGhostMessage(
     }
   }
 
+  const companionProjectItems = selectCompanionProjectItems({
+    question: message,
+    intent: companionIntent,
+    focus: companionFocus,
+    projects: summaries.data.map((project) => ({
+      id: project.id,
+      name: project.name,
+      status: project.status,
+      currentMilestone: project.currentMilestone,
+      openBlockers: project.openBlockers,
+      nextAction: project.nextAction,
+    })),
+  });
+  const companionProjectIds = new Set(companionProjectItems.map((item) => item.id));
+
   const context = loaded
     ? loaded.ghost
     : assembleGlobalContext({
-        projects: summaries.data.map((project) => ({
-          id: project.id,
-          name: project.name,
-          status: project.status,
-          currentMilestone: project.currentMilestone,
-          openBlockers: project.openBlockers,
-          nextAction: project.nextAction,
-        })),
+        projects: summaries.data
+          .filter((project) => companionProjectIds.has(project.id))
+          .map((project) => ({
+            id: project.id,
+            name: project.name,
+            status: project.status,
+            currentMilestone: project.currentMilestone,
+            openBlockers: project.openBlockers,
+            nextAction: project.nextAction,
+          })),
         founderRules: rules.data.map((rule) => ({
           id: rule.id,
           title: rule.title,
@@ -444,16 +481,10 @@ export async function sendGhostMessage(
   const contextItems = loaded
     ? loaded.items
     : [
+        ...companionProjectItems,
         ...collectGlobalItems({
           question: message,
-          projects: summaries.data.map((project) => ({
-            id: project.id,
-            name: project.name,
-            status: project.status,
-            currentMilestone: project.currentMilestone,
-            openBlockers: project.openBlockers,
-            nextAction: project.nextAction,
-          })),
+          projects: [],
           founderRules: rules.data.map((rule) => ({
             id: rule.id,
             title: rule.title,
@@ -761,22 +792,44 @@ export async function sendGhostMessage(
     repositoryItems.push(...repositoryContextItems(message, snapshot, patterns));
   }
 
+  const historyMessages = boundCompanionHistory({
+    messages: turns,
+    intent: companionIntent,
+    focus: companionFocus,
+    projects: namedProjects,
+  });
+
   const grounding = selectGrounding({
     items: [...contextItems, ...repositoryItems, ...inspectionContextItems(message, inspections)],
     messages: turns,
-    projectId: contextProjectId,
+    historyMessages,
+    projectId: exploratoryProposal ? null : contextProjectId,
     productionVerified: loaded?.productionVerified ?? false,
   });
 
   const askPath = classifyFounderAsk(message);
-  const pathAwareGrounding = [grounding.data, askPathGrounding(askPath)].filter(Boolean).join("\n\n");
+  const pathAwareGrounding = [
+    grounding.data,
+    companionIntentGrounding(companionIntent, companionFocus),
+    askPathGrounding(askPath, message),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  console.info("ghost.companion.route", {
+    intent: companionIntent,
+    focus: companionFocus.kind,
+    askPath,
+    contextItemCount: grounding.count,
+    exploratoryProposal,
+  });
 
   const selection = resolveModelProvider();
   let reply: Awaited<ReturnType<typeof prepareReply>>;
   try {
     reply = await prepareReply({
-      requestedProjectId: contextProjectId,
-      visibleProjectId: contextProjectId,
+      requestedProjectId: exploratoryProposal ? null : contextProjectId,
+      visibleProjectId: exploratoryProposal ? null : contextProjectId,
       context,
       grounding: pathAwareGrounding,
       messages: grounding.messages.flatMap((turn) =>
@@ -833,14 +886,29 @@ export async function sendGhostMessage(
     });
   }
 
+  const relevance = checkResponseRelevance({
+    question: message,
+    answer: reply.content,
+    intent: companionIntent,
+    focus: companionFocus,
+    projects: namedProjects,
+  });
+  let finalContent = relevance.correctedContent ?? reply.content;
+  if (!relevance.ok) {
+    console.info("ghost.companion.relevance_corrected", {
+      intent: companionIntent,
+      reasons: relevance.reasons,
+    });
+  }
+
   const storedAssistant = await session.supabase.from("ghost_messages").insert({
     conversation_id: conversationId,
     role: "assistant",
-    content: withSources(reply.content, grounding.sources),
+    content: withSources(finalContent, grounding.sources),
     metadata: groundingMetadata({
       provider: reply.provider,
       model: reply.model,
-      projectId: contextProjectId,
+      projectId: exploratoryProposal ? null : contextProjectId,
       contextItemCount: grounding.count,
       sources: grounding.sources,
       usage: reply.usage,

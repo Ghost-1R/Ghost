@@ -347,7 +347,7 @@ test("normal question → Second Me; fix conflict → consequential", () => {
   assert.equal(classifyFounderAsk("What's happening with Ivoire Shop?"), "SECOND_ME");
   assert.equal(classifyFounderAsk("What don't you know?"), "SECOND_ME");
   assert.equal(classifyFounderAsk("Fix the Ivoire Shop delivery status conflict."), "CONSEQUENTIAL");
-  assert.match(askPathGrounding("SECOND_ME"), /question only/i);
+  assert.match(askPathGrounding("SECOND_ME"), /QUESTION|answer immediately/i);
   assert.match(askPathGrounding("CONSEQUENTIAL"), /Do not silently execute/i);
 });
 
