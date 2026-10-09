@@ -5,8 +5,18 @@ import { saveFounderPreferences } from "@/lib/preferences/actions";
 import type { FounderPreferences } from "@/lib/preferences/types";
 
 export function FounderPreferenceForm({ preferences }: { preferences: FounderPreferences }) {
+  // Remount when account prefs change so uncontrolled defaults match post-save revalidation.
+  const formKey = [
+    preferences.responseStyle,
+    preferences.responseDetail,
+    preferences.soundEnabled ? "1" : "0",
+    preferences.soundVolume,
+    preferences.reduceMotion ? "1" : "0",
+    preferences.appearance,
+  ].join(":");
+
   return (
-    <ActionForm action={saveFounderPreferences} submitLabel="Save preferences">
+    <ActionForm key={formKey} action={saveFounderPreferences} submitLabel="Save preferences">
       <fieldset className="settings-fieldset">
         <legend>Response style</legend>
         <p className="quiet">Changes tone only. Never overrides evidence, privacy, or approvals.</p>
