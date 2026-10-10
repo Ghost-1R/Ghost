@@ -88,3 +88,24 @@ export {
   probeDockerAvailability,
   type DockerExecutionSpec,
 } from "./docker-safeguards";
+export {
+  activateQueuedWorker,
+  enqueueAgentTask,
+  leaseQueueItem,
+  type DurableWorkerError,
+  type WorkerQueueItem,
+} from "./queue";
+export {
+  applyQueueFailure,
+  clearTaskLeaseForRecovery,
+  planRecoveryFromExpiredLease,
+  recordDurableError,
+} from "./recovery";
+export {
+  createCheckpointReviewArtifact,
+  createPrivatePreview,
+  createReviewArtifact,
+  publishReviewArtifactPublicly,
+  type ReviewArtifact,
+  type PrivatePreview,
+} from "./review-artifacts";
