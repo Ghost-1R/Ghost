@@ -1,11 +1,12 @@
 import type { GhostClient } from "@/lib/auth/session";
+import { classifyDeploymentAttemptStatuses, type DeploymentAttemptInput } from "@/lib/project-truth";
 import { fromError, type QueryResult } from "@/lib/result";
 
 export type ActivityItem = {
   id: string;
   projectId: string;
   projectName: string;
-  kind: "lifecycle" | "decision" | "next_action" | "verification";
+  kind: "lifecycle" | "decision" | "next_action" | "verification" | "deployment";
   title: string;
   detail: string;
   at: string;
@@ -22,7 +23,7 @@ export async function loadRecentActivity(
   const projectIds = projects.data.map((project) => project.id);
   if (projectIds.length === 0) return { status: "ok", data: [] };
 
-  const [lifecycle, decisions, actions, verification] = await Promise.all([
+  const [lifecycle, decisions, actions, verification, deployments] = await Promise.all([
     supabase
       .from("lifecycle_transitions")
       .select("id, project_id, from_stage, to_stage, actor, reason, changed_at")
@@ -45,6 +46,13 @@ export async function loadRecentActivity(
       .from("verification_records")
       .select("id, project_id, category, target, state, checked_at, created_at")
       .in("project_id", projectIds)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    supabase
+      .from("deployments")
+      .select("id, project_id, human_id, status, failure_reason, created_at, environment_id")
+      .in("project_id", projectIds)
+      .in("status", ["FAILED", "SUCCEEDED"])
       .order("created_at", { ascending: false })
       .limit(limit),
   ]);
@@ -115,6 +123,60 @@ export async function loadRecentActivity(
         at: row.checked_at ?? row.created_at,
         href: `/projects/${row.project_id}`,
       });
+    }
+  }
+
+  if (!deployments.error && deployments.data) {
+    const attempts: DeploymentAttemptInput[] = deployments.data.map((row) => ({
+      id: String(row.id),
+      projectId: String(row.project_id),
+      status: String(row.status),
+      createdAt: String(row.created_at),
+      humanId: row.human_id != null ? String(row.human_id) : null,
+      failureReason: row.failure_reason != null ? String(row.failure_reason) : null,
+      environmentId: row.environment_id != null ? String(row.environment_id) : null,
+    }));
+    const classified = classifyDeploymentAttemptStatuses(attempts);
+    for (const row of classified) {
+      const label = row.humanId ?? row.id;
+      if (row.operationalState === "SUPERSEDED") {
+        items.push({
+          id: `dep-${row.id}`,
+          projectId: row.projectId,
+          projectName: names.get(row.projectId) ?? "Project",
+          kind: "deployment",
+          title: `Deployment ${label} failed (historical / superseded)`,
+          detail: row.failureReason?.trim() || "Earlier FAILED attempt superseded by later SUCCEEDED evidence.",
+          at: row.createdAt,
+          href: `/projects/${row.projectId}/deploy`,
+        });
+        continue;
+      }
+      if (row.status === "SUCCEEDED") {
+        items.push({
+          id: `dep-${row.id}`,
+          projectId: row.projectId,
+          projectName: names.get(row.projectId) ?? "Project",
+          kind: "deployment",
+          title: `Deployment ${label} succeeded`,
+          detail: "SUCCEEDED is not PRODUCTION_VERIFIED without separate verification evidence.",
+          at: row.createdAt,
+          href: `/projects/${row.projectId}/deploy`,
+        });
+        continue;
+      }
+      if (row.operationalState === "FAILED") {
+        items.push({
+          id: `dep-${row.id}`,
+          projectId: row.projectId,
+          projectName: names.get(row.projectId) ?? "Project",
+          kind: "deployment",
+          title: `Deployment ${label} failed (current)`,
+          detail: row.failureReason?.trim() || "Deployment attempt FAILED.",
+          at: row.createdAt,
+          href: `/projects/${row.projectId}/deploy`,
+        });
+      }
     }
   }
 

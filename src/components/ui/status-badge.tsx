@@ -1,5 +1,29 @@
-const GOOD = new Set(["VERIFIED", "COMPLETED", "ACTIVE", "DEPLOYED", "DONE", "APPROVED", "READY"]);
-const WARN = new Set(["NEEDS_DECISION", "PENDING", "BLOCKED", "ON_HOLD", "PROPOSED", "CLAIMED", "OBSERVED", "CAUTION", "READY_WITH_GAPS"]);
+const GOOD = new Set([
+  "VERIFIED",
+  "COMPLETED",
+  "ACTIVE",
+  "DEPLOYED",
+  "DONE",
+  "APPROVED",
+  "READY",
+  "VERIFIED_LOCALLY",
+  "VERIFIED_IN_PRODUCTION",
+]);
+const WARN = new Set([
+  "NEEDS_DECISION",
+  "PENDING",
+  "BLOCKED",
+  "ON_HOLD",
+  "PROPOSED",
+  "CLAIMED",
+  "OBSERVED",
+  "CAUTION",
+  "READY_WITH_GAPS",
+  "UNKNOWN",
+  "PLANNED",
+  "IMPLEMENTED_LOCALLY",
+  "SUPERSEDED",
+]);
 const BAD = new Set(["FAILED", "REJECTED", "RETIRED", "HIGH", "CRITICAL", "NOT_READY"]);
 
 export function StatusBadge({ status }: { status: string }) {

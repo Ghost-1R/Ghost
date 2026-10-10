@@ -45,5 +45,19 @@ export type DeploymentAttemptInput = {
   createdAt: string;
   humanId?: string | null;
   failureReason?: string | null;
+  /** Environment lineage — supersession requires same project and compatible environment. */
+  environmentId?: string | null;
   commitSha?: string | null;
 };
+
+/** True when a later success can retire an earlier failure without inventing cross-env recovery. */
+export function deploymentLineageMatches(
+  failed: Pick<DeploymentAttemptInput, "projectId" | "environmentId">,
+  succeeded: Pick<DeploymentAttemptInput, "projectId" | "environmentId">,
+): boolean {
+  if (failed.projectId !== succeeded.projectId) return false;
+  const failedEnv = failed.environmentId?.trim() || "";
+  const succeededEnv = succeeded.environmentId?.trim() || "";
+  if (!failedEnv || !succeededEnv) return true;
+  return failedEnv === succeededEnv;
+}

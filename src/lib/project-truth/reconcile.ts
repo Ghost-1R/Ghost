@@ -4,6 +4,7 @@ import type {
   OperationalState,
   TruthEvidenceRef,
 } from "./types";
+import { deploymentLineageMatches } from "./types";
 
 function parseTime(value: string): number {
   const ms = Date.parse(value);
@@ -34,7 +35,6 @@ export function classifyDeploymentAttemptStatuses(
 
   for (const [, projectAttempts] of byProject) {
     const ordered = sortNewestFirst(projectAttempts);
-    const latestSuccess = ordered.find((row) => row.status === "SUCCEEDED") ?? null;
 
     for (const attempt of ordered) {
       if (attempt.status === "SUCCEEDED") {
@@ -43,9 +43,12 @@ export function classifyDeploymentAttemptStatuses(
       }
       if (attempt.status === "FAILED") {
         const newerSuccess =
-          latestSuccess && parseTime(latestSuccess.createdAt) > parseTime(attempt.createdAt)
-            ? latestSuccess
-            : null;
+          ordered.find(
+            (row) =>
+              row.status === "SUCCEEDED" &&
+              parseTime(row.createdAt) > parseTime(attempt.createdAt) &&
+              deploymentLineageMatches(attempt, row),
+          ) ?? null;
         out.push({
           ...attempt,
           operationalState: newerSuccess ? "SUPERSEDED" : "FAILED",

@@ -61,10 +61,12 @@ export async function loadCeoSignals(
         .select("id, project_id, check_name, status, updated_at")
         .in("project_id", projectIds)
         .eq("status", "FAILED"),
-      // SUCCEEDED + FAILED so older failures can be marked SUPERSEDED.
+      // SUCCEEDED + FAILED so older failures can be marked SUPERSEDED by lineage.
       supabase
         .from("deployments")
-        .select("id, project_id, human_id, status, failure_reason, created_at")
+        .select(
+          "id, project_id, human_id, status, failure_reason, created_at, environment_id, expected_commit_sha",
+        )
         .in("project_id", projectIds)
         .in("status", ["FAILED", "SUCCEEDED"])
         .order("created_at", { ascending: false })
@@ -135,6 +137,8 @@ export async function loadCeoSignals(
       createdAt: String(row.created_at),
       humanId: row.human_id != null ? String(row.human_id) : null,
       failureReason: row.failure_reason != null ? String(row.failure_reason) : null,
+      environmentId: row.environment_id != null ? String(row.environment_id) : null,
+      commitSha: row.expected_commit_sha != null ? String(row.expected_commit_sha) : null,
     }));
     const classified = classifyDeploymentAttemptStatuses(attempts);
 

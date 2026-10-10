@@ -2650,6 +2650,48 @@ html[data-theme="light"] {
   color: var(--muted);
 }
 
+.project-truth {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.project-truth-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.project-truth-head h2,
+.project-truth-block h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.project-truth-headline {
+  margin: 0.45rem 0 0.25rem;
+}
+
+.project-truth-facets {
+  margin-top: 0.65rem;
+}
+
+.project-truth-block {
+  margin-top: 0.85rem;
+}
+
+.project-truth-history {
+  margin-top: 0.75rem;
+}
+
+.project-truth-history > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 @media (max-width: 767px) {
   .settings-center {
     grid-template-columns: 1fr;
@@ -2661,6 +2703,10 @@ html[data-theme="light"] {
 
   .settings-nav-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .project-truth-head {
+    align-items: flex-start;
   }
 }
 

@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ProjectTruthPanel } from "@/components/operations/project-truth-panel";
 import { EmptyState, Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getSession } from "@/lib/auth/session";
 import { latestInspections } from "@/lib/inspector/evidence";
 import { HOSTED_INSPECTION_REFUSAL, inspectionTargets } from "@/lib/inspector/runtime";
 import { defaultRuntimeRoot, listApprovals, listInspections } from "@/lib/inspector/store";
+import { loadProjectTruthSnapshot } from "@/lib/project-truth";
 import { loadProjectSummaries } from "@/lib/projects/queries";
 import { ApprovalDecision, ProposeActionForm, RunInspectionForm } from "./inspector-actions";
 
@@ -30,6 +33,17 @@ export default async function InspectorPage() {
   const latest = latestInspections(inspections);
   const targets = inspectionTargets();
   const pending = approvals.filter((approval) => approval.status === "PENDING" || approval.status === "APPROVED" || approval.status === "REJECTED");
+  const buildCheck = latest.find((result) => result.checkId === "build");
+  const verifiedBuildRecorded = buildCheck?.status === "VERIFIED";
+  // Without comparing to the live tree stamp here, freshness stays UNKNOWN — never invent VERIFIED_LOCALLY.
+  const truthResult =
+    ghost != null
+      ? await loadProjectTruthSnapshot(session.supabase, {
+          projectId: ghost.id,
+          projectName: ghost.name,
+          hasFreshInspectorPass: null,
+        })
+      : null;
 
   return (
     <div className="stack">
@@ -39,6 +53,41 @@ export default async function InspectorPage() {
           <h1>What was checked.</h1>
         </div>
       </div>
+      {truthResult?.status === "ok" ? (
+        <ProjectTruthPanel
+          snapshot={truthResult.data}
+          title="Local evidence → Project Truth"
+          deployHref={`/projects/${ghost!.id}/deploy`}
+        />
+      ) : null}
+      <Panel title="Inspector evidence references">
+        <p className="quiet">
+          Inspector results are local evidence only. A VERIFIED build does not mean DEPLOYED or
+          VERIFIED_IN_PRODUCTION. Use Project Truth to see how these checks affect operational state.
+        </p>
+        {ghost ? (
+          <ul className="meta">
+            <li>
+              Project: <Link href={`/projects/${ghost.id}`}>{ghost.name}</Link>
+            </li>
+            <li>Recorded checks: {latest.length}</li>
+            <li>
+              Latest build check:{" "}
+              {buildCheck
+                ? `${buildCheck.status} @ ${buildCheck.commit?.slice(0, 7) ?? "no commit"}`
+                : "none recorded"}
+            </li>
+            <li>
+              Tree-bound fresh pass for Project Truth: UNKNOWN
+              {verifiedBuildRecorded
+                ? " (a VERIFIED build exists, but this page does not re-bind it to the live tree)"
+                : ""}
+            </li>
+          </ul>
+        ) : (
+          <EmptyState>No visible GHOST project to attach inspector evidence.</EmptyState>
+        )}
+      </Panel>
       <Panel title="Run safe checks">
         <p className="quiet">
           Runs the allowlisted test, lint, TypeScript, build, and read-only inspections. Commands are fixed. A build

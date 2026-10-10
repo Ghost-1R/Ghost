@@ -30,6 +30,8 @@ import {
   loadVerification,
   type KnowledgeRecord,
 } from "@/lib/projects/queries";
+import { ProjectTruthPanel } from "@/components/operations/project-truth-panel";
+import { loadProjectTruthSnapshot } from "@/lib/project-truth";
 import { loadPrimaryRepository } from "@/lib/repository/association";
 
 const UUID_PATTERN =
@@ -143,6 +145,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           },
         );
 
+  const truthResult = await loadProjectTruthSnapshot(session.supabase, {
+    projectId: detail.id,
+    projectName: detail.name,
+    hasFreshInspectorPass: null,
+  });
+
   const exportPreview =
     milestones.status === "ok" &&
     knowledge.status === "ok" &&
@@ -239,6 +247,15 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </p>
         ) : (
           <p className="quiet">No lifecycle history beyond the current stage.</p>
+        )}
+        {truthResult.status === "ok" ? (
+          <ProjectTruthPanel
+            snapshot={truthResult.data}
+            title="Project Truth"
+            deployHref={`/projects/${detail.id}/deploy`}
+          />
+        ) : (
+          <ErrorState message="Project Truth could not be loaded from recorded evidence." />
         )}
       </Panel>
 

@@ -23,9 +23,12 @@ test("CEO home refuses fake analytics and hardcoding", () => {
   assert.ok(!/Cleaning Business/.test(page));
   assert.ok(!/78\s*%|Tasks completed|Bugs resolved|\$0 MRR|fake progress/i.test(page));
   assert.ok(!containsFakeProgressPercent(page));
-  assert.ok(!page.includes("loadRecentActivity"));
+  assert.ok(page.includes("loadRecentActivity"));
+  assert.ok(page.includes("loadProjectTruthSnapshot"));
+  assert.ok(page.includes("ProjectTruthPanel"));
   assert.ok(!page.includes("OS_PIPELINE_STAGES"));
   assert.ok(!/Continue →/.test(page));
+  assert.ok(!page.includes("@/lib/agent-runtime"));
 });
 
 test("imported BUILD projects still map pipeline for deeper OS views", () => {

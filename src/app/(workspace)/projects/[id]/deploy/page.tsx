@@ -29,7 +29,9 @@ import {
   transitionReleaseAction,
   updateReleaseOverviewAction,
 } from "@/lib/deployment-release/actions";
+import { ProjectTruthPanel } from "@/components/operations/project-truth-panel";
 import { loadLatestRelease, loadReleaseBundle, loadReleases } from "@/lib/deployment-release/queries";
+import { loadProjectTruthSnapshot } from "@/lib/project-truth";
 import {
   CONFIG_PRESENCE_STATUSES,
   DEPLOYMENT_ENVIRONMENT_TYPES,
@@ -79,10 +81,15 @@ export default async function DeployPage({ params }: { params: Promise<{ id: str
   }
   if (!project.data) notFound();
 
-  const [releaseResult, verification, conversation] = await Promise.all([
+  const [releaseResult, verification, conversation, truthResult] = await Promise.all([
     loadLatestRelease(session.supabase, projectId),
     loadVerificationProgram(session.supabase, projectId),
     loadLatestConversation(session.supabase, projectId),
+    loadProjectTruthSnapshot(session.supabase, {
+      projectId,
+      projectName: project.data.name,
+      hasFreshInspectorPass: null,
+    }),
   ]);
 
   if (releaseResult.status === "error") {
@@ -95,6 +102,17 @@ export default async function DeployPage({ params }: { params: Promise<{ id: str
   }
 
   const verificationStatus = verification.status === "ok" ? verification.data?.status ?? null : null;
+
+  const truthPanel =
+    truthResult.status === "ok" ? (
+      <ProjectTruthPanel
+        snapshot={truthResult.data}
+        title="Project Truth"
+        deployHref={`/projects/${projectId}/deploy`}
+      />
+    ) : (
+      <ErrorState message="Project Truth could not be loaded from recorded evidence." />
+    );
 
   const ask = (
     <Panel title="Ask Ghost">
@@ -139,6 +157,7 @@ export default async function DeployPage({ params }: { params: Promise<{ id: str
             </li>
           </ul>
         </div>
+        {truthPanel}
         <Panel title="Initialize Release">
           <p className="quiet">
             Creates a release candidate from a VERIFIED Verification Program. VERIFIED is not deployed. Ghost records
@@ -221,6 +240,7 @@ export default async function DeployPage({ params }: { params: Promise<{ id: str
           </li>
         </ul>
       </div>
+      {truthPanel}
 
       <Panel title="Release">
         <p>

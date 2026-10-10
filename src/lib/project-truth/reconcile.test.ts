@@ -159,3 +159,62 @@ test("nextHighestPriorityAction prefers BLOCKED over quieter deploy next steps",
   assert.equal(next.state, "BLOCKED");
   assert.match(next.nextAction ?? "", /blocking/i);
 });
+
+test("cross-project success does not supersede another project's FAILED", () => {
+  const attempts = [
+    attempt({
+      id: "fail-a",
+      projectId: "proj-a",
+      status: "FAILED",
+      createdAt: "2026-03-01T10:00:00.000Z",
+    }),
+    attempt({
+      id: "ok-b",
+      projectId: "proj-b",
+      status: "SUCCEEDED",
+      createdAt: "2026-03-10T12:00:00.000Z",
+    }),
+  ];
+  const classified = classifyDeploymentAttemptStatuses(attempts);
+  assert.equal(classified.find((row) => row.id === "fail-a")?.operationalState, "FAILED");
+  assert.equal(isCurrentFailedDeployment(attempts[0]!, attempts), true);
+});
+
+test("SUCCEEDED in a different environment does not supersede FAILED", () => {
+  const attempts = [
+    attempt({
+      id: "fail-prod",
+      status: "FAILED",
+      createdAt: "2026-03-01T10:00:00.000Z",
+      environmentId: "env-prod",
+    }),
+    attempt({
+      id: "ok-staging",
+      status: "SUCCEEDED",
+      createdAt: "2026-03-10T12:00:00.000Z",
+      environmentId: "env-staging",
+    }),
+  ];
+  const classified = classifyDeploymentAttemptStatuses(attempts);
+  assert.equal(classified.find((row) => row.id === "fail-prod")?.operationalState, "FAILED");
+});
+
+test("SUCCEEDED in the same environment supersedes earlier FAILED", () => {
+  const attempts = [
+    attempt({
+      id: "fail-prod",
+      status: "FAILED",
+      createdAt: "2026-03-01T10:00:00.000Z",
+      environmentId: "env-prod",
+    }),
+    attempt({
+      id: "ok-prod",
+      status: "SUCCEEDED",
+      createdAt: "2026-03-10T12:00:00.000Z",
+      environmentId: "env-prod",
+    }),
+  ];
+  const classified = classifyDeploymentAttemptStatuses(attempts);
+  assert.equal(classified.find((row) => row.id === "fail-prod")?.operationalState, "SUPERSEDED");
+  assert.equal(classified.find((row) => row.id === "fail-prod")?.supersededById, "ok-prod");
+});

@@ -18,10 +18,13 @@ import {
   whoMightCallSection,
   type CeoSignal,
 } from "@/lib/dashboard/ceo";
+import { ProjectTruthPanel } from "@/components/operations/project-truth-panel";
 import { loadCeoSignals } from "@/lib/dashboard/ceo-queries";
 import { resolveFounderDecision } from "@/lib/decisions/actions";
 import { loadOpenDecisions } from "@/lib/decisions/queries";
 import { loadTodayActions } from "@/lib/operations/actions";
+import { loadRecentActivity } from "@/lib/operations/activity";
+import { loadProjectTruthSnapshot } from "@/lib/project-truth";
 import { loadProjectSummaries } from "@/lib/projects/queries";
 
 export const metadata: Metadata = {
@@ -131,6 +134,17 @@ export default async function DashboardPage() {
     projectRows.find((row) => row.health.status === "YELLOW") ??
     projectRows[0] ??
     null;
+
+  const [activeTruth, recentActivity] = await Promise.all([
+    activeProject
+      ? loadProjectTruthSnapshot(session.supabase, {
+          projectId: activeProject.projectId,
+          projectName: activeProject.projectName,
+          hasFreshInspectorPass: null,
+        })
+      : Promise.resolve(null),
+    loadRecentActivity(session.supabase, 8),
+  ]);
 
   return (
     <div className="ghost-home">
@@ -262,6 +276,15 @@ export default async function DashboardPage() {
             <p className="quiet">{activeProject.health.reason}</p>
             {activeProject.nextAction ? <p className="ceo-next">Next: {activeProject.nextAction}</p> : null}
           </div>
+          {activeTruth?.status === "ok" ? (
+            <ProjectTruthPanel
+              snapshot={activeTruth.data}
+              title="Operational truth"
+              deployHref={`/projects/${activeProject.projectId}/deploy`}
+            />
+          ) : activeTruth?.status === "error" ? (
+            <ErrorState message="Project Truth could not be loaded from recorded evidence." />
+          ) : null}
         </section>
       ) : (
         <section className="ghost-home-active" aria-labelledby="active-project-heading">
@@ -308,6 +331,25 @@ export default async function DashboardPage() {
       <details className="ghost-home-more">
         <summary>More context</summary>
         <div className="ghost-home-more-grid">
+          <section aria-labelledby="activity-heading">
+            <h3 id="activity-heading">What changed</h3>
+            {recentActivity.status === "error" ? (
+              <ErrorState message="Recent activity could not be loaded." />
+            ) : recentActivity.data.length === 0 ? (
+              <EmptyState>No recent recorded activity.</EmptyState>
+            ) : (
+              <ul className="ghost-home-rail-list">
+                {recentActivity.data.map((item) => (
+                  <li key={item.id}>
+                    <p className="ceo-project-label">{item.projectName}</p>
+                    <p>{item.title}</p>
+                    <p className="quiet">{item.detail}</p>
+                    <Link href={item.href}>Open</Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
           <section aria-labelledby="call-heading">
             <h3 id="call-heading">Who might call</h3>
             <p className="quiet">{whoMightCall.notice}</p>
