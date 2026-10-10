@@ -899,7 +899,7 @@ export async function sendGhostMessage(
     focus: companionFocus,
     projects: namedProjects,
   });
-  let finalContent = relevance.correctedContent ?? reply.content;
+  const finalContent = relevance.correctedContent ?? reply.content;
   if (!relevance.ok) {
     console.info("ghost.companion.relevance_corrected", {
       intent: companionIntent,
