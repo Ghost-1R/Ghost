@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
 
 export const SETTINGS_SECTIONS = [
   { id: "account", label: "Account" },
@@ -16,6 +16,16 @@ export const SETTINGS_SECTIONS = [
 
 export type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]["id"];
 
+function subscribeToHash(onStoreChange: () => void) {
+  window.addEventListener("hashchange", onStoreChange);
+  return () => window.removeEventListener("hashchange", onStoreChange);
+}
+
+function readHashSection(): SettingsSectionId | null {
+  const hash = window.location.hash.replace(/^#/, "") as SettingsSectionId;
+  return SETTINGS_SECTIONS.some((section) => section.id === hash) ? hash : null;
+}
+
 export function SettingsControlCenter({
   sections,
   initialSection = "account",
@@ -24,17 +34,14 @@ export function SettingsControlCenter({
   initialSection?: SettingsSectionId;
 }) {
   const navId = useId();
-  const [active, setActive] = useState<SettingsSectionId>(initialSection);
-
-  useEffect(() => {
-    const hash = window.location.hash.replace(/^#/, "") as SettingsSectionId;
-    if (SETTINGS_SECTIONS.some((section) => section.id === hash)) {
-      setActive(hash);
-    }
-  }, []);
+  // Hash deep-links via useSyncExternalStore (SSR-safe). Manual picks stay in state
+  // because history.replaceState does not emit hashchange.
+  const hashSection = useSyncExternalStore(subscribeToHash, readHashSection, () => null);
+  const [manualSection, setManualSection] = useState<SettingsSectionId | null>(null);
+  const active = manualSection ?? hashSection ?? initialSection;
 
   const select = (id: SettingsSectionId) => {
-    setActive(id);
+    setManualSection(id);
     window.history.replaceState(null, "", `#${id}`);
   };
 

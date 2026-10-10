@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useSyncExternalStore, useState, type ReactNode } from "react";
+import { useSyncExternalStore, useState, type ReactNode } from "react";
 import { signOut } from "@/lib/auth/actions";
 import { GhostCore } from "@/components/ghost/experience";
 import { TopCommandSearch } from "@/components/shell/top-command";
@@ -129,13 +129,8 @@ export function AppShell({
   const pathname = usePathname();
   const [openPath, setOpenPath] = useState<string | null>(null);
   const [pendingNav, setPendingNav] = useState<{ href: string; from: string } | null>(null);
-  // Keep the first paint identical to SSR (desktop shell), then apply the real viewport.
-  const [viewportReady, setViewportReady] = useState(false);
-  useEffect(() => {
-    setViewportReady(true);
-  }, []);
-  const mobileMedia = useSyncExternalStore(subscribeToMobile, getMobileSnapshot, getMobileServerSnapshot);
-  const mobile = viewportReady ? mobileMedia : false;
+  // SSR-safe viewport: server snapshot is false (desktop shell); client reads matchMedia.
+  const mobile = useSyncExternalStore(subscribeToMobile, getMobileSnapshot, getMobileServerSnapshot);
   const open = openPath === pathname;
   const pending = pendingNav?.from === pathname ? pendingNav.href : null;
   const activeId = contextProjectId(pathname, projects);
