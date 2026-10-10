@@ -79,6 +79,7 @@ function buildGroups(projectId: string | null): NavGroup[] {
       collapsible: true,
       items: [
         { href: "/patterns", label: "Patterns" },
+        { href: "/approvals", label: "Approvals" },
         { href: "/inspector", label: "Inspector" },
         { href: "/presentation", label: "Presentation" },
         { href: "/settings", label: "Settings" },

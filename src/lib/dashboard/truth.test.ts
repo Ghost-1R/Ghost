@@ -59,6 +59,7 @@ test("shell navigation keeps deep OS routes under progressive disclosure", () =>
     "Build Execution",
     "Verification",
     "Deploy",
+    "Approvals",
     "Inspector",
     "Presentation",
     "Settings",

@@ -198,6 +198,10 @@ export default async function DashboardPage() {
           id="waiting-on-me"
         >
           <h2 id="decision-heading">Needs a decision</h2>
+          <p className="quiet">
+            Judgment and executable authorizations are separate.{" "}
+            <Link href="/approvals">Open Approval Center</Link>
+          </p>
           {openDecisions.status === "error" ? (
             <ErrorState message="Open decisions could not be loaded. Try again shortly." />
           ) : null}

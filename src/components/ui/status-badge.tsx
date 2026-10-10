@@ -24,7 +24,17 @@ const WARN = new Set([
   "IMPLEMENTED_LOCALLY",
   "SUPERSEDED",
 ]);
-const BAD = new Set(["FAILED", "REJECTED", "RETIRED", "HIGH", "CRITICAL", "NOT_READY"]);
+const BAD = new Set([
+  "FAILED",
+  "REJECTED",
+  "RETIRED",
+  "HIGH",
+  "CRITICAL",
+  "NOT_READY",
+  "REVOKED",
+  "EXPIRED",
+  "CONSUMED",
+]);
 
 export function StatusBadge({ status }: { status: string }) {
   const tone = GOOD.has(status) ? "good" : WARN.has(status) ? "warn" : BAD.has(status) ? "bad" : "neutral";
