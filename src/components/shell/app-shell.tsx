@@ -80,6 +80,7 @@ function buildGroups(projectId: string | null): NavGroup[] {
       items: [
         { href: "/patterns", label: "Patterns" },
         { href: "/approvals", label: "Approvals" },
+        { href: "/development-tasks", label: "Remote Dev" },
         { href: "/inspector", label: "Inspector" },
         { href: "/presentation", label: "Presentation" },
         { href: "/settings", label: "Settings" },
