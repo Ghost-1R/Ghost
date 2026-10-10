@@ -12,6 +12,10 @@ const privileges = readFileSync(
   path.join(root, "supabase/migrations/20261010090100_founder_action_authorizations_privileges.sql"),
   "utf8",
 );
+const immutableScope = readFileSync(
+  path.join(root, "supabase/migrations/20261010090200_founder_action_authorizations_immutable_scope.sql"),
+  "utf8",
+);
 
 test("approval migration enforces owner + project isolation with FORCE RLS", () => {
   assert.match(primary, /force row level security/i);
@@ -37,5 +41,15 @@ test("privilege hardening revokes DELETE and anon access", () => {
 test("migrations are marked local-only and forbid hosted apply without founder gate", () => {
   assert.match(primary, /LOCAL ONLY/i);
   assert.match(privileges, /LOCAL ONLY/i);
+  assert.match(immutableScope, /LOCAL ONLY/i);
   assert.match(primary, /Do not apply to hosted Supabase/i);
+});
+
+test("immutable-scope migration freezes authorization identity after request", () => {
+  assert.match(immutableScope, /guard_founder_authorization_identity/);
+  assert.match(immutableScope, /action_scope is distinct from old\.action_scope/i);
+  assert.match(immutableScope, /scope_fingerprint is distinct from old\.scope_fingerprint/i);
+  assert.match(immutableScope, /terminal authorization status cannot change/i);
+  assert.match(immutableScope, /founder_action_authorizations_guard_identity/);
+  assert.match(immutableScope, /revoke all on function private\.guard_founder_authorization_identity/i);
 });

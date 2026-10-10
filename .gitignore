@@ -64,3 +64,7 @@ next-env.d.ts
 # Local visual QA artifacts
 .ghost/qa/
 
+# Local Approval Center acceptance credentials / pilot ledgers (never commit secrets)
+.ghost/browser-approval-user.json
+.ghost/pilot/
+
