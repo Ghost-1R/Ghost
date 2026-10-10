@@ -8,9 +8,10 @@ test("control center status never claims agents are deployed on Settings V1", ()
   delete process.env.GHOST_AGENT_EXECUTION_ENABLED;
   try {
     const status = buildControlCenterStatus(DEFAULT_FOUNDER_PREFERENCES);
-    assert.equal(status.agentExecution, "NOT_DEPLOYED");
+    assert.equal(status.agentExecution, "DISABLED");
     assert.equal(status.hostedAgentAllowed, false);
-    assert.match(status.emergencyStop, /not enabled|No Settings control/i);
+    assert.match(status.emergencyStop, /disabled|No Settings control/i);
+    assert.match(status.agentExecutionDetail, /disabled|contract/i);
     assert.match(status.consequentialPolicy, /CONSEQUENTIAL|Soft gate/i);
     assert.ok(!/credential|api[_-]?key|gsk_|sk-/i.test(JSON.stringify(status)));
   } finally {

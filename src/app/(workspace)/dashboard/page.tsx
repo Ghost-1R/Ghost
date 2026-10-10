@@ -24,6 +24,12 @@ import { resolveFounderDecision } from "@/lib/decisions/actions";
 import { loadOpenDecisions } from "@/lib/decisions/queries";
 import { loadTodayActions } from "@/lib/operations/actions";
 import { loadRecentActivity } from "@/lib/operations/activity";
+import {
+  loadAgentTaskSurface,
+  projectAgentTasksToActivity,
+  projectAgentTasksToTodayActions,
+} from "@/lib/operations/agent-task-surface";
+import { prioritizeTodayActions } from "@/lib/operations/today";
 import { loadProjectTruthSnapshot } from "@/lib/project-truth";
 import { loadProjectSummaries } from "@/lib/projects/queries";
 
@@ -53,16 +59,21 @@ export default async function DashboardPage() {
     .maybeSingle();
   const greeting = companionGreeting(profile.data?.display_name);
 
-  const [projects, conversation, today, openDecisions] = await Promise.all([
+  const [projects, conversation, today, openDecisions, agentTaskSurface] = await Promise.all([
     loadProjectSummaries(session.supabase),
     loadLatestConversation(session.supabase, null),
     loadTodayActions(session.supabase),
     loadOpenDecisions(session.supabase),
+    loadAgentTaskSurface(session.supabase, { limit: 12 }),
   ]);
 
   const projectList = projects.status === "ok" ? projects.data : [];
   const decisionList = openDecisions.status === "ok" ? openDecisions.data : [];
-  const todayList = today.status === "ok" ? today.data : [];
+  const agentTaskRows = agentTaskSurface.status === "ok" ? agentTaskSurface.data : [];
+  const todayList = prioritizeTodayActions([
+    ...(today.status === "ok" ? today.data : []),
+    ...projectAgentTasksToTodayActions(agentTaskRows),
+  ]);
 
   const signalBundle =
     projects.status === "ok"
@@ -145,6 +156,13 @@ export default async function DashboardPage() {
       : Promise.resolve(null),
     loadRecentActivity(session.supabase, 8),
   ]);
+
+  const activityItems = [
+    ...(recentActivity.status === "ok" ? recentActivity.data : []),
+    ...projectAgentTasksToActivity(agentTaskRows),
+  ]
+    .sort((left, right) => right.at.localeCompare(left.at))
+    .slice(0, 12);
 
   return (
     <div className="ghost-home">
@@ -337,13 +355,13 @@ export default async function DashboardPage() {
         <div className="ghost-home-more-grid">
           <section aria-labelledby="activity-heading">
             <h3 id="activity-heading">What changed</h3>
-            {recentActivity.status === "error" ? (
+            {recentActivity.status === "error" && activityItems.length === 0 ? (
               <ErrorState message="Recent activity could not be loaded." />
-            ) : recentActivity.data.length === 0 ? (
+            ) : activityItems.length === 0 ? (
               <EmptyState>No recent recorded activity.</EmptyState>
             ) : (
               <ul className="ghost-home-rail-list">
-                {recentActivity.data.map((item) => (
+                {activityItems.map((item) => (
                   <li key={item.id}>
                     <p className="ceo-project-label">{item.projectName}</p>
                     <p>{item.title}</p>

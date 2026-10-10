@@ -6,7 +6,7 @@ export type ActivityItem = {
   id: string;
   projectId: string;
   projectName: string;
-  kind: "lifecycle" | "decision" | "next_action" | "verification" | "deployment";
+  kind: "lifecycle" | "decision" | "next_action" | "verification" | "deployment" | "agent_task";
   title: string;
   detail: string;
   at: string;

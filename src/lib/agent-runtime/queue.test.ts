@@ -28,8 +28,9 @@ function task() {
     environmentLabel: "LOCAL",
     idempotencyKey: "queue-task-001",
   });
-  assert.equal(created.ok, true);
-  if (!created.ok) throw new Error(created.reason);
+  if (!created.ok) {
+    assert.fail(created.message);
+  }
   return created.task;
 }
 

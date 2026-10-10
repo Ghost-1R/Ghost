@@ -16,8 +16,9 @@ function workspace() {
     projectId: PROJECT_ID,
     workspaceRoot: "/var/ghost-agent-workspaces",
   });
-  assert.equal(created.ok, true);
-  if (!created.ok) throw new Error(created.reason);
+  if (!created.ok) {
+    assert.fail(created.message);
+  }
   return created.contract;
 }
 
@@ -79,7 +80,7 @@ test("assertDockerSpecSafe rejects privileged network and docker.sock", () => {
     assertDockerSpecSafe({
       ...built.spec,
       networkMode: "bridge",
-    } as typeof built.spec).ok,
+    } as unknown as typeof built.spec).ok,
     false,
   );
   assert.equal(

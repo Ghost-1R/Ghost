@@ -1,6 +1,6 @@
 /**
- * Build 09.6 ships the approval-bound task *contract* only.
- * Agent workers remain disabled — no activation, no live model calls, no Docker workloads.
+ * Builds 09.6–09.8 ship approval-bound contract, workspace/Docker specs, and queue foundations.
+ * Agent workers remain disabled — no activation, no live model calls, no Docker invoke.
  */
 
 export type AgentExecutionGuardResult = {
@@ -10,8 +10,8 @@ export type AgentExecutionGuardResult = {
 };
 
 /**
- * Hard-disable agent worker activation for this build.
- * Even if GHOST_AGENT_EXECUTION_ENABLED=1, workers must not start from this contract layer.
+ * Hard-disable agent worker activation.
+ * Even if GHOST_AGENT_EXECUTION_ENABLED=1, workers must not start from this layer.
  */
 export function getAgentExecutionGuard(): AgentExecutionGuardResult {
   const flagSet = process.env.GHOST_AGENT_EXECUTION_ENABLED?.trim() === "1";
@@ -19,15 +19,15 @@ export function getAgentExecutionGuard(): AgentExecutionGuardResult {
     enabled: false,
     status: "DISABLED",
     detail: flagSet
-      ? "GHOST_AGENT_EXECUTION_ENABLED is set, but Build 09.6 keeps agent workers disabled — approval-bound contract only."
-      : "Agent workers are disabled. Approval-bound task contract is available for authorization binding and revalidation only.",
+      ? "GHOST_AGENT_EXECUTION_ENABLED is set, but workers stay disabled — contract/queue only until founder activation."
+      : "Agent workers are disabled. Approval-bound contract, workspace safeguards, and queue foundations are available without activation.",
   };
 }
 
 export function assertAgentExecutionDisabled(): true {
   const guard = getAgentExecutionGuard();
   if (guard.enabled) {
-    throw new Error("Agent execution must remain disabled in Build 09.6.");
+    throw new Error("Agent execution must remain disabled until founder-gated activation.");
   }
   return true;
 }
@@ -36,5 +36,5 @@ export function assertAgentExecutionDisabled(): true {
 export function activateAgentWorker(_taskId: string): never {
   void _taskId;
   assertAgentExecutionDisabled();
-  throw new Error("AGENT_EXECUTION_DISABLED: workers are not activated in Build 09.6.");
+  throw new Error("AGENT_EXECUTION_DISABLED: workers are not activated.");
 }

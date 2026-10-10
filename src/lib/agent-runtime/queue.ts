@@ -104,10 +104,7 @@ export function leaseQueueItem(
 ): { ok: true; item: WorkerQueueItem } | { ok: false; reason: string } {
   const at = options?.at ?? new Date().toISOString();
   if (item.status !== "PENDING" && item.status !== "FAILED") {
-    // FAILED may be retried when availableAt is due.
-    if (item.status !== "FAILED") {
-      return { ok: false, reason: "NOT_LEASEABLE" };
-    }
+    return { ok: false, reason: "NOT_LEASEABLE" };
   }
   if (Date.parse(item.availableAt) > Date.parse(at)) {
     return { ok: false, reason: "NOT_AVAILABLE_YET" };
