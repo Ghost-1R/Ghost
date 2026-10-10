@@ -73,3 +73,18 @@ export {
   leaseFingerprint,
   rejectSecretProgressRef,
 } from "./workflow";
+export {
+  assertWorkspacePathAllowed,
+  createCodeWorkspaceContract,
+  WORKSPACE_ROOT_ENV,
+  type CodeWorkspaceContract,
+} from "./workspace";
+export {
+  APPROVED_AGENT_IMAGES,
+  assertDockerSpecSafe,
+  buildDockerExecutionSpec,
+  DEFAULT_RESOURCE_CAPS,
+  invokeDockerExecution,
+  probeDockerAvailability,
+  type DockerExecutionSpec,
+} from "./docker-safeguards";
