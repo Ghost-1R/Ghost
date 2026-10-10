@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GhostClient } from "@/lib/auth/session";
 import type { CeoSignal } from "@/lib/dashboard/ceo";
+import {
+  classifyDeploymentAttemptStatuses,
+  type DeploymentAttemptInput,
+} from "@/lib/project-truth";
 import { fromError, type QueryResult } from "@/lib/result";
 
 export type CeoSignalBundle = {
@@ -57,11 +61,14 @@ export async function loadCeoSignals(
         .select("id, project_id, check_name, status, updated_at")
         .in("project_id", projectIds)
         .eq("status", "FAILED"),
+      // SUCCEEDED + FAILED so older failures can be marked SUPERSEDED.
       supabase
         .from("deployments")
         .select("id, project_id, human_id, status, failure_reason, created_at")
         .in("project_id", projectIds)
-        .eq("status", "FAILED"),
+        .in("status", ["FAILED", "SUCCEEDED"])
+        .order("created_at", { ascending: false })
+        .limit(80),
       supabase
         .from("verification_records")
         .select("id, project_id, category, target, state, checked_at, created_at")
@@ -121,18 +128,29 @@ export async function loadCeoSignals(
   }
 
   if (!deployments.error && deployments.data) {
-    for (const row of deployments.data) {
-      if (!names.has(row.project_id)) continue;
+    const attempts: DeploymentAttemptInput[] = deployments.data.map((row) => ({
+      id: String(row.id),
+      projectId: String(row.project_id),
+      status: String(row.status),
+      createdAt: String(row.created_at),
+      humanId: row.human_id != null ? String(row.human_id) : null,
+      failureReason: row.failure_reason != null ? String(row.failure_reason) : null,
+    }));
+    const classified = classifyDeploymentAttemptStatuses(attempts);
+
+    for (const row of classified) {
+      if (!names.has(row.projectId)) continue;
+      if (row.operationalState !== "FAILED") continue;
       signals.push({
         id: `deploy-${row.id}`,
-        projectId: row.project_id,
-        projectName: names.get(row.project_id) ?? "Project",
+        projectId: row.projectId,
+        projectName: names.get(row.projectId) ?? "Project",
         kind: "failed_deployment",
         severity: "critical",
-        title: `${row.human_id} failed`,
-        detail: row.failure_reason?.trim() || "Deployment attempt FAILED.",
-        at: row.created_at,
-        href: `/projects/${row.project_id}/deploy`,
+        title: `${row.humanId ?? row.id} failed`,
+        detail: row.failureReason?.trim() || "Deployment attempt FAILED.",
+        at: row.createdAt,
+        href: `/projects/${row.projectId}/deploy`,
         clientFacing: true,
       });
     }
