@@ -60,12 +60,14 @@ test("shell navigation keeps deep OS routes under progressive disclosure", () =>
     "Verification",
     "Deploy",
     "Approvals",
+    "Remote Dev",
     "Inspector",
     "Presentation",
     "Settings",
   ]) {
     assert.ok(shell.includes(`label: "${label}"`) || shell.includes(label), label);
   }
+  assert.ok(shell.includes("/development-tasks"), "Remote Dev surface must be linked");
   assert.ok(!shell.includes("/agent-tasks"), "interface release must not expose Agent Tasks without schema");
   assert.ok(shell.includes("collapsible"));
   assert.ok(shell.includes("os-nav-collapse"));
