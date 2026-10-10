@@ -52,5 +52,6 @@ test("lease and checkpoint columns support claim and step recovery", () => {
   assert.match(migration, /lease_expires_at/);
   assert.match(migration, /checkpoint_sequence/);
   assert.match(migration, /last_step_idempotency_key/);
+  assert.match(migration, /authorization_consumed/);
   assert.match(migration, /agent_tasks_owner_idempotency/);
 });

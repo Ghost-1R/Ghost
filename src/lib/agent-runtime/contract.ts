@@ -1,8 +1,11 @@
 import { assertExecutionAuthorized } from "@/lib/approvals/execution-gate";
 import type { FounderActionAuthorization } from "@/lib/approvals/types";
-import { revalidateAuthorizationForExecution } from "@/lib/approvals/workflow";
-import { assertBindingMatchesAuthorization } from "./binding";
+import { planAuthorizationConsumption } from "./consume";
 import { assertAgentExecutionDisabled } from "./execution-guard";
+import {
+  revalidateAuthorizationForTaskClaim,
+  revalidateAuthorizationForTaskStep,
+} from "./revalidate-for-task";
 import {
   applyBlockToTask,
   applyCheckpointToTask,
@@ -28,6 +31,8 @@ export type ClaimResult =
       ok: true;
       task: AgentTask;
       shouldConsume: boolean;
+      /** Planned CAS consumption for durable persistence (null when idempotent reclaim). */
+      consumePlan: ReturnType<typeof planAuthorizationConsumption> | null;
       audit: AgentTaskAuditEvent;
       idempotent: boolean;
     }
@@ -78,7 +83,7 @@ function auditEvent(input: {
 
 /**
  * Revalidate founder authorization before claiming a queued task.
- * Expired / revoked / scope-mismatched approvals fail closed and block the task.
+ * On success, plans atomic one-time consumption (CAS on status+use_count).
  * Does not start workers — execution remains disabled.
  */
 export function claimAgentTaskWithRevalidation(
@@ -113,6 +118,7 @@ export function claimAgentTaskWithRevalidation(
       ok: true,
       task,
       shouldConsume: false,
+      consumePlan: null,
       idempotent: true,
       audit: auditEvent({
         taskId: task.id,
@@ -126,41 +132,18 @@ export function claimAgentTaskWithRevalidation(
     };
   }
 
-  const bindingCheck = assertBindingMatchesAuthorization(task.binding, authorization);
-  if (!bindingCheck.ok) {
-    const blocked = applyBlockToTask(task, bindingCheck.message, at);
+  const claimCheck = revalidateAuthorizationForTaskClaim(authorization, task.binding, at);
+  if (!claimCheck.ok) {
+    const blocked = applyBlockToTask(task, claimCheck.reason, at);
     return {
       ok: false,
-      reason: bindingCheck.reason,
-      message: bindingCheck.message,
+      reason: claimCheck.reason,
+      message: `Authorization revalidation failed: ${claimCheck.reason}`,
       task: blocked,
       audit: auditEvent({
         taskId: task.id,
         eventType: "CLAIM_BLOCKED",
-        detail: `${bindingCheck.reason}: ${bindingCheck.message}`,
-        authorizationId: task.binding.authorizationId,
-        scopeFingerprint: task.binding.scopeFingerprint,
-        actorId: request.claimantId,
-        at,
-      }),
-    };
-  }
-
-  const revalidation = revalidateAuthorizationForExecution(
-    authorization,
-    bindingToRevalidationRequest(task.binding, at),
-  );
-  if (!revalidation.ok) {
-    const blocked = applyBlockToTask(task, revalidation.reason, at);
-    return {
-      ok: false,
-      reason: revalidation.reason,
-      message: `Authorization revalidation failed: ${revalidation.reason}`,
-      task: blocked,
-      audit: auditEvent({
-        taskId: task.id,
-        eventType: "CLAIM_BLOCKED",
-        detail: `Revalidation denied: ${revalidation.reason}`,
+        detail: `Claim denied: ${claimCheck.reason}`,
         authorizationId: task.binding.authorizationId,
         scopeFingerprint: task.binding.scopeFingerprint,
         actorId: request.claimantId,
@@ -192,6 +175,32 @@ export function claimAgentTaskWithRevalidation(
     };
   }
 
+  const consumePlan = planAuthorizationConsumption({
+    authorizationId: task.binding.authorizationId,
+    observedStatus: authorization!.status,
+    observedUseCount: authorization!.useCount,
+    reusePolicy: authorization!.reusePolicy,
+    maxUses: authorization!.maxUses,
+  });
+  if (!consumePlan.ok && gate.shouldConsume) {
+    const blocked = applyBlockToTask(task, consumePlan.reason, at);
+    return {
+      ok: false,
+      reason: consumePlan.reason,
+      message: `Atomic consumption plan failed: ${consumePlan.reason}`,
+      task: blocked,
+      audit: auditEvent({
+        taskId: task.id,
+        eventType: "CLAIM_BLOCKED",
+        detail: `Consume plan denied: ${consumePlan.reason}`,
+        authorizationId: task.binding.authorizationId,
+        scopeFingerprint: task.binding.scopeFingerprint,
+        actorId: request.claimantId,
+        at,
+      }),
+    };
+  }
+
   const transition = decideAgentTaskTransition(task, {
     ownerId: request.ownerId,
     toStatus: "CLAIMED",
@@ -213,17 +222,21 @@ export function claimAgentTaskWithRevalidation(
     at,
     ttlMs: request.leaseTtlMs,
   });
-  const claimed = applyClaimToTask(task, lease, at);
+  const willConsume = gate.shouldConsume && consumePlan.ok;
+  const claimed = applyClaimToTask(task, lease, at, {
+    authorizationConsumed: willConsume,
+  });
 
   return {
     ok: true,
     task: claimed,
-    shouldConsume: gate.shouldConsume,
+    shouldConsume: willConsume,
+    consumePlan: consumePlan.ok ? consumePlan : null,
     idempotent: transition.idempotent,
     audit: auditEvent({
       taskId: task.id,
       eventType: "CLAIMED",
-      detail: `Claimed by ${request.claimantId}; shouldConsume=${gate.shouldConsume}.`,
+      detail: `Claimed by ${request.claimantId}; shouldConsume=${willConsume}.`,
       authorizationId: task.binding.authorizationId,
       scopeFingerprint: task.binding.scopeFingerprint,
       actorId: request.claimantId,
@@ -235,7 +248,7 @@ export function claimAgentTaskWithRevalidation(
 /**
  * Revalidate founder authorization before every execution step / checkpoint.
  * Expired or revoked approval stops future execution (task → BLOCKED).
- * Does not invoke models or workers.
+ * One-time CONSUMED auth is allowed only when this task recorded consumption at claim.
  */
 export function executeAgentTaskStepWithRevalidation(
   task: AgentTask,
@@ -291,7 +304,6 @@ export function executeAgentTaskStepWithRevalidation(
     };
   }
 
-  // Idempotent step: same step key already applied — retry/recovery safe.
   if (
     request.stepIdempotencyKey &&
     task.lastStepIdempotencyKey === request.stepIdempotencyKey &&
@@ -314,41 +326,18 @@ export function executeAgentTaskStepWithRevalidation(
     };
   }
 
-  const bindingCheck = assertBindingMatchesAuthorization(task.binding, authorization);
-  if (!bindingCheck.ok) {
-    const blocked = applyBlockToTask(task, bindingCheck.message, at);
+  const stepCheck = revalidateAuthorizationForTaskStep(authorization, task, at);
+  if (!stepCheck.ok) {
+    const blocked = applyBlockToTask(task, stepCheck.reason, at);
     return {
       ok: false,
-      reason: bindingCheck.reason,
-      message: bindingCheck.message,
+      reason: stepCheck.reason,
+      message: `Authorization revalidation failed: ${stepCheck.reason}`,
       task: blocked,
       audit: auditEvent({
         taskId: task.id,
         eventType: "STEP_BLOCKED",
-        detail: `${bindingCheck.reason}: ${bindingCheck.message}`,
-        authorizationId: task.binding.authorizationId,
-        scopeFingerprint: task.binding.scopeFingerprint,
-        actorId: request.claimantId,
-        at,
-      }),
-    };
-  }
-
-  const revalidation = revalidateAuthorizationForExecution(
-    authorization,
-    bindingToRevalidationRequest(task.binding, at),
-  );
-  if (!revalidation.ok) {
-    const blocked = applyBlockToTask(task, revalidation.reason, at);
-    return {
-      ok: false,
-      reason: revalidation.reason,
-      message: `Authorization revalidation failed: ${revalidation.reason}`,
-      task: blocked,
-      audit: auditEvent({
-        taskId: task.id,
-        eventType: "STEP_BLOCKED",
-        detail: `Revalidation denied: ${revalidation.reason}`,
+        detail: `Step denied: ${stepCheck.reason}`,
         authorizationId: task.binding.authorizationId,
         scopeFingerprint: task.binding.scopeFingerprint,
         actorId: request.claimantId,
@@ -367,7 +356,6 @@ export function executeAgentTaskStepWithRevalidation(
     };
   }
 
-  // Move CLAIMED → RUNNING on first step (idempotent if already RUNNING/CHECKPOINT).
   let working = task;
   if (task.status === "CLAIMED") {
     const toRunning = decideAgentTaskTransition(task, {
@@ -410,7 +398,7 @@ export function executeAgentTaskStepWithRevalidation(
     audit: auditEvent({
       taskId: task.id,
       eventType: "STEP_CHECKPOINT",
-      detail: `Step ${request.stepLabel} checkpoint ${checkpoint.sequence}; auth ${task.binding.authorizationId}.`,
+      detail: `Step ${request.stepLabel} checkpoint ${checkpoint.sequence}; mode=${stepCheck.mode}.`,
       authorizationId: task.binding.authorizationId,
       scopeFingerprint: task.binding.scopeFingerprint,
       actorId: request.claimantId,
@@ -480,18 +468,18 @@ export function completeAgentTaskWithRevalidation(
     };
   }
 
-  const bindingCheck = assertBindingMatchesAuthorization(task.binding, authorization);
-  if (!bindingCheck.ok) {
-    const blocked = applyBlockToTask(task, bindingCheck.message, at);
+  const stepCheck = revalidateAuthorizationForTaskStep(authorization, task, at);
+  if (!stepCheck.ok) {
+    const blocked = applyBlockToTask(task, stepCheck.reason, at);
     return {
       ok: false,
-      reason: bindingCheck.reason,
-      message: bindingCheck.message,
+      reason: stepCheck.reason,
+      message: `Authorization revalidation failed: ${stepCheck.reason}`,
       task: blocked,
       audit: auditEvent({
         taskId: task.id,
         eventType: "COMPLETE_BLOCKED",
-        detail: `${bindingCheck.reason}: ${bindingCheck.message}`,
+        detail: `Complete denied: ${stepCheck.reason}`,
         authorizationId: task.binding.authorizationId,
         scopeFingerprint: task.binding.scopeFingerprint,
         actorId: request.claimantId,
@@ -500,30 +488,6 @@ export function completeAgentTaskWithRevalidation(
     };
   }
 
-  const revalidation = revalidateAuthorizationForExecution(
-    authorization,
-    bindingToRevalidationRequest(task.binding, at),
-  );
-  if (!revalidation.ok) {
-    const blocked = applyBlockToTask(task, revalidation.reason, at);
-    return {
-      ok: false,
-      reason: revalidation.reason,
-      message: `Authorization revalidation failed: ${revalidation.reason}`,
-      task: blocked,
-      audit: auditEvent({
-        taskId: task.id,
-        eventType: "COMPLETE_BLOCKED",
-        detail: `Revalidation denied: ${revalidation.reason}`,
-        authorizationId: task.binding.authorizationId,
-        scopeFingerprint: task.binding.scopeFingerprint,
-        actorId: request.claimantId,
-        at,
-      }),
-    };
-  }
-
-  // From CHECKPOINT, go RUNNING then SUCCEEDED for legal path; accept direct from RUNNING.
   let working: AgentTask = task;
   if (task.status === "CHECKPOINT") {
     working = { ...task, status: "RUNNING", updatedAt: at, blockReason: "" };
@@ -561,7 +525,7 @@ export function completeAgentTaskWithRevalidation(
     audit: auditEvent({
       taskId: task.id,
       eventType: "SUCCEEDED",
-      detail: "Task succeeded under still-valid founder authorization.",
+      detail: `Task succeeded; auth mode=${stepCheck.mode}.`,
       authorizationId: task.binding.authorizationId,
       scopeFingerprint: task.binding.scopeFingerprint,
       actorId: request.claimantId,

@@ -215,7 +215,7 @@ test("revocation mid-flight blocks subsequent steps", () => {
   }
 });
 
-test("one-time approval signals consumption on claim", () => {
+test("one-time approval consumes on claim and still allows claimed-task steps", () => {
   const auth = makeAuth({
     status: "APPROVED",
     actionType: "agent_task.develop",
@@ -244,22 +244,45 @@ test("one-time approval signals consumption on claim", () => {
     leaseToken: "lease-once",
   });
   assert.equal(claimed.ok, true);
-  if (claimed.ok) assert.equal(claimed.shouldConsume, true);
+  if (!claimed.ok) return;
+  assert.equal(claimed.shouldConsume, true);
+  assert.equal(claimed.task.authorizationConsumed, true);
+  assert.ok(claimed.consumePlan?.ok);
 
-  // After simulated consumption, further claim fails closed.
-  const exhausted = claimAgentTaskWithRevalidation(
-    created.task,
-    { ...auth, useCount: 1, status: "CONSUMED", effectiveStatus: "CONSUMED" },
-    {
-      taskId: created.task.id,
-      ownerId: OWNER_ID,
-      claimantId: OWNER_ID,
-      leaseToken: "lease-once-2",
-    },
-  );
+  const consumedAuth = {
+    ...auth,
+    useCount: 1,
+    status: "CONSUMED" as const,
+    effectiveStatus: "CONSUMED" as const,
+  };
+
+  // In-flight steps continue under CONSUMED_FOR_TASK — not a bypass for other tasks.
+  const step = executeAgentTaskStepWithRevalidation(claimed.task, consumedAuth, {
+    taskId: created.task.id,
+    ownerId: OWNER_ID,
+    claimantId: OWNER_ID,
+    leaseToken: "lease-once",
+    stepIdempotencyKey: "after-consume",
+    stepLabel: "continue",
+    progressRef: "path:ok",
+  });
+  assert.equal(step.ok, true);
+
+  // Second claim on a fresh QUEUED task with same consumed auth fails closed.
+  const exhausted = claimAgentTaskWithRevalidation(created.task, consumedAuth, {
+    taskId: created.task.id,
+    ownerId: OWNER_ID,
+    claimantId: OWNER_ID,
+    leaseToken: "lease-once-2",
+  });
   assert.equal(exhausted.ok, false);
   if (!exhausted.ok) {
-    assert.ok(exhausted.reason === "CONSUMED" || exhausted.reason === "USES_EXHAUSTED");
+    assert.ok(
+      exhausted.reason === "CONSUMED_WITHOUT_CLAIM" ||
+        exhausted.reason === "CONSUMED" ||
+        exhausted.reason === "USES_EXHAUSTED" ||
+        exhausted.reason === "ALREADY_CONSUMED",
+    );
   }
 });
 

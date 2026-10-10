@@ -153,6 +153,7 @@ export function createBoundAgentTask(input: CreateAgentTaskInput & { taskId?: st
       lastStepIdempotencyKey: "",
       idempotencyKey: input.idempotencyKey.trim(),
       blockReason: "",
+      authorizationConsumed: false,
       createdAt: now,
       updatedAt: now,
       claimedAt: null,
@@ -165,6 +166,7 @@ export function applyClaimToTask(
   task: AgentTask,
   lease: AgentTaskLease,
   at: string,
+  options?: { authorizationConsumed?: boolean },
 ): AgentTask {
   return {
     ...task,
@@ -173,6 +175,7 @@ export function applyClaimToTask(
     claimedAt: task.claimedAt ?? at,
     updatedAt: at,
     blockReason: "",
+    authorizationConsumed: options?.authorizationConsumed ?? task.authorizationConsumed,
   };
 }
 

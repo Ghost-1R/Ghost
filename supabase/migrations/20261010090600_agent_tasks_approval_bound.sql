@@ -66,6 +66,7 @@ create table if not exists public.agent_tasks (
     ),
   block_reason text not null default ''
     constraint agent_tasks_block_reason_length check (char_length(block_reason) <= 2000),
+  authorization_consumed boolean not null default false,
   claimed_at timestamptz,
   completed_at timestamptz,
   created_at timestamptz not null default pg_catalog.now(),

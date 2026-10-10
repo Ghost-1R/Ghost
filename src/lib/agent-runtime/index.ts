@@ -17,10 +17,18 @@ export {
   type StepResult,
 } from "./contract";
 export {
+  planAuthorizationConsumption,
+  simulateConcurrentOneTimeConsumption,
+} from "./consume";
+export {
   activateAgentWorker,
   assertAgentExecutionDisabled,
   getAgentExecutionGuard,
 } from "./execution-guard";
+export {
+  revalidateAuthorizationForTaskClaim,
+  revalidateAuthorizationForTaskStep,
+} from "./revalidate-for-task";
 export {
   appendAgentTaskEvent,
   insertAgentTask,

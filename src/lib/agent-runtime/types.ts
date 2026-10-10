@@ -76,6 +76,12 @@ export type AgentTask = {
   lastStepIdempotencyKey: string;
   idempotencyKey: string;
   blockReason: string;
+  /**
+   * True after this task successfully recorded one-time / final bounded consumption
+   * at claim. Allows post-claim steps while auth status is CONSUMED without opening
+   * a bypass for unclaimed tasks.
+   */
+  authorizationConsumed: boolean;
   createdAt: string;
   updatedAt: string;
   claimedAt: string | null;

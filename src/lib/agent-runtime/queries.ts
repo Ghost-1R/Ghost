@@ -29,6 +29,7 @@ type TaskRow = {
   last_step_idempotency_key: string;
   idempotency_key: string;
   block_reason: string;
+  authorization_consumed: boolean;
   created_at: string;
   updated_at: string;
   claimed_at: string | null;
@@ -87,6 +88,7 @@ export function mapAgentTaskRow(row: TaskRow): AgentTask {
     lastStepIdempotencyKey: row.last_step_idempotency_key ?? "",
     idempotencyKey: row.idempotency_key,
     blockReason: row.block_reason ?? "",
+    authorizationConsumed: Boolean(row.authorization_consumed),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     claimedAt: row.claimed_at,
@@ -163,6 +165,7 @@ export async function insertAgentTask(
       last_step_idempotency_key: task.lastStepIdempotencyKey,
       idempotency_key: task.idempotencyKey,
       block_reason: task.blockReason,
+      authorization_consumed: task.authorizationConsumed,
       claimed_at: task.claimedAt,
       completed_at: task.completedAt,
     })
@@ -253,6 +256,7 @@ export async function persistAgentTaskState(
       last_checkpoint_id: task.lastCheckpointId,
       last_step_idempotency_key: task.lastStepIdempotencyKey,
       block_reason: task.blockReason,
+      authorization_consumed: task.authorizationConsumed,
       claimed_at: task.claimedAt,
       completed_at: task.completedAt,
       updated_at: task.updatedAt,
