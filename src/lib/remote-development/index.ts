@@ -11,6 +11,16 @@ export {
   transitionRemoteDevTask,
 } from "./contract";
 export {
+  approveDurableDevelopmentRequest,
+  createDurableDevelopmentRequest,
+  loadDurableDevelopmentBundle,
+  queueDurableDevelopmentTask,
+  revalidateDurableDevelopmentStep,
+  revokeDurableDevelopmentAuthorization,
+  type DurableDevelopmentBundle,
+  type DurableWorkflowResult,
+} from "./durable-workflow";
+export {
   FakeRemoteExecutionProvider,
 } from "./fake-provider";
 export {
@@ -41,8 +51,23 @@ export {
   REMOTE_PROVIDER_DISPATCH_ENV,
   type RemoteExecutionProvider,
 } from "./provider";
-export { insertRemoteDevTask, loadRemoteDevTasks, mapRemoteDevTaskRow } from "./queries";
+export {
+  appendRemoteDevReviewEvent,
+  bindRemoteDevAgentTask,
+  insertRemoteDevTask,
+  loadRemoteDevTaskById,
+  loadRemoteDevTasks,
+  mapRemoteDevTaskRow,
+  updateRemoteDevTaskState,
+} from "./queries";
 export { reconcileRemoteStatus } from "./reconcile";
+export {
+  assertRemoteDevAgentLinkAllowed,
+  canApplyAgentProgressToRemoteDev,
+  STATUS_OWNERSHIP,
+  STATUS_TRANSITION_OWNERS,
+  suggestRemoteProgressFromAgent,
+} from "./relationship";
 export {
   applyFounderReviewAction,
   toFounderReviewCard,
@@ -54,6 +79,12 @@ export {
   simulateProviderStep,
   SIMULATION_LABEL,
 } from "./simulate";
+export {
+  DEVELOPMENT_PROJECTION_STATES,
+  projectDevelopmentState,
+  type DevelopmentProjectionState,
+  type DevelopmentStateProjection,
+} from "./state-projection";
 export {
   REMOTE_DEV_TASK_STATUSES,
   type CreateRemoteDevTaskInput,

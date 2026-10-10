@@ -134,6 +134,7 @@ export function createRemoteDevTask(input: CreateRemoteDevTaskInput): ContractRe
     },
     providerKind: "FAKE",
     externalJobId: null,
+    agentTaskId: null,
     requiresIndependentReview: input.requiresIndependentReview !== false,
     deploymentAuthorized: false,
     checkpoints: [],

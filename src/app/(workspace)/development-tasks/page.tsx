@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { ActionForm } from "@/components/ui/action-form";
 import { EmptyState, ErrorState, Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { loadAuthorizationById } from "@/lib/approvals/queries";
 import { getSession } from "@/lib/auth/session";
 import { formatTimestamp } from "@/lib/format";
 import { loadProjectSummaries } from "@/lib/projects/queries";
@@ -24,6 +25,7 @@ import {
   memoryLoadAuthorization,
 } from "@/lib/remote-development/memory-store";
 import { loadRemoteDevTasks } from "@/lib/remote-development/queries";
+import { projectDevelopmentState } from "@/lib/remote-development/state-projection";
 
 export const metadata: Metadata = {
   title: "Remote Development",
@@ -54,18 +56,34 @@ export default async function DevelopmentTasksPage() {
 
   const memoryTasks = await listMemoryDevelopmentTasksForOwner(session.user.id);
   const dbTasks = dbLoaded.status === "ok" ? dbLoaded.data : [];
-  // Prefer memory workflow tasks for this cloud demo; merge by id without inventing rows.
-  const byId = new Map(dbTasks.map((t) => [t.id, t]));
-  for (const task of memoryTasks) byId.set(task.id, task);
+  // Prefer durable DATABASE rows; MEMORY_TEST_ONLY only fills gaps for simulations.
+  const byId = new Map(memoryTasks.map((t) => [t.id, t]));
+  for (const task of dbTasks) byId.set(task.id, task);
   const tasks = [...byId.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
-  const cards = tasks.map((task) =>
-    toFounderInboxCard({
-      task,
-      authorization: memoryLoadAuthorization(task.binding.authorizationId),
-      persistenceMode: memoryTasks.some((m) => m.id === task.id)
-        ? MEMORY_PERSISTENCE_MODE
-        : "DATABASE",
+  const cards = await Promise.all(
+    tasks.map(async (task) => {
+      const isMemory = memoryTasks.some((m) => m.id === task.id) && !dbTasks.some((d) => d.id === task.id);
+      const durableAuth = isMemory
+        ? null
+        : await loadAuthorizationById(session.supabase, session.user.id, task.binding.authorizationId);
+      const authorization = isMemory
+        ? memoryLoadAuthorization(task.binding.authorizationId)
+        : durableAuth && durableAuth.status === "ok"
+          ? durableAuth.data
+          : null;
+      const card = toFounderInboxCard({
+        task,
+        authorization,
+        persistenceMode: isMemory ? MEMORY_PERSISTENCE_MODE : "DATABASE",
+      });
+      const projection = projectDevelopmentState({
+        remote: task,
+        authorization,
+        agent: null,
+        persistenceMode: isMemory ? MEMORY_PERSISTENCE_MODE : "DATABASE",
+      });
+      return { ...card, projectionState: projection.state, agentTaskId: task.agentTaskId };
     }),
   );
 
@@ -99,17 +117,18 @@ export default async function DevelopmentTasksPage() {
 
       <Panel title="Persistence">
         <p className="quiet">
-          Showing {cards.length} task{cards.length === 1 ? "" : "s"}. Cloud demo persistence is{" "}
-          <code>{MEMORY_PERSISTENCE_MODE}</code> (process-local). Hosted SQL writes: 0. Database
-          schema apply remains NOT VERIFIED in this environment.
+          Showing {cards.length} task{cards.length === 1 ? "" : "s"}. New requests require durable
+          Founder Approval Center + <code>remote_development_tasks</code> (fail closed if schema
+          missing). <code>{MEMORY_PERSISTENCE_MODE}</code> remains unit-test/simulation only. Hosted
+          SQL writes: 0. Local migrations are not applied in this environment.
         </p>
       </Panel>
 
       <Panel title="New development request">
         <p className="quiet">
-          Creates a PENDING DEVELOPMENT authorization bound to an exact scope fingerprint. Approving
-          does not execute. Simulated runs are labeled SIMULATED and never become Project Truth
-          VERIFIED_LOCALLY / VERIFIED_IN_PRODUCTION.
+          Creates a durable PENDING DEVELOPMENT authorization bound to an exact scope fingerprint and
+          links to <code>agent_tasks</code> only after authorized queue. Approving does not execute.
+          Workers stay disabled. Simulated runs never become Project Truth VERIFIED_*.
         </p>
         {projectList.length === 0 ? (
           <EmptyState>Create a project before requesting development work.</EmptyState>
@@ -229,12 +248,17 @@ export default async function DevelopmentTasksPage() {
                   ) : null}
                   <ul className="meta">
                     <li>Project: {card.projectName}</li>
+                    <li>Projection: {card.projectionState}</li>
                     <li>Approval: {card.approvalState}</li>
                     <li>
                       Scope: <code>{card.actionType}</code> · {card.authorizedScope.slice(0, 160)}
                       {card.authorizedScope.length > 160 ? "…" : ""}
                     </li>
                     <li>Execution: {card.executionState}</li>
+                    <li>
+                      Agent task:{" "}
+                      {card.agentTaskId ? <code>{card.agentTaskId.slice(0, 8)}…</code> : "not bound"}
+                    </li>
                     <li>Provider: {card.providerActivity}</li>
                     <li>
                       Budget:{" "}
