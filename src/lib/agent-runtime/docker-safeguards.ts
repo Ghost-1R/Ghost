@@ -53,9 +53,10 @@ export const DEFAULT_RESOURCE_CAPS: DockerResourceCaps = {
   diskQuotaBytes: 2 * 1024 * 1024 * 1024,
 };
 
-/** Allowlisted images for agent jobs — empty means founder must approve per job later. */
+/** Allowlisted images for agent jobs / isolated pilot. */
 export const APPROVED_AGENT_IMAGES = [
   "ghost-agent-runner:local",
+  "node:22-alpine",
 ] as const;
 
 const SECRET_ENV_KEY = /^(?:.*(?:API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE).*)$/i;

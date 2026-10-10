@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
+import { mkdirSync, rmSync, symlinkSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { assertWorkspacePathAllowed, createCodeWorkspaceContract } from "./workspace";
+import {
+  assertNoSymlinkEscape,
+  assertWorkspacePathAllowed,
+  createCodeWorkspaceContract,
+} from "./workspace";
 import { OWNER_ID, PROJECT_ID } from "./test-helpers";
 
 test("creates isolated workspace under configured root outside app cwd", () => {
@@ -50,6 +55,25 @@ test("refuses relative or missing workspace root", () => {
     if (previous === undefined) delete process.env.GHOST_AGENT_WORKSPACE_ROOT;
     else process.env.GHOST_AGENT_WORKSPACE_ROOT = previous;
   }
+});
+
+test("symlink escape fails closed", () => {
+  const root = "/tmp/ghost-workspace-symlink-test";
+  rmSync(root, { recursive: true, force: true });
+  const created = createCodeWorkspaceContract({
+    taskId: "task-symlink",
+    ownerId: OWNER_ID,
+    projectId: PROJECT_ID,
+    workspaceRoot: root,
+  });
+  assert.equal(created.ok, true);
+  if (!created.ok) return;
+  mkdirSync(created.contract.hostPath, { recursive: true });
+  const link = path.join(created.contract.hostPath, "out");
+  symlinkSync("/etc", link);
+  const result = assertNoSymlinkEscape(created.contract.hostPath, link);
+  assert.equal(result.ok, false);
+  rmSync(root, { recursive: true, force: true });
 });
 
 test("path escape and secret filenames fail closed", () => {

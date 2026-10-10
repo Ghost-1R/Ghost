@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { existsSync, lstatSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -35,7 +36,8 @@ export type WorkspaceContractDenial =
   | "INVALID_ROOT"
   | "PATH_ESCAPE"
   | "HOST_ROOT_FORBIDDEN"
-  | "SECRET_PATH_IN_WORKSPACE";
+  | "SECRET_PATH_IN_WORKSPACE"
+  | "SYMLINK_ESCAPE";
 
 export type WorkspaceContractResult =
   | { ok: true; contract: CodeWorkspaceContract }
@@ -171,4 +173,49 @@ export function assertWorkspacePathAllowed(
     return { ok: false, reason: "PATH_ESCAPE", message: "Path escapes the isolated workspace." };
   }
   return { ok: true, absolutePath: absolute };
+}
+
+/**
+ * Fail closed if any path component under the workspace is a symlink that resolves
+ * outside the workspace host path (symlink escape).
+ */
+export function assertNoSymlinkEscape(
+  workspaceHostPath: string,
+  candidatePath: string,
+): { ok: true } | { ok: false; reason: "SYMLINK_ESCAPE" | "PATH_ESCAPE"; message: string } {
+  const root = path.resolve(workspaceHostPath);
+  const candidate = path.resolve(candidatePath);
+  const rel = path.relative(root, candidate);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    return { ok: false, reason: "PATH_ESCAPE", message: "Path escapes the isolated workspace." };
+  }
+
+  let current = root;
+  const parts = rel.split(path.sep).filter(Boolean);
+  for (const part of parts) {
+    current = path.join(current, part);
+    if (!existsSync(current)) continue;
+    const stat = lstatSync(current);
+    if (stat.isSymbolicLink()) {
+      let real: string;
+      try {
+        real = realpathSync(current);
+      } catch {
+        return {
+          ok: false,
+          reason: "SYMLINK_ESCAPE",
+          message: "Symlink could not be resolved inside the workspace.",
+        };
+      }
+      const realRel = path.relative(root, real);
+      if (realRel.startsWith("..") || path.isAbsolute(realRel)) {
+        return {
+          ok: false,
+          reason: "SYMLINK_ESCAPE",
+          message: "Symlink resolves outside the isolated workspace.",
+        };
+      }
+    }
+  }
+  return { ok: true };
 }

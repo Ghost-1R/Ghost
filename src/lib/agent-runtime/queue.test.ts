@@ -44,13 +44,16 @@ test("enqueue creates PENDING item with execution disabled", () => {
 });
 
 test("lease, durable error, and recovery from expired lease", () => {
+  const t0 = "2026-10-10T12:00:00.000Z";
+  const t1 = "2026-10-10T12:00:01.000Z";
+  const t2 = "2026-10-10T12:00:02.000Z";
   const t = task();
-  const enqueued = enqueueAgentTask(t);
+  const enqueued = enqueueAgentTask(t, { at: t0 });
   assert.equal(enqueued.ok, true);
   if (!enqueued.ok) return;
 
   const leased = leaseQueueItem(enqueued.item, "worker-1", "tok-1", {
-    at: "2026-10-10T12:00:00.000Z",
+    at: t0,
     ttlMs: 1000,
   });
   assert.equal(leased.ok, true);
@@ -65,9 +68,9 @@ test("lease, durable error, and recovery from expired lease", () => {
       message: "Worker lost lease",
       retryable: true,
       attempt: 1,
-      at: "2026-10-10T12:00:02.000Z",
+      at: t2,
     }),
-    { at: "2026-10-10T12:00:02.000Z", backoffMs: 5000 },
+    { at: t2, backoffMs: 5000 },
   );
   assert.equal(failed.status, "FAILED");
   assert.ok(failed.lastError);
@@ -75,7 +78,7 @@ test("lease, durable error, and recovery from expired lease", () => {
   const claimedTask = {
     ...t,
     status: "RUNNING" as const,
-    claimedAt: "2026-10-10T12:00:00.000Z",
+    claimedAt: t0,
     checkpointSequence: 2,
     lastCheckpointId: "cp-1",
   };
@@ -83,7 +86,7 @@ test("lease, durable error, and recovery from expired lease", () => {
     task: claimedTask,
     queueItem: {
       ...leased.item,
-      leaseExpiresAt: "2026-10-10T12:00:01.000Z",
+      leaseExpiresAt: t1,
     },
     lastCheckpoint: {
       id: "cp-1",
@@ -94,7 +97,7 @@ test("lease, durable error, and recovery from expired lease", () => {
       authorizationId: t.binding.authorizationId,
       scopeFingerprint: t.binding.scopeFingerprint,
     },
-    at: "2026-10-10T12:00:02.000Z",
+    at: t2,
   });
   assert.equal(plan.ok, true);
   if (plan.ok) {
@@ -102,16 +105,17 @@ test("lease, durable error, and recovery from expired lease", () => {
     assert.equal(plan.nextQueueStatus, "PENDING");
   }
 
-  const cleared = clearTaskLeaseForRecovery(claimedTask, "2026-10-10T12:00:02.000Z");
+  const cleared = clearTaskLeaseForRecovery(claimedTask, t2);
   assert.equal(cleared.lease, null);
   assert.equal(cleared.status, "CHECKPOINT");
 });
 
 test("dead-letters after max attempts", () => {
-  const enqueued = enqueueAgentTask(task(), { maxAttempts: 1 });
+  const at = "2026-10-10T12:00:00.000Z";
+  const enqueued = enqueueAgentTask(task(), { maxAttempts: 1, at });
   assert.equal(enqueued.ok, true);
   if (!enqueued.ok) return;
-  const leased = leaseQueueItem(enqueued.item, "w", "t", { at: "2026-10-10T12:00:00.000Z" });
+  const leased = leaseQueueItem(enqueued.item, "w", "t", { at });
   assert.equal(leased.ok, true);
   if (!leased.ok) return;
   const dead = applyQueueFailure(

@@ -109,3 +109,26 @@ export {
   type ReviewArtifact,
   type PrivatePreview,
 } from "./review-artifacts";
+export { buildDockerRunArgv } from "./docker-argv";
+export {
+  getIsolatedPilotGate,
+  PILOT_ENV_FLAG,
+  PILOT_IMAGE,
+  PILOT_USER,
+  PILOT_DEFAULT_LIMITS,
+} from "./pilot-config";
+export {
+  buildFixtureManifest,
+  getPilotCommand,
+  materializeHarmlessFixture,
+  HARMLESS_FIXTURE_ID,
+  PILOT_COMMANDS,
+} from "./pilot-fixture";
+export {
+  runIsolatedPilot,
+  resolvePilotCommandOrReject,
+  summarizePilotReport,
+  type PilotRunReport,
+} from "./pilot-executor";
+export { buildPilotEvidencePack, type PilotEvidencePack } from "./pilot-evidence";
+export { assertNoSymlinkEscape } from "./workspace";
