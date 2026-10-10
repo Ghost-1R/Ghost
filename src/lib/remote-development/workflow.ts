@@ -7,16 +7,22 @@ import {
   scopeFingerprint,
 } from "@/lib/approvals/workflow";
 import { createRemoteDevTask, transitionRemoteDevTask } from "./contract";
-import { gateRemoteDevQueue, gateRemoteDevStep } from "./authorization-gate";
+import {
+  elapsedMsSinceTaskCreated,
+  gateRemoteDevQueue,
+  gateRemoteDevStep,
+} from "./authorization-gate";
 import { FakeRemoteExecutionProvider } from "./fake-provider";
 import { independentlyVerifyEvidence } from "./github-evidence";
 import {
   MEMORY_PERSISTENCE_MODE,
   memoryAppendEvent,
+  memoryConsumeAuthorizationCas,
+  memoryHaltExecution,
   memoryIsAuthConsumed,
+  memoryIsExecutionHalted,
   memoryLoadAuthorization,
   memoryLoadTask,
-  memoryMarkAuthConsumed,
   memorySaveAuthorization,
   memorySaveTask,
   type PersistenceMode,
@@ -107,7 +113,7 @@ function nextActionFor(stage: DevelopmentWorkflowStage): string {
     case "BLOCKED":
       return "Inspect errors/blockers; retry only with valid authorization.";
     case "AWAITING_REVIEW":
-      return "Independently verify SIMULATED evidence, then accept or reject.";
+      return "Independently verify SIMULATED evidence (separate step), then accept or reject.";
     case "REVIEWED":
       return "No Project Truth verification claimed — decide next real development step.";
     default:
@@ -284,21 +290,30 @@ export function approveDevelopmentRequest(
 }
 
 /**
- * Queue only after authorization gate revalidation. Consumes ONE_TIME on success.
+ * Queue only after authorization gate revalidation. Consumes ONE_TIME via CAS on success.
  */
 export function queueDevelopmentTask(
   session: DevelopmentWorkflowSession,
-  options?: { at?: string },
+  options?: { at?: string; estimatedCostUsd?: number | null },
 ): { ok: true; session: DevelopmentWorkflowSession } | { ok: false; reason: string; message: string } {
   const auth = memoryLoadAuthorization(session.authorization.id) ?? session.authorization;
-  const gate = gateRemoteDevQueue(auth, session.task, { at: options?.at });
+  const at = options?.at ?? new Date().toISOString();
+  const plannedCost =
+    options?.estimatedCostUsd !== undefined
+      ? options.estimatedCostUsd
+      : session.task.spending.maxEstimatedCostUsd;
+  const gate = gateRemoteDevQueue(auth, session.task, {
+    at,
+    estimatedCostUsd: plannedCost,
+    elapsedMs: elapsedMsSinceTaskCreated(session.task, at),
+  });
   if (!gate.ok) {
     return { ok: false, reason: gate.reason, message: gate.message };
   }
 
   const queued = transitionRemoteDevTask(session.task, "QUEUED", {
     ownerId: session.task.ownerId,
-    at: options?.at,
+    at,
   });
   if (!queued.ok) {
     return { ok: false, reason: "ILLEGAL_TRANSITION", message: queued.reason };
@@ -307,19 +322,20 @@ export function queueDevelopmentTask(
   let authorization = auth;
   let authorizationConsumed = session.authorizationConsumed;
   if (gate.shouldConsume) {
-    authorization = {
-      ...auth,
-      status: "CONSUMED",
-      effectiveStatus: "CONSUMED",
-      useCount: auth.useCount + 1,
-      consumedAt: options?.at ?? new Date().toISOString(),
-    };
-    authorizationConsumed = true;
-    memoryMarkAuthConsumed(auth.id);
+    const consumed = memoryConsumeAuthorizationCas(auth.id, at);
+    if (!consumed.ok) {
+      return {
+        ok: false,
+        reason: consumed.reason,
+        message: `Authorization consumption failed closed: ${consumed.reason}`,
+      };
+    }
+    authorization = consumed.authorization;
+    authorizationConsumed = consumed.consumedFully || authorizationConsumed;
   } else {
     authorization = { ...auth, useCount: auth.useCount + 1 };
+    memorySaveAuthorization(authorization);
   }
-  memorySaveAuthorization(authorization);
   memorySaveTask(queued.task);
   memoryAppendEvent({
     taskId: queued.task.id,
@@ -347,8 +363,12 @@ export function runSimulatedExecution(
     return { ok: false, reason: "INVALID_STATUS", message: "SIMULATED execution requires QUEUED." };
   }
   const auth = memoryLoadAuthorization(session.authorization.id) ?? session.authorization;
+  const at = new Date().toISOString();
   const stepGate = gateRemoteDevStep(auth, session.task, {
     authorizationConsumed: session.authorizationConsumed || memoryIsAuthConsumed(auth.id),
+    at,
+    estimatedCostUsd: session.task.spending.maxEstimatedCostUsd,
+    elapsedMs: elapsedMsSinceTaskCreated(session.task, at),
   });
   if (!stepGate.ok) {
     return { ok: false, reason: stepGate.reason, message: stepGate.message };
@@ -437,6 +457,59 @@ export function cancelSimulatedExecution(
   };
 }
 
+/**
+ * Separate founder independent evidence check — must not be collapsed into Accept.
+ * Still does not grant Project Truth verification.
+ */
+export function verifySimulatedEvidence(
+  session: DevelopmentWorkflowSession,
+  actorId: string,
+  options?: { at?: string; accept?: boolean },
+): { ok: true; session: DevelopmentWorkflowSession } | { ok: false; reason: string; message: string } {
+  if (actorId !== session.task.ownerId) {
+    return { ok: false, reason: "OWNER_MISMATCH", message: "Only the owning founder can verify evidence." };
+  }
+  if (session.task.status !== "AWAITING_FOUNDER_REVIEW") {
+    return {
+      ok: false,
+      reason: "INVALID_STATUS",
+      message: "Independent evidence verification requires AWAITING_FOUNDER_REVIEW.",
+    };
+  }
+  if (!session.task.evidence) {
+    return { ok: false, reason: "MISSING_EVIDENCE", message: "No evidence is available to verify." };
+  }
+  if (session.task.evidence.verificationState !== "UNVERIFIED") {
+    return {
+      ok: false,
+      reason: "ALREADY_CHECKED",
+      message: "Evidence has already been independently checked.",
+    };
+  }
+  const evidence = independentlyVerifyEvidence(session.task.evidence, {
+    at: options?.at,
+    accept: options?.accept,
+  });
+  const task = { ...session.task, evidence, updatedAt: evidence.independentlyCheckedAt ?? session.task.updatedAt };
+  memorySaveTask(task);
+  memoryAppendEvent({
+    taskId: task.id,
+    eventType: "EVIDENCE_INDEPENDENTLY_CHECKED",
+    detail: `${SIMULATION_LABEL}: founder independently checked evidence → ${evidence.verificationState}. Not Project Truth.`,
+    at: task.updatedAt,
+    simulationLabel: SIMULATION_LABEL,
+  });
+  return {
+    ok: true,
+    session: sessionOf(task, session.authorization, {
+      persistenceMode: session.persistenceMode,
+      authorizationConsumed: session.authorizationConsumed,
+      provider: session.provider,
+      simulationLabel: SIMULATION_LABEL,
+    }),
+  };
+}
+
 export function reviewSimulatedOutcome(
   session: DevelopmentWorkflowSession,
   action: "ACCEPT" | "REJECT",
@@ -447,10 +520,7 @@ export function reviewSimulatedOutcome(
   }
   let task = session.task;
   if (action === "ACCEPT") {
-    if (task.evidence && task.evidence.verificationState === "UNVERIFIED") {
-      // Founder independent check of SIMULATED evidence — still not Project Truth verify.
-      task = { ...task, evidence: independentlyVerifyEvidence(task.evidence) };
-    }
+    // Fail closed: Accept must not auto-flip UNVERIFIED → VERIFIED.
     const reviewed = applyFounderReviewAction(task, "MARK_VERIFIED", { ownerId: actorId });
     if (!reviewed.ok) return { ok: false, reason: reviewed.reason, message: reviewed.message };
     task = reviewed.task;
@@ -489,27 +559,96 @@ export function reviewSimulatedOutcome(
   };
 }
 
+/**
+ * Revoke APPROVED auth, or halt in-flight execution after ONE_TIME consumption.
+ * CONSUMED → REVOKED is not rewritten (durable auth identity forbids it); task is cancelled instead.
+ */
 export function revokeDevelopmentAuthorization(
   session: DevelopmentWorkflowSession,
   actorId: string,
   reason: string,
 ): { ok: true; session: DevelopmentWorkflowSession } | { ok: false; reason: string; message: string } {
-  const decision = decideRevoke(session.authorization, actorId, reason);
+  if (actorId !== session.task.ownerId) {
+    return { ok: false, reason: "REVOKE_DENIED", message: "Only the owning founder can revoke." };
+  }
+  if (!reason.trim()) {
+    return { ok: false, reason: "REVOKE_DENIED", message: "A revoke reason is required." };
+  }
+
+  const auth = memoryLoadAuthorization(session.authorization.id) ?? session.authorization;
+  const inFlight =
+    session.task.status === "QUEUED" ||
+    session.task.status === "RUNNING" ||
+    session.task.status === "BLOCKED";
+
+  // Post-consume kill switch: halt execution without rewriting CONSUMED → REVOKED.
+  if (auth.status === "CONSUMED" || session.authorizationConsumed || memoryIsAuthConsumed(auth.id)) {
+    if (!inFlight && session.task.status !== "AWAITING_FOUNDER_REVIEW") {
+      return {
+        ok: false,
+        reason: "REVOKE_DENIED",
+        message: "Consumed authorization cannot be revoked; no in-flight execution to halt.",
+      };
+    }
+    memoryHaltExecution(auth.id);
+    let task = session.task;
+    if (inFlight || session.task.status === "AWAITING_FOUNDER_REVIEW") {
+      const cancelled = transitionRemoteDevTask(session.task, "CANCELLED", {
+        ownerId: session.task.ownerId,
+      });
+      if (!cancelled.ok) {
+        return { ok: false, reason: "ILLEGAL_TRANSITION", message: cancelled.reason };
+      }
+      task = cancelled.task;
+      memorySaveTask(task);
+    }
+    memoryAppendEvent({
+      taskId: task.id,
+      eventType: "EXECUTION_HALTED",
+      detail: `Post-consume execution halt: ${reason.trim().slice(0, 500)}`,
+      at: task.updatedAt,
+      simulationLabel: session.simulationLabel === "SIMULATED" ? "SIMULATED" : "NONE",
+    });
+    return {
+      ok: true,
+      session: sessionOf(task, auth, {
+        persistenceMode: session.persistenceMode,
+        authorizationConsumed: true,
+        provider: session.provider,
+        simulationLabel: session.simulationLabel,
+      }),
+    };
+  }
+
+  const decision = decideRevoke(auth, actorId, reason);
   if (!decision.ok) {
     return { ok: false, reason: "REVOKE_DENIED", message: decision.reason };
   }
   const authorization: FounderActionAuthorization = {
-    ...session.authorization,
+    ...auth,
     status: "REVOKED",
     effectiveStatus: "REVOKED",
     revokedAt: new Date().toISOString(),
     revokedBy: actorId,
     revokeReason: reason,
   };
+  memoryHaltExecution(authorization.id);
   memorySaveAuthorization(authorization);
+
+  let task = session.task;
+  if (inFlight) {
+    const cancelled = transitionRemoteDevTask(session.task, "CANCELLED", {
+      ownerId: session.task.ownerId,
+    });
+    if (cancelled.ok) {
+      task = cancelled.task;
+      memorySaveTask(task);
+    }
+  }
+
   return {
     ok: true,
-    session: sessionOf(session.task, authorization, {
+    session: sessionOf(task, authorization, {
       persistenceMode: session.persistenceMode,
       authorizationConsumed: session.authorizationConsumed,
       provider: session.provider,
@@ -528,13 +667,13 @@ export function loadMemoryWorkflowSession(
   if (!auth) return null;
   return sessionOf(task, auth, {
     persistenceMode: MEMORY_PERSISTENCE_MODE,
-    authorizationConsumed: memoryIsAuthConsumed(auth.id),
+    authorizationConsumed: memoryIsAuthConsumed(auth.id) || memoryIsExecutionHalted(auth.id),
     simulationLabel: task.providerKind === "FAKE" && task.externalJobId ? SIMULATION_LABEL : "NONE",
   });
 }
 
 /**
- * Full happy-path for unit tests: request → approve → queue → simulate → review.
+ * Full happy-path for unit tests: request → approve → queue → simulate → verify evidence → review.
  */
 export function runEndToEndSimulatedWorkflow(
   input: DevelopmentRequestInput,
@@ -547,5 +686,7 @@ export function runEndToEndSimulatedWorkflow(
   if (!queued.ok) return queued;
   const simulated = runSimulatedExecution(queued.session);
   if (!simulated.ok) return simulated;
-  return reviewSimulatedOutcome(simulated.session, "ACCEPT", input.ownerId);
+  const verified = verifySimulatedEvidence(simulated.session, input.ownerId);
+  if (!verified.ok) return verified;
+  return reviewSimulatedOutcome(verified.session, "ACCEPT", input.ownerId);
 }

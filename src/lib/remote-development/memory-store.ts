@@ -1,4 +1,5 @@
 import type { FounderActionAuthorization } from "@/lib/approvals/types";
+import { planAuthorizationConsumption } from "@/lib/agent-runtime/consume";
 import type { RemoteDevTask } from "./types";
 
 /**
@@ -25,6 +26,8 @@ type MemoryBucket = {
   events: WorkflowAuditEvent[];
   /** Tracks one-time consumption for in-memory auth rows. */
   consumedAuthIds: Set<string>;
+  /** Post-consume execution kill switch (auth status stays CONSUMED). */
+  haltedAuthIds: Set<string>;
 };
 
 declare global {
@@ -39,6 +42,7 @@ function bucket(): MemoryBucket {
       authorizations: new Map(),
       events: [],
       consumedAuthIds: new Set(),
+      haltedAuthIds: new Set(),
     };
   }
   return globalThis.__ghostRemoteDevMemoryStore;
@@ -51,6 +55,7 @@ export function resetRemoteDevMemoryStore(): void {
     authorizations: new Map(),
     events: [],
     consumedAuthIds: new Set(),
+    haltedAuthIds: new Set(),
   };
 }
 
@@ -108,4 +113,60 @@ export function memoryMarkAuthConsumed(authorizationId: string): void {
 
 export function memoryIsAuthConsumed(authorizationId: string): boolean {
   return bucket().consumedAuthIds.has(authorizationId);
+}
+
+export function memoryHaltExecution(authorizationId: string): void {
+  bucket().haltedAuthIds.add(authorizationId);
+}
+
+export function memoryIsExecutionHalted(authorizationId: string): boolean {
+  return bucket().haltedAuthIds.has(authorizationId);
+}
+
+/**
+ * Compare-and-swap consumption for MEMORY_TEST_ONLY authorizations.
+ * Mirrors planAuthorizationConsumption / markAuthorizationConsumed semantics.
+ */
+export function memoryConsumeAuthorizationCas(
+  authorizationId: string,
+  at?: string,
+):
+  | { ok: true; authorization: FounderActionAuthorization; consumedFully: boolean }
+  | { ok: false; reason: "MISSING_AUTHORIZATION" | "NOT_APPROVED" | "USES_EXHAUSTED" | "ALREADY_CONSUMED" | "CAS_LOST" } {
+  const observed = bucket().authorizations.get(authorizationId);
+  if (!observed) {
+    return { ok: false, reason: "MISSING_AUTHORIZATION" };
+  }
+  const plan = planAuthorizationConsumption({
+    authorizationId,
+    observedStatus: observed.status,
+    observedUseCount: observed.useCount,
+    reusePolicy: observed.reusePolicy,
+    maxUses: observed.maxUses,
+  });
+  if (!plan.ok) {
+    return { ok: false, reason: plan.reason };
+  }
+
+  const current = bucket().authorizations.get(authorizationId);
+  if (
+    !current ||
+    current.status !== plan.cas.status ||
+    current.useCount !== plan.cas.useCount
+  ) {
+    return { ok: false, reason: "CAS_LOST" };
+  }
+
+  const next: FounderActionAuthorization = {
+    ...current,
+    status: plan.nextStatus,
+    effectiveStatus: plan.nextStatus,
+    useCount: plan.nextUseCount,
+    consumedAt: plan.consumeFully ? (at ?? new Date().toISOString()) : current.consumedAt,
+  };
+  bucket().authorizations.set(authorizationId, next);
+  if (plan.consumeFully) {
+    bucket().consumedAuthIds.add(authorizationId);
+  }
+  return { ok: true, authorization: next, consumedFully: plan.consumeFully };
 }

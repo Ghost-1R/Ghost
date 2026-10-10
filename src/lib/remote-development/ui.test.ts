@@ -14,6 +14,8 @@ test("development-tasks page wires real workflow handlers and forbids fake metri
   assert.ok(page.includes("queueDevelopmentWorkflow"));
   assert.ok(page.includes("runSimulatedDevelopmentWorkflow"));
   assert.ok(page.includes("reviewDevelopmentWorkflow"));
+  assert.ok(page.includes("verifyDevelopmentEvidenceWorkflow"));
+  assert.ok(page.includes("Independently verify SIMULATED evidence"));
   assert.ok(page.includes("SIMULATED"));
   assert.ok(page.includes("MEMORY_PERSISTENCE_MODE"));
   assert.ok(page.includes("Deployment authorized: no"));
