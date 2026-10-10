@@ -1,4 +1,9 @@
 export {
+  gateRemoteDevQueue,
+  gateRemoteDevStep,
+  type GateResult,
+} from "./authorization-gate";
+export {
   canTransitionRemoteDevTask,
   createRemoteDevTask,
   LEGAL_REMOTE_DEV_TRANSITIONS,
@@ -13,6 +18,20 @@ export {
   independentlyVerifyEvidence,
   isEvidenceIndependentlyVerified,
 } from "./github-evidence";
+export { toFounderInboxCard, type FounderInboxCard } from "./inbox";
+export {
+  MEMORY_PERSISTENCE_MODE,
+  memoryListTasks,
+  memoryLoadAuthorization,
+  memoryLoadTask,
+  resetRemoteDevMemoryStore,
+  type PersistenceMode,
+} from "./memory-store";
+export {
+  assertSimulatedCannotVerifyProjectTruth,
+  reportSimulatedOutcomeForProjectTruth,
+  SIMULATION_TRUTH_SOURCE,
+} from "./project-truth-boundary";
 export {
   assertNoRealExternalDispatch,
   isRemoteProviderDispatchEnabled,
@@ -28,6 +47,11 @@ export {
   type ReviewAction,
 } from "./review";
 export {
+  runSimulatedHappyPath,
+  simulateProviderStep,
+  SIMULATION_LABEL,
+} from "./simulate";
+export {
   REMOTE_DEV_TASK_STATUSES,
   type CreateRemoteDevTaskInput,
   type GitHubEvidence,
@@ -36,3 +60,19 @@ export {
   type RemoteProviderStatusEvent,
 } from "./types";
 export { signProviderWebhookBody, validateProviderWebhook } from "./webhook";
+export {
+  approveDevelopmentRequest,
+  cancelSimulatedExecution,
+  createDevelopmentRequest,
+  deriveWorkflowStage,
+  loadMemoryWorkflowSession,
+  queueDevelopmentTask,
+  reviewSimulatedOutcome,
+  revokeDevelopmentAuthorization,
+  runEndToEndSimulatedWorkflow,
+  runSimulatedExecution,
+  WORKFLOW_STAGES,
+  type DevelopmentRequestInput,
+  type DevelopmentWorkflowSession,
+  type DevelopmentWorkflowStage,
+} from "./workflow";
