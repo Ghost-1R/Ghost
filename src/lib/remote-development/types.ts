@@ -93,6 +93,11 @@ export type RemoteDevTask = {
   git: GitTarget;
   providerKind: RemoteProviderKind;
   externalJobId: string | null;
+  /**
+   * 1:1 link to agent_tasks execution row (Build 09.13).
+   * Null until durable authorized queue binds an execution task.
+   */
+  agentTaskId: string | null;
   requiresIndependentReview: boolean;
   /** Deployment never inferred from development authorization. */
   deploymentAuthorized: false;

@@ -16,9 +16,12 @@ test("development-tasks page wires real workflow handlers and forbids fake metri
   assert.ok(page.includes("reviewDevelopmentWorkflow"));
   assert.ok(page.includes("verifyDevelopmentEvidenceWorkflow"));
   assert.ok(page.includes("Independently verify SIMULATED evidence"));
+  assert.ok(page.includes("projectDevelopmentState"));
+  assert.ok(page.includes("agent_tasks"));
   assert.ok(page.includes("SIMULATED"));
   assert.ok(page.includes("MEMORY_PERSISTENCE_MODE"));
   assert.ok(page.includes("Deployment authorized: no"));
+  assert.ok(page.includes("fail closed"));
   assert.ok(!/fake task|sample task|78\s*%|velocity/i.test(page));
   assert.ok(!page.includes("silently bypass"));
 });

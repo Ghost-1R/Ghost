@@ -31,3 +31,15 @@ test("binding guard and update RLS freeze kind, environment, and git target", ()
   const updatePolicy = migration.slice(migration.indexOf("remote_development_tasks_update"));
   assert.match(updatePolicy, /authorization_kind = 'DEVELOPMENT'/);
 });
+
+test("09.13 link migration is present and local-only", () => {
+  const link = readFileSync(
+    path.join(process.cwd(), "supabase/migrations/20261010091300_remote_dev_agent_task_link.sql"),
+    "utf8",
+  );
+  assert.match(link, /LOCAL ONLY/i);
+  assert.match(link, /agent_task_id/);
+  assert.match(link, /references public\.agent_tasks/);
+  assert.match(link, /remote_development_review_events/);
+  assert.match(link, /guard_remote_dev_agent_task_link/);
+});

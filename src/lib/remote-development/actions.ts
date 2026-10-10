@@ -5,16 +5,21 @@ import type { ActionState } from "@/lib/action-state";
 import { getSession } from "@/lib/auth/session";
 import { loadProjectSummaries } from "@/lib/projects/queries";
 import {
+  approveDurableDevelopmentRequest,
+  createDurableDevelopmentRequest,
+  loadDurableDevelopmentBundle,
+  queueDurableDevelopmentTask,
+} from "./durable-workflow";
+import { MEMORY_PERSISTENCE_MODE, memoryListTasks } from "./memory-store";
+import {
   approveDevelopmentRequest,
   cancelSimulatedExecution,
-  createDevelopmentRequest,
   loadMemoryWorkflowSession,
   queueDevelopmentTask,
   reviewSimulatedOutcome,
   runSimulatedExecution,
   verifySimulatedEvidence,
 } from "./workflow";
-import { memoryListTasks, MEMORY_PERSISTENCE_MODE } from "./memory-store";
 
 function readField(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -29,8 +34,9 @@ function revalidateWorkflow(projectId?: string) {
 }
 
 /**
- * Founder development request — persists via MEMORY_TEST_ONLY adapter in this cloud env.
- * Does not write hosted Supabase. Does not dispatch real remote work.
+ * Founder development request — durable Approval Center + remote_development_tasks.
+ * Never falls back to MEMORY_TEST_ONLY. Missing schema fails closed.
+ * Does not dispatch real remote work. Workers remain disabled.
  */
 export async function submitDevelopmentRequest(
   _previous: ActionState,
@@ -53,7 +59,7 @@ export async function submitDevelopmentRequest(
   const maxDurationHours = Number(readField(formData, "maxDurationHours") || "1");
   const maxDurationMs = maxDurationHours * 60 * 60 * 1000;
 
-  const created = createDevelopmentRequest({
+  const created = await createDurableDevelopmentRequest(session.supabase, {
     ownerId: session.user.id,
     projectId: project.id,
     projectName: project.name,
@@ -76,7 +82,8 @@ export async function submitDevelopmentRequest(
   revalidateWorkflow(projectId);
   return {
     error: null,
-    notice: `Development request recorded (${MEMORY_PERSISTENCE_MODE}). Authorization is PENDING — approve in Approval Center or use Approve on this page. No external task dispatched.`,
+    notice:
+      "Durable development request recorded in Founder Approval Center (PENDING). Approve there, then queue. No external task dispatched. Workers disabled.",
   };
 }
 
@@ -89,6 +96,28 @@ export async function approveDevelopmentWorkflow(
     return { error: "You are not signed in.", notice: null };
   }
   const taskId = readField(formData, "taskId");
+
+  const durable = await loadDurableDevelopmentBundle(session.supabase, session.user.id, taskId);
+  if (durable.ok) {
+    const result = await approveDurableDevelopmentRequest(session.supabase, {
+      ownerId: session.user.id,
+      remoteTaskId: taskId,
+      actorId: session.user.id,
+    });
+    if (!result.ok) return { error: result.message, notice: null };
+    revalidateWorkflow(result.data.remote.projectId);
+    return {
+      error: null,
+      notice:
+        "Durable DEVELOPMENT authorization approved in Approval Center. Approval does not execute. Queue still revalidates.",
+    };
+  }
+  if (durable.reason !== "NOT_FOUND") {
+    // Missing schema / auth must fail closed — never fall back to memory approval.
+    return { error: durable.message, notice: null };
+  }
+
+  // MEMORY_TEST_ONLY simulation sessions only (unit/demo), never a durable fallback.
   const current = loadMemoryWorkflowSession(taskId);
   if (!current || current.task.ownerId !== session.user.id) {
     return { error: "That development task is not visible.", notice: null };
@@ -98,7 +127,7 @@ export async function approveDevelopmentWorkflow(
   revalidateWorkflow(current.task.projectId);
   return {
     error: null,
-    notice: "DEVELOPMENT authorization approved. Approval does not execute. Queue still revalidates.",
+    notice: `MEMORY_TEST_ONLY approval recorded (${MEMORY_PERSISTENCE_MODE}). Not durable. Queue still revalidates.`,
   };
 }
 
@@ -111,6 +140,25 @@ export async function queueDevelopmentWorkflow(
     return { error: "You are not signed in.", notice: null };
   }
   const taskId = readField(formData, "taskId");
+
+  const durable = await loadDurableDevelopmentBundle(session.supabase, session.user.id, taskId);
+  if (durable.ok) {
+    const result = await queueDurableDevelopmentTask(session.supabase, {
+      ownerId: session.user.id,
+      remoteTaskId: taskId,
+    });
+    if (!result.ok) return { error: result.message, notice: null };
+    revalidateWorkflow(result.data.remote.projectId);
+    return {
+      error: null,
+      notice:
+        "Durable task queued after authorization revalidation and agent_tasks bind. Workers not activated. No external dispatch.",
+    };
+  }
+  if (durable.reason !== "NOT_FOUND") {
+    return { error: durable.message, notice: null };
+  }
+
   const current = loadMemoryWorkflowSession(taskId);
   if (!current || current.task.ownerId !== session.user.id) {
     return { error: "That development task is not visible.", notice: null };
@@ -120,7 +168,7 @@ export async function queueDevelopmentWorkflow(
   revalidateWorkflow(current.task.projectId);
   return {
     error: null,
-    notice: "Task queued after authorization revalidation. Ready for SIMULATED execution only.",
+    notice: `MEMORY_TEST_ONLY queue (${MEMORY_PERSISTENCE_MODE}). Ready for SIMULATED execution only.`,
   };
 }
 
@@ -135,7 +183,11 @@ export async function runSimulatedDevelopmentWorkflow(
   const taskId = readField(formData, "taskId");
   const current = loadMemoryWorkflowSession(taskId);
   if (!current || current.task.ownerId !== session.user.id) {
-    return { error: "That development task is not visible.", notice: null };
+    return {
+      error:
+        "SIMULATED execution is available only for MEMORY_TEST_ONLY sessions. Durable queued tasks do not auto-dispatch.",
+      notice: null,
+    };
   }
   const result = runSimulatedExecution(current);
   if (!result.ok) return { error: result.message, notice: null };
@@ -158,7 +210,7 @@ export async function cancelDevelopmentWorkflow(
   const taskId = readField(formData, "taskId");
   const current = loadMemoryWorkflowSession(taskId);
   if (!current || current.task.ownerId !== session.user.id) {
-    return { error: "That development task is not visible.", notice: null };
+    return { error: "That development task is not visible for SIMULATED cancel.", notice: null };
   }
   const result = cancelSimulatedExecution(current);
   if (!result.ok) return { error: result.message, notice: null };
@@ -177,7 +229,7 @@ export async function verifyDevelopmentEvidenceWorkflow(
   const taskId = readField(formData, "taskId");
   const current = loadMemoryWorkflowSession(taskId);
   if (!current || current.task.ownerId !== session.user.id) {
-    return { error: "That development task is not visible.", notice: null };
+    return { error: "That development task is not visible for SIMULATED verify.", notice: null };
   }
   const result = verifySimulatedEvidence(current, session.user.id);
   if (!result.ok) return { error: result.message, notice: null };
@@ -204,7 +256,7 @@ export async function reviewDevelopmentWorkflow(
   }
   const current = loadMemoryWorkflowSession(taskId);
   if (!current || current.task.ownerId !== session.user.id) {
-    return { error: "That development task is not visible.", notice: null };
+    return { error: "That development task is not visible for SIMULATED review.", notice: null };
   }
   const result = reviewSimulatedOutcome(current, decision, session.user.id);
   if (!result.ok) return { error: result.message, notice: null };
@@ -218,7 +270,7 @@ export async function reviewDevelopmentWorkflow(
   };
 }
 
-/** Helper for page load — memory tasks for authenticated owner. */
+/** Helper for page load — memory tasks for authenticated owner (simulation only). */
 export async function listMemoryDevelopmentTasksForOwner(ownerId: string) {
   return memoryListTasks(ownerId, 50);
 }

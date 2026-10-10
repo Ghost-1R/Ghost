@@ -12,7 +12,8 @@
     "test:approvals-db:local": "node .ghost/run-local-approval-db-tests.mjs",
     "test:agent-runtime": "tsx --test src/lib/agent-runtime/*.test.ts",
     "test:remote-development": "tsx --test src/lib/remote-development/*.test.ts",
-    "test:workflow-09-11": "tsx --test src/lib/remote-development/workflow.test.ts src/lib/remote-development/contract.test.ts src/lib/remote-development/provider.test.ts src/lib/remote-development/review.test.ts src/lib/remote-development/ui.test.ts src/lib/companion/companion.test.ts src/lib/preferences/preferences.test.ts"
+    "test:workflow-09-11": "tsx --test src/lib/remote-development/workflow.test.ts src/lib/remote-development/contract.test.ts src/lib/remote-development/provider.test.ts src/lib/remote-development/review.test.ts src/lib/remote-development/ui.test.ts src/lib/companion/companion.test.ts src/lib/preferences/preferences.test.ts",
+    "test:durable-09-13": "tsx --test src/lib/remote-development/durable-integration.test.ts src/lib/remote-development/security-regression.test.ts src/lib/remote-development/migration.test.ts src/lib/operations/agent-task-surface.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
