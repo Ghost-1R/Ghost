@@ -12,6 +12,7 @@ import {
   queueDevelopmentTask,
   reviewSimulatedOutcome,
   runSimulatedExecution,
+  verifySimulatedEvidence,
 } from "./workflow";
 import { memoryListTasks, MEMORY_PERSISTENCE_MODE } from "./memory-store";
 
@@ -163,6 +164,29 @@ export async function cancelDevelopmentWorkflow(
   if (!result.ok) return { error: result.message, notice: null };
   revalidateWorkflow(current.task.projectId);
   return { error: null, notice: "Task cancelled (SIMULATED path)." };
+}
+
+export async function verifyDevelopmentEvidenceWorkflow(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getSession();
+  if (session.status !== "authenticated") {
+    return { error: "You are not signed in.", notice: null };
+  }
+  const taskId = readField(formData, "taskId");
+  const current = loadMemoryWorkflowSession(taskId);
+  if (!current || current.task.ownerId !== session.user.id) {
+    return { error: "That development task is not visible.", notice: null };
+  }
+  const result = verifySimulatedEvidence(current, session.user.id);
+  if (!result.ok) return { error: result.message, notice: null };
+  revalidateWorkflow(current.task.projectId);
+  return {
+    error: null,
+    notice:
+      "Independent SIMULATED evidence check recorded. Accept still required separately. Project Truth VERIFIED_* not set.",
+  };
 }
 
 export async function reviewDevelopmentWorkflow(

@@ -21,6 +21,9 @@ export {
 export { toFounderInboxCard, type FounderInboxCard } from "./inbox";
 export {
   MEMORY_PERSISTENCE_MODE,
+  memoryConsumeAuthorizationCas,
+  memoryHaltExecution,
+  memoryIsExecutionHalted,
   memoryListTasks,
   memoryLoadAuthorization,
   memoryLoadTask,
@@ -71,6 +74,7 @@ export {
   revokeDevelopmentAuthorization,
   runEndToEndSimulatedWorkflow,
   runSimulatedExecution,
+  verifySimulatedEvidence,
   WORKFLOW_STAGES,
   type DevelopmentRequestInput,
   type DevelopmentWorkflowSession,

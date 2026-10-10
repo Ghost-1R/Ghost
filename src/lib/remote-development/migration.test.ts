@@ -20,3 +20,14 @@ test("remote development migration is local-only with RLS and no deploy permissi
   assert.ok(!/for delete/i.test(migration));
   assert.ok(!/grant delete/i.test(migration));
 });
+
+test("binding guard and update RLS freeze kind, environment, and git target", () => {
+  assert.match(migration, /new\.environment_label is distinct from old\.environment_label/);
+  assert.match(migration, /new\.authorization_kind is distinct from old\.authorization_kind/);
+  assert.match(migration, /new\.repository is distinct from old\.repository/);
+  assert.match(migration, /new\.approved_base_branch is distinct from old\.approved_base_branch/);
+  assert.match(migration, /new\.authorization_kind is distinct from 'DEVELOPMENT'/);
+  // Update policy must keep DEVELOPMENT kind (not only insert).
+  const updatePolicy = migration.slice(migration.indexOf("remote_development_tasks_update"));
+  assert.match(updatePolicy, /authorization_kind = 'DEVELOPMENT'/);
+});

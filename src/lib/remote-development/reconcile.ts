@@ -1,9 +1,21 @@
 import { transitionRemoteDevTask } from "./contract";
-import type { RemoteDevTask, RemoteProviderStatusEvent } from "./types";
+import type { RemoteDevTask, RemoteDevTaskStatus, RemoteProviderStatusEvent } from "./types";
+
+/** Statuses that imply the authorization queue gate already succeeded. */
+const POST_AUTHORIZATION_STATUSES: ReadonlySet<RemoteDevTaskStatus> = new Set([
+  "QUEUED",
+  "RUNNING",
+  "BLOCKED",
+  "FAILED",
+  "AWAITING_FOUNDER_REVIEW",
+  "VERIFIED",
+  "CANCELLED",
+]);
 
 /**
  * Reconcile remote provider status into task state — fail closed on ambiguity.
  * Never grants deployment permission.
+ * Never advances AWAITING_APPROVAL via provider events (approval/consumption required first).
  */
 export function reconcileRemoteStatus(
   task: RemoteDevTask,
@@ -27,6 +39,14 @@ export function reconcileRemoteStatus(
       message: "Provider kind does not match the task binding.",
     };
   }
+  if (task.status === "AWAITING_APPROVAL" || !POST_AUTHORIZATION_STATUSES.has(task.status)) {
+    return {
+      ok: false,
+      reason: "AUTHORIZATION_REQUIRED",
+      message:
+        "Provider status cannot advance a task that has not passed the authorization queue gate.",
+    };
+  }
 
   const at = options?.at ?? event.occurredAt;
   switch (event.status) {
@@ -37,13 +57,7 @@ export function reconcileRemoteStatus(
         : { ok: false, reason: "ILLEGAL_TRANSITION", message: next.reason };
     }
     case "RUNNING": {
-      let working = task;
-      if (task.status === "AWAITING_APPROVAL") {
-        const queued = transitionRemoteDevTask(task, "QUEUED", { ownerId: task.ownerId, at });
-        if (!queued.ok) return { ok: false, reason: "ILLEGAL_TRANSITION", message: queued.reason };
-        working = queued.task;
-      }
-      const next = transitionRemoteDevTask(working, "RUNNING", { ownerId: task.ownerId, at });
+      const next = transitionRemoteDevTask(task, "RUNNING", { ownerId: task.ownerId, at });
       return next.ok
         ? { ok: true, task: next.task }
         : { ok: false, reason: "ILLEGAL_TRANSITION", message: next.reason };

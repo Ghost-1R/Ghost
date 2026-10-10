@@ -16,6 +16,7 @@ import {
   reviewDevelopmentWorkflow,
   runSimulatedDevelopmentWorkflow,
   submitDevelopmentRequest,
+  verifyDevelopmentEvidenceWorkflow,
 } from "@/lib/remote-development/actions";
 import { toFounderInboxCard } from "@/lib/remote-development/inbox";
 import {
@@ -282,6 +283,14 @@ export default async function DevelopmentTasksPage() {
                     ) : null}
                     {card.workflowStage === "AWAITING_REVIEW" ? (
                       <>
+                        {card.evidenceState === "UNVERIFIED" ? (
+                          <ActionForm
+                            action={verifyDevelopmentEvidenceWorkflow}
+                            submitLabel="Independently verify SIMULATED evidence"
+                          >
+                            <input type="hidden" name="taskId" value={card.taskId} />
+                          </ActionForm>
+                        ) : null}
                         <ActionForm action={reviewDevelopmentWorkflow} submitLabel="Accept SIMULATED review">
                           <input type="hidden" name="taskId" value={card.taskId} />
                           <input type="hidden" name="decision" value="ACCEPT" />

@@ -31,11 +31,12 @@ export class FakeRemoteExecutionProvider implements RemoteExecutionProvider {
     if (!boundary.ok) {
       return { ok: false, reason: boundary.reason, message: boundary.message };
     }
-    if (task.status !== "QUEUED" && task.status !== "AWAITING_APPROVAL") {
+    // Submit only after the authorization queue gate has moved the task to QUEUED.
+    if (task.status !== "QUEUED") {
       return {
         ok: false,
         reason: "INVALID_STATUS",
-        message: `Cannot submit task in status ${task.status}.`,
+        message: `Cannot submit task in status ${task.status}; QUEUED after authorization is required.`,
       };
     }
     const externalJobId = createHash("sha256")

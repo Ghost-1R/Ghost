@@ -117,8 +117,13 @@ begin
     or new.scope_fingerprint is distinct from old.scope_fingerprint
     or new.action_type is distinct from old.action_type
     or new.action_scope is distinct from old.action_scope
+    or new.environment_label is distinct from old.environment_label
+    or new.authorization_kind is distinct from old.authorization_kind
+    or new.repository is distinct from old.repository
+    or new.approved_base_branch is distinct from old.approved_base_branch
     or new.idempotency_key is distinct from old.idempotency_key
     or new.deployment_authorized is distinct from false
+    or new.authorization_kind is distinct from 'DEVELOPMENT'
   then
     raise exception 'remote development identity/binding fields cannot be rewritten'
       using errcode = '42501';
@@ -173,6 +178,7 @@ create policy remote_development_tasks_update on public.remote_development_tasks
     owner_id = (select auth.uid())
     and (select private.owns_project(project_id))
     and deployment_authorized = false
+    and authorization_kind = 'DEVELOPMENT'
   );
 
 drop policy if exists remote_provider_webhook_events_select on public.remote_provider_webhook_events;

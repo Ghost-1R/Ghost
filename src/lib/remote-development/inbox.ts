@@ -68,7 +68,9 @@ export function toFounderInboxCard(input: {
       case "RUNNING":
         return "Monitor SIMULATED provider / cancel";
       case "AWAITING_REVIEW":
-        return "Independently verify SIMULATED evidence";
+        return input.task.evidence?.verificationState === "VERIFIED"
+          ? "Accept or reject independently verified SIMULATED evidence"
+          : "Independently verify SIMULATED evidence (required before Accept)";
       case "REVIEWED":
         return "No Project Truth verification claimed";
       case "FAILED":
