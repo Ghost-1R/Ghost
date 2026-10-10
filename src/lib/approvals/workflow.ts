@@ -111,24 +111,24 @@ export function decideRevoke(
   };
 }
 
+export type RevalidationDenialReason =
+  | "MISSING_AUTHORIZATION"
+  | "OWNER_MISMATCH"
+  | "PROJECT_MISMATCH"
+  | "ENVIRONMENT_MISMATCH"
+  | "SCOPE_MISMATCH"
+  | "EXPIRED"
+  | "REVOKED"
+  | "REJECTED"
+  | "PENDING"
+  | "CONSUMED"
+  | "USES_EXHAUSTED"
+  | "MISSING_EVIDENCE"
+  | "NOT_APPROVED";
+
 export type RevalidationResult =
   | { ok: true; reason: "APPROVED"; shouldConsume: boolean }
-  | {
-      ok: false;
-      reason:
-        | "MISSING_AUTHORIZATION"
-        | "OWNER_MISMATCH"
-        | "PROJECT_MISMATCH"
-        | "SCOPE_MISMATCH"
-        | "EXPIRED"
-        | "REVOKED"
-        | "REJECTED"
-        | "PENDING"
-        | "CONSUMED"
-        | "USES_EXHAUSTED"
-        | "MISSING_EVIDENCE"
-        | "NOT_APPROVED";
-    };
+  | { ok: false; reason: RevalidationDenialReason };
 
 /**
  * Fail-closed revalidation for a separately authorized executor.
@@ -144,11 +144,16 @@ export function revalidateAuthorizationForExecution(
   if (!auth.reason.trim()) return { ok: false, reason: "MISSING_EVIDENCE" };
   if (!Array.isArray(auth.evidence)) return { ok: false, reason: "MISSING_EVIDENCE" };
 
+  const requestEnvironment = (request.environmentLabel ?? auth.environmentLabel).trim() || "UNKNOWN";
+  if (auth.environmentLabel.trim() !== requestEnvironment) {
+    return { ok: false, reason: "ENVIRONMENT_MISMATCH" };
+  }
+
   const expected = scopeFingerprint({
     projectId: request.projectId,
     actionType: request.actionType,
     actionScope: request.actionScope,
-    environmentLabel: request.environmentLabel ?? auth.environmentLabel,
+    environmentLabel: requestEnvironment,
   });
   if (auth.scopeFingerprint !== expected) return { ok: false, reason: "SCOPE_MISMATCH" };
   if (

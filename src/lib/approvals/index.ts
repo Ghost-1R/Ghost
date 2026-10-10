@@ -4,6 +4,13 @@ export {
   requestFounderAuthorization,
   revokeFounderAuthorization,
 } from "./actions";
+export {
+  assertExecutionAuthorized,
+  authorizeLocalExecution,
+  tryConsumeAuthorizationOnce,
+  type ExecutionGateDenial,
+  type ExecutionGateResult,
+} from "./execution-gate";
 export { bucketAuthorizations, type ApprovalCenterBuckets } from "./group";
 export {
   createFounderAuthorization,
@@ -35,4 +42,6 @@ export {
   revalidateAuthorizationForExecution,
   scopeFingerprint,
   validateAuthorizationRequest,
+  type RevalidationDenialReason,
+  type RevalidationResult,
 } from "./workflow";

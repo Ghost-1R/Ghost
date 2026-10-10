@@ -399,6 +399,10 @@ export async function transitionFounderAuthorization(
   };
 }
 
+/**
+ * Atomically record one use. Fails closed if status is no longer APPROVED or
+ * use_count changed (concurrent consumer won the race).
+ */
 export async function markAuthorizationConsumed(
   supabase: GhostClient,
   ownerId: string,
@@ -407,6 +411,9 @@ export async function markAuthorizationConsumed(
   const current = await loadAuthorizationById(supabase, ownerId, authorizationId);
   if (current.status === "error") return current;
   if (!current.data) return { status: "error", message: "That authorization is not visible." };
+  if (current.data.effectiveStatus !== "APPROVED" || current.data.status !== "APPROVED") {
+    return { status: "error", message: "Authorization is not APPROVED for consumption." };
+  }
 
   const nextUse = current.data.useCount + 1;
   const consumeFully =
@@ -424,10 +431,18 @@ export async function markAuthorizationConsumed(
     })
     .eq("id", authorizationId)
     .eq("owner_id", ownerId)
+    .eq("status", "APPROVED")
+    .eq("use_count", current.data.useCount)
     .select("*")
-    .single();
+    .maybeSingle();
 
   if (updated.error) return fromError(updated.error);
+  if (!updated.data) {
+    return {
+      status: "error",
+      message: "Concurrent consumption or status change blocked this use.",
+    };
+  }
   const row = updated.data as AuthRow;
   await appendEvent(supabase, {
     authorizationId,

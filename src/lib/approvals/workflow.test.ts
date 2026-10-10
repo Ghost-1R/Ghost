@@ -238,6 +238,32 @@ test("cross-project revalidation is denied", () => {
   if (!denied.ok) assert.equal(denied.reason, "PROJECT_MISMATCH");
 });
 
+test("environment mismatch fails closed before scope compare", () => {
+  const fp = scopeFingerprint({
+    projectId,
+    actionType: "a",
+    actionScope: "b",
+    environmentLabel: "LOCAL",
+  });
+  const row = auth({
+    status: "APPROVED",
+    actionType: "a",
+    actionScope: "b",
+    scopeFingerprint: fp,
+    environmentLabel: "LOCAL",
+  });
+  const denied = revalidateAuthorizationForExecution(row, {
+    authorizationId: row.id,
+    ownerId,
+    projectId,
+    actionType: "a",
+    actionScope: "b",
+    environmentLabel: "PRODUCTION",
+  });
+  assert.equal(denied.ok, false);
+  if (!denied.ok) assert.equal(denied.reason, "ENVIRONMENT_MISMATCH");
+});
+
 test("one-time approval authorizes once then exhausts", () => {
   const fp = scopeFingerprint({
     projectId,
