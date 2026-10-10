@@ -15,8 +15,8 @@ export type ControlCenterStatus = {
 };
 
 /**
- * Production Settings V1 status — no agent-runtime imports.
- * Agent workers are not part of this release; report honest unavailable/disabled state.
+ * Production Settings status — no agent-runtime imports (keeps Settings decoupled).
+ * Approval-bound contract may exist in code; workers remain unavailable/disabled.
  */
 export function buildControlCenterStatus(preferences: FounderPreferences): ControlCenterStatus {
   const intelligence = describeProviderPolicy();
@@ -28,20 +28,21 @@ export function buildControlCenterStatus(preferences: FounderPreferences): Contr
     providerSummary: `${intelligence.provider} / ${intelligence.model} — ${ready ? "Ready" : "Not configured"}`,
     privacyNote:
       "Free-first Groq path; paid fallback disabled. API keys stay in server environment variables — never in Settings UI.",
-    agentExecution: "NOT_DEPLOYED",
+    agentExecution: "DISABLED",
     agentExecutionDetail: executionFlag
-      ? "Agent execution flag is set in the environment, but agent workers/tables are not part of this Settings release — treat as unavailable."
-      : "Agent workers are not deployed on this release. Execution remains unavailable.",
+      ? "GHOST_AGENT_EXECUTION_ENABLED is set, but workers stay disabled — approval-bound task contract only; no activation from Settings."
+      : "Approval-bound agent-task contract is available in code. Workers are disabled; no Settings control can start them.",
     hostedAgentAllowed: false,
     consequentialPolicy:
       "Conversation Soft gate: Save Plan / Start Building are classified CONSEQUENTIAL; Ghost must not mutate lifecycle from chat alone. Hard execution remains Inspector / dedicated OS routes with founder approval.",
     emergencyStop:
-      "Agent execution is not enabled by this release. No Settings control can start workers.",
+      "Agent execution is disabled. No Settings control can start workers.",
     incidents: [
       {
         severity: "INFO",
         title: "Agent runtime",
-        detail: "Not included in Settings V1 release candidate.",
+        detail:
+          "Contract + queue foundations exist; workers not activated. Founder approval required before any execution.",
       },
       {
         severity: ready ? "INFO" : "HIGH",

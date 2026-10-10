@@ -1,0 +1,12 @@
+{
+  "name": "ghost-pilot-harmless-fixture",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ./build.mjs",
+    "test": "node --test ./test.mjs",
+    "test:fail": "node --test ./test-fail.mjs",
+    "timeout": "node ./timeout.mjs"
+  }
+}
