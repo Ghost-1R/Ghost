@@ -1,0 +1,6 @@
+{
+  "name": "ghost-pilot-car-rental-validate",
+  "private": true,
+  "type": "module",
+  "description": "Restricted validation fixture for Cursor-prepared car rental sample. Not Ghost-generated source."
+}

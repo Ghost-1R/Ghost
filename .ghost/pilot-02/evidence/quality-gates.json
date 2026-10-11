@@ -1,0 +1,24 @@
+{
+  "focusedTests": {
+    "passed": 53,
+    "failed": 0,
+    "skipped": [
+      "src/lib/agent-runtime/db-pilot-status.test.ts — expects Docker/DB unavailable; Docker present",
+      "src/lib/agent-runtime/docker-safeguards.test.ts (availability UNVERIFIED case) — expects Docker unavailable"
+    ],
+    "exitCode": 0,
+    "suites": [
+      "pilot-02/car-rental-fixture",
+      "approvals/workflow",
+      "approvals/execution-gate",
+      "approvals/migration",
+      "approvals/db.integration (ghost99f)",
+      "agent-runtime/docker-argv",
+      "agent-runtime/pilot",
+      "remote-development/durable-integration"
+    ]
+  },
+  "typecheck": { "exitCode": 0 },
+  "lint": { "exitCode": 0, "errors": 0, "warningsAfterFix": 0 },
+  "build": { "exitCode": 0, "next": "16.4.0" }
+}

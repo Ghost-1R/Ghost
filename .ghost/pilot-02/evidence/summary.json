@@ -1,0 +1,11 @@
+{
+  "finalStatus": "GHOST_PILOT_02_AWAITING_FOUNDER_APPROVAL",
+  "taskId": "1513be21-f47b-4092-8ce4-8e14c538557b",
+  "authorizationId": "b549744a-a3ad-4694-ba23-89bc040091ea",
+  "founderApprovalStatus": "PENDING",
+  "durableTaskStatus": "AWAITING_APPROVAL",
+  "dockerCarRentalValidation": true,
+  "evidenceHash": "d29174821346d19fcd38f7c2870e8a80010102af3885df6abae46badc2198995",
+  "passed": 15,
+  "failed": 0
+}
