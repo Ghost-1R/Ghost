@@ -100,7 +100,11 @@ export function reviewPilot01Sample(root = repoRootFrom()): Pilot01StaticReview[
 
   const vehicleCards = (html.match(/<article class="vehicle">/g) ?? []).length;
   const hasHero = /class="hero"/i.test(html) && /Northwind Drive/i.test(html);
-  const hasForm = /id="inquiry-form"/i.test(html) && /preventDefault/i.test(js);
+  const hasForm =
+    /id="inquiry-form"/i.test(html) &&
+    /preventDefault/i.test(js) &&
+    /aria-invalid/i.test(js) &&
+    /isPickupNotPast/i.test(js);
   const noFetch = !/\bfetch\s*\(/.test(js) && !/\bXMLHttpRequest\b/.test(js) && !/mailto:/i.test(html);
   const responsive = /@media/i.test(css);
   const scoped = inspectPilot01Sources(root).every((row) => row.present);

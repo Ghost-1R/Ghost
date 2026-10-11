@@ -14,6 +14,19 @@ export type DockerArgvResult =
 
 const FORBIDDEN_FLAG = /^(--privileged|--network(?!=none)|--pid=host|--ipc=host|--uts=host|--userns=host|-v|--volume|--mount|--device|--cap-add)/i;
 
+/** Parse host:container[:opts], including Windows drive-letter hosts (C:\...). */
+export function parseBindMount(bind: string): { source: string; target: string; opts?: string } | null {
+  const win = bind.match(/^([A-Za-z]:[\\/][^:]*):(\/[^:]+)(?::([^:]+))?$/);
+  if (win) {
+    return { source: win[1], target: win[2], opts: win[3] };
+  }
+  const posix = bind.match(/^([^:]+):(\/[^:]+)(?::([^:]+))?$/);
+  if (posix) {
+    return { source: posix[1], target: posix[2], opts: posix[3] };
+  }
+  return null;
+}
+
 /**
  * Fixed container argv for a pilot job.
  * Commands are an allowlisted argv array — never a shell string.
@@ -100,14 +113,15 @@ export function buildDockerRunArgv(input: {
 
   for (const bind of input.spec.binds) {
     // Expected form: host:container[:opts]
-    const match = bind.match(/^([^:]+):([^:]+)(?::([^:]+))?$/);
-    if (!match) {
+    // Windows host paths include a drive colon (C:\...); parse from the right.
+    const parsed = parseBindMount(bind);
+    if (!parsed) {
       return { ok: false, reason: "UNAUTHORIZED_MOUNT", message: "Bind mount format invalid." };
     }
-    const [, source, target] = match;
+    const source = parsed.source.replace(/\\/g, "/");
     argv.push(
       "--mount",
-      `type=bind,source=${source},target=${target},bind-propagation=rprivate`,
+      `type=bind,source=${source},target=${parsed.target},bind-propagation=rprivate`,
     );
   }
 

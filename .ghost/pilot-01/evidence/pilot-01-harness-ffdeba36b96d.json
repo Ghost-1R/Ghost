@@ -1,0 +1,127 @@
+{
+  "pilotId": "pilot-01-car-rental-landing",
+  "objective": "Create a responsive car rental landing page containing a hero, three example vehicle cards, and a booking inquiry form with local validation.",
+  "preparedAt": "2026-10-11T03:25:47.742Z",
+  "authorizationContract": {
+    "actionType": "agent_task.develop",
+    "authorizationKind": "DEVELOPMENT",
+    "environmentLabel": "LOCAL_PILOT",
+    "actionScope": "pilot=01|objective=Create a responsive car rental landing page containing a hero, three example vehicle cards, and a booking inquiry form with local validation.|repo=Ghost-1R/Ghost|files=.ghost/pilot-01/sample-workspace/car-rental-landing/index.html,.ghost/pilot-01/sample-workspace/car-rental-landing/styles.css,.ghost/pilot-01/sample-workspace/car-rental-landing/app.js,.ghost/pilot-01/sample-workspace/car-rental-landing/README.md|payments=false|email=false",
+    "scopeFingerprint": "2426980beb7fb17984c0ed72f9669588cbc2afeccc76d9eca517f5d94637362c",
+    "deploymentGrantedByDevelopmentApproval": false,
+    "reusePolicy": "ONE_TIME",
+    "requiredStatusesForBind": [
+      "APPROVED",
+      "CONSUMED"
+    ],
+    "rejectedStatusesForBind": [
+      "REVOKED",
+      "REJECTED",
+      "EXPIRED",
+      "PENDING"
+    ]
+  },
+  "sourceChecks": [
+    {
+      "path": ".ghost/pilot-01/sample-workspace/car-rental-landing/index.html",
+      "present": true,
+      "bytes": 3055
+    },
+    {
+      "path": ".ghost/pilot-01/sample-workspace/car-rental-landing/styles.css",
+      "present": true,
+      "bytes": 2911
+    },
+    {
+      "path": ".ghost/pilot-01/sample-workspace/car-rental-landing/app.js",
+      "present": true,
+      "bytes": 2322
+    },
+    {
+      "path": ".ghost/pilot-01/sample-workspace/car-rental-landing/README.md",
+      "present": true,
+      "bytes": 329
+    }
+  ],
+  "staticReview": [
+    {
+      "criterionId": "hero",
+      "pass": true,
+      "detail": "hero present"
+    },
+    {
+      "criterionId": "vehicles",
+      "pass": true,
+      "detail": "vehicle cards=3"
+    },
+    {
+      "criterionId": "form",
+      "pass": true,
+      "detail": "local validation only"
+    },
+    {
+      "criterionId": "scope",
+      "pass": true,
+      "detail": "permitted files present"
+    },
+    {
+      "criterionId": "no_secrets",
+      "pass": true,
+      "detail": "scanned sample sources"
+    },
+    {
+      "criterionId": "auth_gates",
+      "pass": true,
+      "detail": "DEVELOPMENT does not grant deployment"
+    },
+    {
+      "criterionId": "independent_verify",
+      "pass": true,
+      "detail": "founder MARK_VERIFIED still requires independent evidence (existing review.ts)"
+    },
+    {
+      "criterionId": "responsive",
+      "pass": true,
+      "detail": "css media query present"
+    }
+  ],
+  "workspace": {
+    "ok": false,
+    "root": null,
+    "detail": "Workspace contract not materialized in preparation mode."
+  },
+  "dockerPilot": {
+    "gateEnabled": false,
+    "gateReason": "GHOST_ISOLATED_PILOT_ENABLED is not set — isolated pilot remains disabled by default.",
+    "report": null,
+    "summary": null,
+    "attribution": "NOT_RUN"
+  },
+  "executionAttribution": {
+    "ghostDurableWorkflow": "PREPARED_NOT_DISPATCHED",
+    "ghostIsolatedDockerPilot": "NOT_RUN",
+    "cursorCloudOrDesktopPreparation": "SOURCE_AND_HARNESS"
+  },
+  "prohibitions": [
+    "real_customer_records",
+    "credentials",
+    "payments",
+    "real_email_submission",
+    "production_api_access",
+    "hosted_supabase_writes",
+    "general_agent_activation",
+    "production_app_route_changes"
+  ],
+  "resourceLimits": {
+    "memoryBytes": 268435456,
+    "nanoCpus": 500000000,
+    "pidsLimit": 128,
+    "durationMs": 60000,
+    "networkMode": "none",
+    "image": "node:22-alpine",
+    "user": "10001:10001"
+  },
+  "evidenceSha256": "ffdeba36b96d09562d3ad9a127bb2b78bcb75a6b87b51dd0aefc04c8982b1653",
+  "overall": "READY",
+  "blockers": []
+}

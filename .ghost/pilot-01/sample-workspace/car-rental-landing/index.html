@@ -42,30 +42,30 @@
         <h2 id="inquiry-title">Booking inquiry</h2>
         <p class="hint">Local validation only — nothing is sent to a server.</p>
         <form id="inquiry-form" novalidate>
-          <label>
+          <label for="inquiry-name">
             Full name
-            <input name="name" type="text" required minlength="2" autocomplete="name" />
+            <input id="inquiry-name" name="name" type="text" required minlength="2" autocomplete="name" />
           </label>
-          <label>
+          <label for="inquiry-email">
             Email
-            <input name="email" type="email" required autocomplete="email" />
+            <input id="inquiry-email" name="email" type="email" required autocomplete="email" />
           </label>
-          <label>
+          <label for="inquiry-vehicle">
             Preferred vehicle
-            <select name="vehicle" required>
+            <select id="inquiry-vehicle" name="vehicle" required>
               <option value="">Select…</option>
               <option value="coast-compact">Coast Compact</option>
               <option value="harbor-suv">Harbor SUV</option>
               <option value="summit-sedan">Summit Sedan</option>
             </select>
           </label>
-          <label>
+          <label for="inquiry-pickup">
             Pickup date
-            <input name="pickup" type="date" required />
+            <input id="inquiry-pickup" name="pickup" type="date" required />
           </label>
-          <label>
+          <label for="inquiry-notes">
             Notes
-            <textarea name="notes" rows="3" maxlength="500" placeholder="Optional"></textarea>
+            <textarea id="inquiry-notes" name="notes" rows="3" maxlength="500" placeholder="Optional"></textarea>
           </label>
           <button type="submit">Validate inquiry locally</button>
           <p id="form-status" role="status" aria-live="polite"></p>

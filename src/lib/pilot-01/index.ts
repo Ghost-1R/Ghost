@@ -9,6 +9,12 @@ export {
   type Pilot01StaticReview,
 } from "./harness";
 export {
+  describePilot01ExecutionPath,
+  summarizePilot01Attribution,
+  type Pilot01PathStage,
+  type Pilot01StageRecord,
+} from "./execution-path";
+export {
   PILOT_01_ACTION_TYPE,
   PILOT_01_AUTHORIZATION_KIND,
   PILOT_01_ENVIRONMENT,

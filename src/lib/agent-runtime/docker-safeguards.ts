@@ -177,30 +177,41 @@ export function assertDockerSpecSafe(spec: DockerExecutionSpec): DockerSpecResul
 }
 
 /**
- * Attempt to detect Docker. Never starts a container.
- * Returns availability only — invoke remains disabled.
+ * Attempt to detect Docker. Never starts a container by itself.
+ * Pilot executor may invoke when GHOST_ISOLATED_PILOT_ENABLED=1 and safeguards pass.
  */
 export function probeDockerAvailability(): {
   available: boolean;
   runtimeVerified: false;
   detail: string;
 } {
-  const pathEnv = process.env.PATH ?? "";
-  const hasDockerOnPath = pathEnv.split(":").some((dir) => existsSync(`${dir}/docker`));
-  if (!hasDockerOnPath) {
+  const version = spawnSync("docker", ["version", "--format", "{{.Server.Version}}"], {
+    encoding: "utf8",
+    timeout: 8_000,
+    shell: false,
+  });
+  if (version.status !== 0) {
+    const pathEnv = process.env.PATH ?? "";
+    const sep = process.platform === "win32" ? ";" : ":";
+    const hasDockerOnPath = pathEnv.split(sep).some((dir) => {
+      const base = dir.replace(/["']/g, "");
+      return existsSync(`${base}/docker`) || existsSync(`${base}\\docker.exe`);
+    });
     return {
       available: false,
       runtimeVerified: false,
-      detail: "Docker unavailable — safeguard specs are unit-tested; runtime invoke UNVERIFIED.",
+      detail: hasDockerOnPath
+        ? "Docker binary present but daemon unavailable — runtime invoke UNVERIFIED."
+        : "Docker unavailable — safeguard specs are unit-tested; runtime invoke UNVERIFIED.",
     };
   }
-  const info = spawnSync("docker", ["info"], { encoding: "utf8", timeout: 3000 });
+  const info = spawnSync("docker", ["info"], { encoding: "utf8", timeout: 8_000 });
   const daemonUp = info.status === 0;
   return {
     available: daemonUp,
     runtimeVerified: false,
     detail: daemonUp
-      ? "Docker daemon reachable — container invoke still disabled in this build."
+      ? `Docker daemon reachable (server ${String(version.stdout).trim()}) — pilot may invoke when gate is open.`
       : "Docker binary present but daemon unavailable — runtime invoke UNVERIFIED.",
   };
 }

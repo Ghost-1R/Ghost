@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { buildPilotEvidencePack } from "./pilot-evidence";
@@ -17,7 +18,10 @@ import {
 } from "./workspace";
 import { OWNER_ID, PROJECT_ID } from "./test-helpers";
 
-const WORK_ROOT = "/tmp/ghost-pilot-workspaces-test";
+const WORK_ROOT =
+  process.platform === "win32"
+    ? path.join(os.tmpdir(), "ghost-pilot-workspaces-test")
+    : "/tmp/ghost-pilot-workspaces-test";
 
 test("pilot gate disabled by default", () => {
   const previous = process.env[PILOT_ENV_FLAG];
@@ -89,7 +93,16 @@ test("symlink escape is rejected", () => {
   if (!ws.ok) return;
   mkdirSync(ws.contract.hostPath, { recursive: true });
   const link = path.join(ws.contract.hostPath, "escape-link");
-  symlinkSync("/etc", link);
+  try {
+    symlinkSync(process.platform === "win32" ? "C:\\Windows" : "/etc", link);
+  } catch (error) {
+    // Windows without Developer Mode / SeCreateSymbolicLinkPrivilege cannot create symlinks.
+    if (process.platform === "win32" && (error as NodeJS.ErrnoException).code === "EPERM") {
+      rmSync(WORK_ROOT, { recursive: true, force: true });
+      return;
+    }
+    throw error;
+  }
   const check = assertNoSymlinkEscape(ws.contract.hostPath, link);
   assert.equal(check.ok, false);
   if (!check.ok) assert.equal(check.reason, "SYMLINK_ESCAPE");

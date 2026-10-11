@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdirSync, rmSync, symlinkSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
@@ -9,8 +10,13 @@ import {
 } from "./workspace";
 import { OWNER_ID, PROJECT_ID } from "./test-helpers";
 
+const WORKSPACE_ROOT =
+  process.platform === "win32"
+    ? path.join(os.tmpdir(), "ghost-agent-workspaces-test")
+    : "/var/ghost-agent-workspaces";
+
 test("creates isolated workspace under configured root outside app cwd", () => {
-  const root = "/var/ghost-agent-workspaces";
+  const root = WORKSPACE_ROOT;
   const result = createCodeWorkspaceContract({
     taskId: "task-1",
     ownerId: OWNER_ID,
@@ -22,7 +28,7 @@ test("creates isolated workspace under configured root outside app cwd", () => {
   assert.equal(result.contract.containerPath, "/workspace");
   assert.equal(
     result.contract.hostPath,
-    path.join(root, OWNER_ID, PROJECT_ID, "task-1"),
+    path.join(path.resolve(root), OWNER_ID, PROJECT_ID, "task-1"),
   );
   assert.ok(result.contract.forbiddenPaths.includes(path.resolve(process.cwd())));
   assert.equal(result.contract.secretMountMode, "TMPFS_ENV_ONLY");
@@ -58,7 +64,10 @@ test("refuses relative or missing workspace root", () => {
 });
 
 test("symlink escape fails closed", () => {
-  const root = "/tmp/ghost-workspace-symlink-test";
+  const root =
+    process.platform === "win32"
+      ? path.join(os.tmpdir(), "ghost-workspace-symlink-test")
+      : "/tmp/ghost-workspace-symlink-test";
   rmSync(root, { recursive: true, force: true });
   const created = createCodeWorkspaceContract({
     taskId: "task-symlink",
@@ -70,7 +79,16 @@ test("symlink escape fails closed", () => {
   if (!created.ok) return;
   mkdirSync(created.contract.hostPath, { recursive: true });
   const link = path.join(created.contract.hostPath, "out");
-  symlinkSync("/etc", link);
+  try {
+    symlinkSync(process.platform === "win32" ? "C:\\Windows" : "/etc", link);
+  } catch (error) {
+    if (process.platform === "win32" && (error as NodeJS.ErrnoException).code === "EPERM") {
+      // Developer mode / admin required for symlinks on some Windows hosts.
+      rmSync(root, { recursive: true, force: true });
+      return;
+    }
+    throw error;
+  }
   const result = assertNoSymlinkEscape(created.contract.hostPath, link);
   assert.equal(result.ok, false);
   rmSync(root, { recursive: true, force: true });
@@ -81,7 +99,7 @@ test("path escape and secret filenames fail closed", () => {
     taskId: "task-1",
     ownerId: OWNER_ID,
     projectId: PROJECT_ID,
-    workspaceRoot: "/var/ghost-agent-workspaces",
+    workspaceRoot: WORKSPACE_ROOT,
   });
   assert.equal(created.ok, true);
   if (!created.ok) return;

@@ -53,8 +53,9 @@ const FORBIDDEN_BASENAMES = new Set([
   "id_ed25519",
 ]);
 
-function isAbsolutePosix(p: string): boolean {
-  return p.startsWith("/");
+function isAbsoluteWorkspaceRoot(p: string): boolean {
+  // Accept POSIX (/var/...) and Windows (C:\..., \\server\share) absolute roots.
+  return path.isAbsolute(p);
 }
 
 function resolveUnderRoot(root: string, candidate: string): string | null {
@@ -92,7 +93,7 @@ export function createCodeWorkspaceContract(input: {
     process.env[WORKSPACE_ROOT_ENV]?.trim() ||
     "";
 
-  if (!configuredRoot || !isAbsolutePosix(configuredRoot)) {
+  if (!configuredRoot || !isAbsoluteWorkspaceRoot(configuredRoot)) {
     return {
       ok: false,
       reason: "INVALID_ROOT",
