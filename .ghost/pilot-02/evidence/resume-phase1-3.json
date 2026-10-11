@@ -1,0 +1,40 @@
+{
+  "phase": "1-3",
+  "at": "2026-10-11T13:26:00Z",
+  "disposableDbVerified": {
+    "project": "ghost99f",
+    "dbHostPort": "55432",
+    "apiHostPort": "54331",
+    "ghostDbHostPort": "54322",
+    "targetIsGhostDb": false
+  },
+  "authorization": {
+    "id": "b549744a-a3ad-4694-ba23-89bc040091ea",
+    "status": "PENDING",
+    "ownerId": "adcc741f-1570-472f-9bf4-ef44028f57fc",
+    "projectId": "da4946e5-2afc-497c-8302-05738f803d18",
+    "actionType": "agent_task.develop",
+    "environmentLabel": "LOCAL_PILOT",
+    "reusePolicy": "ONE_TIME",
+    "useCount": 0,
+    "consumedAt": null,
+    "notExpired": true,
+    "scopeFingerprint": "4ee06168d3cc4470cb71093a6c830612ecc5f27840ffd080c4b96f8efad40993"
+  },
+  "task": {
+    "id": "1513be21-f47b-4092-8ce4-8e14c538557b",
+    "status": "AWAITING_APPROVAL",
+    "agentTaskId": null
+  },
+  "approvalInterface": {
+    "route": "/approvals",
+    "serverAction": "approveFounderAuthorization",
+    "source": "src/lib/approvals/actions.ts",
+    "localUrl": "http://127.0.0.1:3012/approvals",
+    "loginUrl": "http://127.0.0.1:3012/login",
+    "supabaseTarget": "http://127.0.0.1:54331",
+    "autoApproved": false,
+    "sqlBypass": false
+  },
+  "finalStatus": "AWAITING_FOUNDER_UI_APPROVAL"
+}

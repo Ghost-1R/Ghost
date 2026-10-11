@@ -1,0 +1,115 @@
+{
+  "mode": "MOCK_GENERATION",
+  "note": "Deterministic mock code generation. Not real AI coding. Not Cursor-prepared car-rental reuse.",
+  "finalStatus": "MOCK_CODEGEN_AWAITING_FOUNDER_REVIEW",
+  "founderReviewStatus": "AWAITING_FOUNDER_REVIEW",
+  "autoAccepted": false,
+  "liveProvider": false,
+  "deployment": false,
+  "authorizationFixture": {
+    "id": "104590e0-6958-4cb3-8330-9c2ffcc2753a",
+    "status": "APPROVED",
+    "environmentLabel": "LOCAL_CODEGEN_MOCK",
+    "note": "In-memory APPROVED fixture for mock pilot — separate from Pilot 02 consumed authorization."
+  },
+  "run": {
+    "runId": "88d3e909-2867-4266-841d-111ed0c16783",
+    "checkpoints": [
+      {
+        "id": "c3f600f2-8c7d-442a-ab75-f340e2e1bad1",
+        "sequence": 1,
+        "label": "START",
+        "at": "2026-10-11T14:02:35.569Z",
+        "detail": "Supervised mock codegen started."
+      },
+      {
+        "id": "d5f69a10-f6e3-4ec1-b0d1-7f0106602141",
+        "sequence": 2,
+        "label": "AUTH_OK",
+        "at": "2026-10-11T14:02:35.570Z",
+        "detail": "Authorization 104590e0-6958-4cb3-8330-9c2ffcc2753a revalidated."
+      },
+      {
+        "id": "604bd782-576d-4b15-bde8-bf98373f2e45",
+        "sequence": 3,
+        "label": "PROVIDER_READY",
+        "at": "2026-10-11T14:02:35.570Z",
+        "detail": "provider=mock live=false"
+      },
+      {
+        "id": "1c847992-4bc5-4875-a802-2c51bf757286",
+        "sequence": 4,
+        "label": "GENERATED",
+        "at": "2026-10-11T14:02:35.594Z",
+        "detail": "proposals=4"
+      },
+      {
+        "id": "129e87c5-8e3c-4dcf-a552-8f6751ae6579",
+        "sequence": 5,
+        "label": "MATERIALIZED",
+        "at": "2026-10-11T14:02:35.600Z",
+        "detail": "bc403d16ae04d518"
+      },
+      {
+        "id": "3453b2f5-799b-4632-b6cf-84c15fb5979c",
+        "sequence": 6,
+        "label": "AWAITING_FOUNDER_REVIEW",
+        "at": "2026-10-11T14:02:35.600Z",
+        "detail": "Deliverable ready; not auto-accepted."
+      }
+    ],
+    "generationOk": true,
+    "attribution": {
+      "mode": "MOCK_GENERATION",
+      "providerId": "mock",
+      "model": "mock-codegen-v1",
+      "note": "Deterministic mock output. Not real AI code generation."
+    },
+    "proposalCount": 4,
+    "materialize": {
+      "ok": true,
+      "workspacePath": "C:\\Users\\Badge\\AppData\\Local\\Temp\\ghost-codegen-mock-pilot\\36e453dd-4977-4f3b-a2af-6ea9cb29c609\\92d68c0f-5e9a-424e-825c-dc35b3018ab3\\88d3e909-2867-4266-841d-111ed0c16783",
+      "files": [
+        {
+          "relativePath": "generated/vehicle-comparison/index.html",
+          "sha256": "8aa47bcf1cf36cb403e1c20938db1438a71c6ce752ebf69b9c310ff3cc29cd66",
+          "bytes": 517
+        },
+        {
+          "relativePath": "generated/vehicle-comparison/styles.css",
+          "sha256": "44e5f0456e6d296b2bc4ae5f4ded16ffb57f44f2cbe36802489eaf5828a8fd9f",
+          "bytes": 622
+        },
+        {
+          "relativePath": "generated/vehicle-comparison/app.js",
+          "sha256": "86c2c164e11d553b844ff8084f94d88342dcb2bfa6ab01a0ffc9b5dd9afd19d4",
+          "bytes": 600
+        },
+        {
+          "relativePath": "generated/vehicle-comparison/test.mjs",
+          "sha256": "fc58422f40ec785280a9be558d6294d2ab5cffc0b26136fb61111d4d6776904e",
+          "bytes": 418
+        }
+      ],
+      "contentSha256": "bc403d16ae04d5181a8ab22655582e9e71cf38539c839eb9194e5465c58aa414"
+    }
+  },
+  "nodeTest": {
+    "ran": true,
+    "mode": "NODE_LOCAL_TEST",
+    "note": "Node test runner inside isolated workspace (not claiming Docker for this step).",
+    "exitCode": 0,
+    "stdout": "mock vehicle comparison tests passed\n",
+    "stderr": ""
+  },
+  "docker": {
+    "attempted": true,
+    "real": true,
+    "exitCode": 0,
+    "timedOut": false,
+    "stdout": "mock vehicle comparison tests passed\n",
+    "stderr": ""
+  },
+  "productionUnchanged": true,
+  "evidenceSha256": "8afc2211b575c872d3a03923318fe7dc4dff9f0d81201a1020415fccfc564b96"
+}

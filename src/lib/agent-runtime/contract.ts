@@ -132,6 +132,89 @@ export function claimAgentTaskWithRevalidation(
     };
   }
 
+  /**
+   * Durable queue consumes ONE_TIME before claim and records authorizationConsumed
+   * on the bound agent_tasks row. Allow claim without re-consume only in that case.
+   * CONSUMED without this task's consumption flag still fails closed.
+   */
+  const durablePostQueueClaim =
+    authorization?.status === "CONSUMED" &&
+    task.authorizationConsumed === true &&
+    task.status === "QUEUED";
+
+  if (durablePostQueueClaim) {
+    const postQueueStep = revalidateAuthorizationForTaskStep(
+      authorization,
+      {
+        status: "CLAIMED",
+        claimedAt: task.claimedAt ?? at,
+        authorizationConsumed: true,
+        binding: task.binding,
+      },
+      at,
+    );
+    if (!postQueueStep.ok) {
+      const blocked = applyBlockToTask(task, postQueueStep.reason, at);
+      return {
+        ok: false,
+        reason: postQueueStep.reason,
+        message: `Authorization revalidation failed: ${postQueueStep.reason}`,
+        task: blocked,
+        audit: auditEvent({
+          taskId: task.id,
+          eventType: "CLAIM_BLOCKED",
+          detail: `Post-queue claim denied: ${postQueueStep.reason}`,
+          authorizationId: task.binding.authorizationId,
+          scopeFingerprint: task.binding.scopeFingerprint,
+          actorId: request.claimantId,
+          at,
+        }),
+      };
+    }
+
+    const transition = decideAgentTaskTransition(task, {
+      ownerId: request.ownerId,
+      toStatus: "CLAIMED",
+      detail: "Claimed after durable queue consumption (CONSUMED_FOR_TASK).",
+    });
+    if (!transition.ok) {
+      return {
+        ok: false,
+        reason: "ILLEGAL_TRANSITION",
+        message: transition.reason,
+        task,
+        audit: null,
+      };
+    }
+
+    const lease = createLease({
+      holderId: request.claimantId,
+      token: request.leaseToken,
+      at,
+      ttlMs: request.leaseTtlMs,
+    });
+    const claimed = applyClaimToTask(task, lease, at, {
+      authorizationConsumed: true,
+    });
+
+    return {
+      ok: true,
+      task: claimed,
+      shouldConsume: false,
+      consumePlan: null,
+      idempotent: transition.idempotent,
+      audit: auditEvent({
+        taskId: task.id,
+        eventType: "CLAIMED",
+        detail: `Claimed by ${request.claimantId} after durable queue; mode=CONSUMED_FOR_TASK; shouldConsume=false.`,
+        authorizationId: task.binding.authorizationId,
+        scopeFingerprint: task.binding.scopeFingerprint,
+        actorId: request.claimantId,
+        at,
+      }),
+    };
+  }
+
   const claimCheck = revalidateAuthorizationForTaskClaim(authorization, task.binding, at);
   if (!claimCheck.ok) {
     const blocked = applyBlockToTask(task, claimCheck.reason, at);

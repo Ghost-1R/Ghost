@@ -68,3 +68,7 @@ next-env.d.ts
 .ghost/browser-approval-user.json
 .ghost/pilot/
 
+
+# Pilot 02 disposable founder UI login (local only)
+.ghost/pilot-02/founder-ui-login.local.json
+
