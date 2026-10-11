@@ -32,9 +32,13 @@ const enabled =
   Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
 
 function sql(query: string): string {
+  const container = process.env.GHOST_LOCAL_DB_CONTAINER ?? "supabase_db_ghost";
+  if (container === "supabase_db_ghost" && process.env.GHOST_09_9F_REQUIRE_DISPOSABLE === "1") {
+    throw new Error("Refusing sql against existing Ghost DB during disposable 09.9F verification");
+  }
   return execFileSync(
     "docker",
-    ["exec", "-i", "supabase_db_ghost", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", query],
+    ["exec", "-i", container, "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", query],
     { encoding: "utf8" },
   ).trim();
 }

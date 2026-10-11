@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Northwind Drive — Sample Car Rental</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <p class="brand">Northwind Drive</p>
+      <h1>Rent the right car for the next trip</h1>
+      <p class="lede">
+        Disposable pilot sample — dummy vehicles only. No payments, no real bookings.
+      </p>
+      <a class="cta" href="#inquiry">Request a quote</a>
+    </header>
+
+    <main>
+      <section class="fleet" aria-labelledby="fleet-title">
+        <h2 id="fleet-title">Example vehicles</h2>
+        <div class="cards">
+          <article class="vehicle">
+            <h3>Coast Compact</h3>
+            <p class="meta">Economy · 5 seats · Auto</p>
+            <p>Dummy daily rate: $42</p>
+          </article>
+          <article class="vehicle">
+            <h3>Harbor SUV</h3>
+            <p class="meta">SUV · 7 seats · AWD</p>
+            <p>Dummy daily rate: $78</p>
+          </article>
+          <article class="vehicle">
+            <h3>Summit Sedan</h3>
+            <p class="meta">Midsize · 5 seats · Hybrid</p>
+            <p>Dummy daily rate: $61</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="inquiry" id="inquiry" aria-labelledby="inquiry-title">
+        <h2 id="inquiry-title">Booking inquiry</h2>
+        <p class="hint">Local validation only — nothing is sent to a server.</p>
+        <form id="inquiry-form" novalidate>
+          <label>
+            Full name
+            <input name="name" type="text" required minlength="2" autocomplete="name" />
+          </label>
+          <label>
+            Email
+            <input name="email" type="email" required autocomplete="email" />
+          </label>
+          <label>
+            Preferred vehicle
+            <select name="vehicle" required>
+              <option value="">Select…</option>
+              <option value="coast-compact">Coast Compact</option>
+              <option value="harbor-suv">Harbor SUV</option>
+              <option value="summit-sedan">Summit Sedan</option>
+            </select>
+          </label>
+          <label>
+            Pickup date
+            <input name="pickup" type="date" required />
+          </label>
+          <label>
+            Notes
+            <textarea name="notes" rows="3" maxlength="500" placeholder="Optional"></textarea>
+          </label>
+          <button type="submit">Validate inquiry locally</button>
+          <p id="form-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+
+    <footer>
+      <p>Ghost Pilot 01 sample — not a production product surface.</p>
+    </footer>
+    <script src="./app.js"></script>
+  </body>
+</html>

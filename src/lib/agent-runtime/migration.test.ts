@@ -55,3 +55,34 @@ test("lease and checkpoint columns support claim and step recovery", () => {
   assert.match(migration, /authorization_consumed/);
   assert.match(migration, /agent_tasks_owner_idempotency/);
 });
+
+const matchMigration = readFileSync(
+  path.join(root, "supabase/migrations/20261011092000_agent_tasks_authorization_match.sql"),
+  "utf8",
+);
+
+test("09.9E match migration enforces insert/update authorization binding equality", () => {
+  assert.match(matchMigration, /LOCAL ONLY/i);
+  assert.match(matchMigration, /Do not apply to hosted Supabase/i);
+  assert.match(matchMigration, /assert_agent_task_matches_authorization/);
+  assert.match(matchMigration, /before insert or update/i);
+  assert.match(matchMigration, /does not match authorization identity/i);
+  assert.match(matchMigration, /authorization_kind does not match action_type class/i);
+  assert.match(matchMigration, /agent_task\.develop/);
+  assert.match(matchMigration, /agent_task\.deploy/);
+});
+
+const revokedExpiredMigration = readFileSync(
+  path.join(root, "supabase/migrations/20261011100000_agent_tasks_reject_revoked_expired_auth.sql"),
+  "utf8",
+);
+
+test("Pilot 01 migration rejects revoked/expired NEW agent_task binds only on INSERT", () => {
+  assert.match(revokedExpiredMigration, /LOCAL ONLY/i);
+  assert.match(revokedExpiredMigration, /Do not apply to hosted Supabase/i);
+  assert.match(revokedExpiredMigration, /tg_op = 'INSERT'/);
+  assert.match(revokedExpiredMigration, /cannot bind to revoked, rejected, or expired authorization/);
+  assert.match(revokedExpiredMigration, /cannot bind to time-expired authorization/);
+  assert.match(revokedExpiredMigration, /APPROVED or CONSUMED/);
+  assert.ok(!/drop table/i.test(revokedExpiredMigration));
+});
