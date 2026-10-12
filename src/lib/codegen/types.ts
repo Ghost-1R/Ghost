@@ -5,7 +5,7 @@
 
 export type DataClassification = "PUBLIC" | "INTERNAL" | "CONFIDENTIAL" | "RESTRICTED";
 
-export type CodingProviderId = "mock" | "groq" | "openai" | "anthropic";
+export type CodingProviderId = "mock" | "groq" | "openai" | "anthropic" | "gemini" | "openrouter";
 
 export type CodingProviderPrivacyTier = {
   /** Highest classification this provider may receive. */

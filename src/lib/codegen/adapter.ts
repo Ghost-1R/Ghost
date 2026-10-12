@@ -1,6 +1,11 @@
+import {
+  createGeminiCodingAdapter,
+  createOpenAiCodingAdapter,
+  createOpenRouterCodingAdapter,
+} from "./live-adapters";
 import { createMockCodingProvider } from "./mock-provider";
-import { assertNoWeakerPrivacyFallback } from "./privacy";
-import { isCodegenLiveEnabled, resolveCodingProviderConfig } from "./provider-config";
+import { assertNoWeakerPrivacyFallback, CODING_PROVIDER_PRIVACY } from "./privacy";
+import { CODING_PROVIDER_CONFIGS, isCodegenLiveEnabled, resolveCodingProviderConfig } from "./provider-config";
 import type { CodingProvider, CodingProviderId, DataClassification } from "./types";
 
 export type ResolveCodingProviderResult =
@@ -8,32 +13,56 @@ export type ResolveCodingProviderResult =
   | { ok: false; reason: string; message: string };
 
 /**
- * Smallest coding-provider adapter.
- * Live invocation remains disabled; only the deterministic mock is available.
+ * Coding-provider adapter resolution.
+ * Live providers stay disabled (no HTTP). Only mock performs generation.
+ * Never auto-fallback from a requested live id to mock.
  */
 export function resolveCodingProvider(input: {
   providerId: CodingProviderId;
   requiredClassification: DataClassification;
+  /** Return prepared-but-disabled live adapter for contract probes. */
+  returnDisabledLiveAdapter?: boolean;
 }): ResolveCodingProviderResult {
-  const config = resolveCodingProviderConfig(input.providerId);
-  if (!config.ok) return config;
-
+  const privacy = CODING_PROVIDER_PRIVACY[input.providerId];
   const privacyCheck = assertNoWeakerPrivacyFallback({
     required: input.requiredClassification,
-    selected: {
-      maxClassification: config.config.maxClassification,
-      privacyRank: config.config.privacyRank,
-    },
+    selected: privacy,
   });
   if (!privacyCheck.ok) {
     return { ok: false, reason: privacyCheck.reason, message: privacyCheck.message };
   }
 
   if (input.providerId === "mock") {
+    const config = resolveCodingProviderConfig("mock");
+    if (!config.ok) return config;
     return { ok: true, provider: createMockCodingProvider(), live: false };
   }
 
-  // Fail closed — no silent fallback to mock when a live id was requested.
+  if (input.returnDisabledLiveAdapter) {
+    if (!CODING_PROVIDER_CONFIGS[input.providerId]?.enabled) {
+      return { ok: false, reason: "PROVIDER_DISABLED", message: `Provider ${input.providerId} disabled.` };
+    }
+    const provider =
+      input.providerId === "openai"
+        ? createOpenAiCodingAdapter()
+        : input.providerId === "gemini"
+          ? createGeminiCodingAdapter()
+          : input.providerId === "openrouter"
+            ? createOpenRouterCodingAdapter()
+            : null;
+    if (!provider) {
+      return {
+        ok: false,
+        reason: "ADAPTER_UNAVAILABLE",
+        message: `No prepared live adapter for ${input.providerId}.`,
+      };
+    }
+    return { ok: true, provider, live: false };
+  }
+
+  const config = resolveCodingProviderConfig(input.providerId);
+  if (!config.ok) return config;
+
   return {
     ok: false,
     reason: "LIVE_DISABLED",
@@ -48,5 +77,6 @@ export function describeCodegenAdapterPolicy(): string {
     "No automatic fallback to weaker privacy.",
     "Live coding providers stay disabled until separate founder authorization.",
     "Mock generation is labeled MOCK_GENERATION and is not real AI coding.",
+    "Prepared adapters: openai, gemini, openrouter (HTTP not implemented in Pilot 03).",
   ].join(" ");
 }

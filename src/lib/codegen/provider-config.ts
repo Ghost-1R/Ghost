@@ -74,7 +74,45 @@ export const CODING_PROVIDER_CONFIGS: Record<CodingProviderId, CodingProviderCon
     supportsCancellation: true,
     supportsUsageAccounting: true,
   },
+  gemini: {
+    id: "gemini",
+    label: "Google Gemini",
+    keyEnvName: "GEMINI_API_KEY",
+    paid: true,
+    enabled: true,
+    liveInvocationAllowed: false,
+    maxClassification: CODING_PROVIDER_PRIVACY.gemini.maxClassification,
+    privacyRank: CODING_PROVIDER_PRIVACY.gemini.privacyRank,
+    defaultModel: "gemini-3.5-flash-lite",
+    supportsCancellation: true,
+    supportsUsageAccounting: true,
+  },
+  openrouter: {
+    id: "openrouter",
+    label: "OpenRouter (gateway)",
+    keyEnvName: "OPENROUTER_API_KEY",
+    paid: true,
+    enabled: true,
+    liveInvocationAllowed: false,
+    maxClassification: CODING_PROVIDER_PRIVACY.openrouter.maxClassification,
+    privacyRank: CODING_PROVIDER_PRIVACY.openrouter.privacyRank,
+    defaultModel: "deepseek/deepseek-v4.1-flash",
+    supportsCancellation: true,
+    supportsUsageAccounting: true,
+  },
 };
+
+/** Explicit model allowlist for a future live trial — empty until founder authorizes. */
+export const LIVE_CODING_MODEL_ALLOWLIST: ReadonlyArray<{ providerId: CodingProviderId; model: string }> = [
+  { providerId: "openai", model: "gpt-5-mini" },
+  { providerId: "openai", model: "gpt-5-nano" },
+  { providerId: "gemini", model: "gemini-3.5-flash-lite" },
+  { providerId: "openrouter", model: "deepseek/deepseek-v4.1-flash" },
+];
+
+export function isModelAllowlisted(providerId: CodingProviderId, model: string): boolean {
+  return LIVE_CODING_MODEL_ALLOWLIST.some((row) => row.providerId === providerId && row.model === model);
+}
 
 export const CODEGEN_LIVE_FLAG = "GHOST_CODEGEN_LIVE_ENABLED";
 

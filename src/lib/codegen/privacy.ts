@@ -13,6 +13,10 @@ export const CODING_PROVIDER_PRIVACY: Record<CodingProviderId, CodingProviderPri
   groq: { maxClassification: "INTERNAL", privacyRank: 4 },
   openai: { maxClassification: "CONFIDENTIAL", privacyRank: 6 },
   anthropic: { maxClassification: "CONFIDENTIAL", privacyRank: 7 },
+  /** Direct Gemini paid API; Free Tier product-improvement terms → treat as weaker for INTERNAL+. */
+  gemini: { maxClassification: "INTERNAL", privacyRank: 5 },
+  /** Gateway — privacy depends on upstream; never auto-upgrade classification entitlement. */
+  openrouter: { maxClassification: "PUBLIC", privacyRank: 3 },
 };
 
 export function classificationRank(c: DataClassification): number {
