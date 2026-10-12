@@ -1,0 +1,33 @@
+{
+  "source": "https://developers.openai.com/api/docs/models/gpt-5-mini",
+  "apiReference": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create/",
+  "checkedAt": "2026-10-12T14:55:00.000Z",
+  "modelId": "gpt-5-mini",
+  "defaultSnapshot": "gpt-5-mini-2025-08-07",
+  "endpoint": "POST https://api.openai.com/v1/chat/completions",
+  "tokenLimitParameter": "max_completion_tokens",
+  "deprecatedParameter": "max_tokens",
+  "temperatureNote": "GPT-5 family typically omits temperature; Ghost adapter omits it",
+  "structuredResponse": "response_format json_object supported via Chat Completions",
+  "usageReporting": "response.usage required by Ghost adapter; missing usage → UNCERTAIN_BILLING",
+  "publishedRatesUsdPerMillion": {
+    "input": 0.25,
+    "cachedInput": 0.025,
+    "output": 2.0
+  },
+  "ghostAllowlistRatesMatchPublished": true,
+  "contextWindow": 400000,
+  "maxOutputTokensDocs": 128000,
+  "ghostTrialCaps": {
+    "maxInputTokens": 8000,
+    "maxOutputTokens": 8000,
+    "maxRequestCostUsd": 1
+  },
+  "rateLimits": "Tier-dependent (docs list Build/Launch/Grow RPM/TPM); account-specific UNVERIFIED without live call",
+  "providerBillingEligibility": "UNVERIFIED",
+  "externalHardCapGuaranteed": false,
+  "notes": [
+    "Ghost enforces internal 100¢ allowance + ONE_TIME dispatch; OpenAI may still bill more if usage exceeds estimates",
+    "No authenticated paid probe performed during workday mission"
+  ]
+}

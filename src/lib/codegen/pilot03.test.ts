@@ -10,8 +10,10 @@ import { makeApprovedCodingAuth } from "./test-fixtures";
 import { PILOT_03_OBJECTIVE, runPilot03MockPipeline } from "./pilot03-pipeline";
 import { createOpenAiCodingAdapter } from "./live-adapters";
 
-test("live adapters refuse HTTP and stay disabled", async () => {
-  const openai = createOpenAiCodingAdapter();
+test("live adapters refuse HTTP and stay disabled by default", async () => {
+  const openai = createOpenAiCodingAdapter({
+    env: { GHOST_CODEGEN_LIVE_ENABLED: undefined, OPENAI_API_KEY: "sk-should-not-call" },
+  });
   const auth = makeApprovedCodingAuth({ objective: PILOT_03_OBJECTIVE });
   const result = await openai.generate({
     objective: PILOT_03_OBJECTIVE,
@@ -33,7 +35,10 @@ test("live adapters refuse HTTP and stay disabled", async () => {
     idempotencyKey: "live-probe",
   });
   assert.equal(result.ok, false);
-  if (!result.ok) assert.equal(result.attribution.mode, "DISABLED");
+  if (!result.ok) {
+    assert.equal(result.reason, "LIVE_DISABLED");
+    assert.equal(result.attribution.mode, "DISABLED");
+  }
 
   const resolved = resolveCodingProvider({
     providerId: "openai",

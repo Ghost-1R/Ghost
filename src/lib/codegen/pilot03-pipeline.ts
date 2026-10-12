@@ -7,17 +7,9 @@ import { resolveCodingProvider } from "./adapter";
 import { materializeProposals } from "./materialize";
 import type { DataClassification } from "./types";
 import { estimateTrialCostCents } from "./live-adapters";
+import { PILOT_03_ALLOWED_FILES, PILOT_03_OBJECTIVE } from "./pilot03-constants";
 
-export const PILOT_03_OBJECTIVE =
-  "Generate an original responsive vehicle comparison component with three fictional rental cars, price comparison, vehicle features, and accessible interactive selection.";
-
-export const PILOT_03_ALLOWED_FILES = [
-  "generated/pilot-03-vehicle-comparison/index.html",
-  "generated/pilot-03-vehicle-comparison/styles.css",
-  "generated/pilot-03-vehicle-comparison/app.js",
-  "generated/pilot-03-vehicle-comparison/test.mjs",
-  "generated/pilot-03-vehicle-comparison/README.md",
-] as const;
+export { PILOT_03_ALLOWED_FILES, PILOT_03_OBJECTIVE };
 
 /**
  * End-to-end mock path for Pilot 03:

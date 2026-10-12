@@ -14,13 +14,13 @@ export type ResolveCodingProviderResult =
 
 /**
  * Coding-provider adapter resolution.
- * Live providers stay disabled (no HTTP). Only mock performs generation.
+ * Live OpenAI HTTP exists but stays off unless GHOST_CODEGEN_LIVE_ENABLED=1.
  * Never auto-fallback from a requested live id to mock.
  */
 export function resolveCodingProvider(input: {
   providerId: CodingProviderId;
   requiredClassification: DataClassification;
-  /** Return prepared-but-disabled live adapter for contract probes. */
+  /** Return prepared live/stub adapter for contract probes (still respects live flag at generate()). */
   returnDisabledLiveAdapter?: boolean;
 }): ResolveCodingProviderResult {
   const privacy = CODING_PROVIDER_PRIVACY[input.providerId];
@@ -38,18 +38,21 @@ export function resolveCodingProvider(input: {
     return { ok: true, provider: createMockCodingProvider(), live: false };
   }
 
-  if (input.returnDisabledLiveAdapter) {
+  if (input.returnDisabledLiveAdapter || isCodegenLiveEnabled()) {
     if (!CODING_PROVIDER_CONFIGS[input.providerId]?.enabled) {
       return { ok: false, reason: "PROVIDER_DISABLED", message: `Provider ${input.providerId} disabled.` };
     }
+    if (input.providerId === "openai") {
+      const config = resolveCodingProviderConfig("openai");
+      if (!config.ok && !input.returnDisabledLiveAdapter) return config;
+      return { ok: true, provider: createOpenAiCodingAdapter(), live: false };
+    }
     const provider =
-      input.providerId === "openai"
-        ? createOpenAiCodingAdapter()
-        : input.providerId === "gemini"
-          ? createGeminiCodingAdapter()
-          : input.providerId === "openrouter"
-            ? createOpenRouterCodingAdapter()
-            : null;
+      input.providerId === "gemini"
+        ? createGeminiCodingAdapter()
+        : input.providerId === "openrouter"
+          ? createOpenRouterCodingAdapter()
+          : null;
     if (!provider) {
       return {
         ok: false,
@@ -75,8 +78,9 @@ export function describeCodegenAdapterPolicy(): string {
     "Coding provider keys stay server-side only.",
     "Data must be classified before routing.",
     "No automatic fallback to weaker privacy.",
-    "Live coding providers stay disabled until separate founder authorization.",
+    "Live coding stays disabled until GHOST_CODEGEN_LIVE_ENABLED=1 and founder authorization.",
     "Mock generation is labeled MOCK_GENERATION and is not real AI coding.",
-    "Prepared adapters: openai, gemini, openrouter (HTTP not implemented in Pilot 03).",
+    "OpenAI Chat Completions HTTP adapter is implemented; Gemini/OpenRouter remain stubs.",
+    "Generated code always requires founder review before acceptance. Development never grants deployment.",
   ].join(" ");
 }

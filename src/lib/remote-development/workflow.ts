@@ -76,6 +76,12 @@ export type DevelopmentRequestInput = {
   idempotencyKey?: string;
   expiresInHours?: number;
   at?: string;
+  /**
+   * Optional Pilot 03 code-generation contract fragment (already validated).
+   * Encoded into action_scope for immutable fingerprinting. Never enables live dispatch.
+   */
+  codegenScopeFragment?: string;
+  requestKind?: "REMOTE_DEV" | "CODEGEN_PILOT_03";
 };
 
 export function deriveWorkflowStage(
@@ -85,6 +91,7 @@ export function deriveWorkflowStage(
   const effective = effectiveAuthorizationStatus(auth.status, auth.expiresAt);
   if (task.status === "VERIFIED") return "REVIEWED";
   if (task.status === "AWAITING_FOUNDER_REVIEW") return "AWAITING_REVIEW";
+  if (task.status === "CHANGES_REQUESTED") return "BLOCKED";
   if (task.status === "FAILED") return "FAILED";
   if (task.status === "BLOCKED") return "BLOCKED";
   if (task.status === "RUNNING") return "RUNNING";

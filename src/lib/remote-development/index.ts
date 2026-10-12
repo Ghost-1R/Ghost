@@ -11,6 +11,10 @@ export {
   transitionRemoteDevTask,
 } from "./contract";
 export {
+  reviewDurableDevelopmentDeliverable,
+  type DurableReviewResult,
+} from "./durable-review";
+export {
   approveDurableDevelopmentRequest,
   createDurableDevelopmentRequest,
   loadDurableDevelopmentBundle,
@@ -54,11 +58,15 @@ export {
 export {
   appendRemoteDevReviewEvent,
   bindRemoteDevAgentTask,
+  insertFounderDeliverableReview,
   insertRemoteDevTask,
+  loadFounderDeliverableReviewByIdempotency,
+  loadFounderDeliverableReviewsForTask,
   loadRemoteDevTaskById,
   loadRemoteDevTasks,
   mapRemoteDevTaskRow,
   updateRemoteDevTaskState,
+  type FounderDeliverableReviewRow,
 } from "./queries";
 export { reconcileRemoteStatus } from "./reconcile";
 export {
@@ -86,8 +94,10 @@ export {
   type DevelopmentStateProjection,
 } from "./state-projection";
 export {
+  FOUNDER_DELIVERABLE_DECISIONS,
   REMOTE_DEV_TASK_STATUSES,
   type CreateRemoteDevTaskInput,
+  type FounderDeliverableDecision,
   type GitHubEvidence,
   type RemoteDevTask,
   type RemoteDevTaskStatus,

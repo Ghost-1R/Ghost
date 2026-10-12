@@ -1,7 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GhostClient } from "@/lib/auth/session";
 import { fromError, type QueryResult } from "@/lib/result";
-import type { RemoteDevTask, RemoteDevTaskStatus } from "./types";
+import type { FounderDeliverableDecision, RemoteDevTask, RemoteDevTaskStatus } from "./types";
+
+export type FounderDeliverableReviewRow = {
+  id: string;
+  ownerId: string;
+  projectId: string;
+  remoteDevelopmentTaskId: string;
+  agentTaskId: string | null;
+  authorizationId: string;
+  decision: FounderDeliverableDecision;
+  note: string;
+  resultingStatus: string;
+  scopeFingerprint: string;
+  idempotencyKey: string;
+  createdAt: string;
+};
 
 type TaskRow = {
   id: string;
@@ -58,7 +73,7 @@ function db(supabase: GhostClient): SupabaseClient {
 }
 
 function isMissingTable(message: string): boolean {
-  return /remote_development_tasks|remote_development_review_events|agent_task_id|schema cache|does not exist/i.test(
+  return /remote_development_tasks|remote_development_review_events|remote_development_founder_reviews|agent_task_id|schema cache|does not exist/i.test(
     message,
   );
 }
@@ -412,5 +427,193 @@ export async function appendRemoteDevReviewEvent(
       scopeFingerprint: row.scope_fingerprint,
       createdAt: row.created_at,
     },
+  };
+}
+
+export async function insertFounderDeliverableReview(
+  supabase: GhostClient,
+  input: {
+    ownerId: string;
+    projectId: string;
+    remoteDevelopmentTaskId: string;
+    agentTaskId: string | null;
+    authorizationId: string;
+    decision: FounderDeliverableDecision;
+    note: string;
+    resultingStatus: string;
+    scopeFingerprint: string;
+    idempotencyKey: string;
+    createdAt: string;
+  },
+): Promise<QueryResult<FounderDeliverableReviewRow>> {
+  const { data, error } = await db(supabase)
+    .from("remote_development_founder_reviews")
+    .insert({
+      owner_id: input.ownerId,
+      project_id: input.projectId,
+      remote_development_task_id: input.remoteDevelopmentTaskId,
+      agent_task_id: input.agentTaskId,
+      authorization_id: input.authorizationId,
+      decision: input.decision,
+      note: input.note,
+      resulting_status: input.resultingStatus,
+      scope_fingerprint: input.scopeFingerprint,
+      idempotency_key: input.idempotencyKey,
+      created_at: input.createdAt,
+    })
+    .select(
+      "id, owner_id, project_id, remote_development_task_id, agent_task_id, authorization_id, decision, note, resulting_status, scope_fingerprint, idempotency_key, created_at",
+    )
+    .single();
+
+  if (error) {
+    if (isMissingTable(error.message)) {
+      return missingSchemaError("remote_development_founder_reviews");
+    }
+    return fromError(error);
+  }
+
+  const row = data as {
+    id: string;
+    owner_id: string;
+    project_id: string;
+    remote_development_task_id: string;
+    agent_task_id: string | null;
+    authorization_id: string;
+    decision: FounderDeliverableDecision;
+    note: string;
+    resulting_status: string;
+    scope_fingerprint: string;
+    idempotency_key: string;
+    created_at: string;
+  };
+
+  return {
+    status: "ok",
+    data: {
+      id: row.id,
+      ownerId: row.owner_id,
+      projectId: row.project_id,
+      remoteDevelopmentTaskId: row.remote_development_task_id,
+      agentTaskId: row.agent_task_id,
+      authorizationId: row.authorization_id,
+      decision: row.decision,
+      note: row.note,
+      resultingStatus: row.resulting_status,
+      scopeFingerprint: row.scope_fingerprint,
+      idempotencyKey: row.idempotency_key,
+      createdAt: row.created_at,
+    },
+  };
+}
+
+export async function loadFounderDeliverableReviewByIdempotency(
+  supabase: GhostClient,
+  ownerId: string,
+  idempotencyKey: string,
+): Promise<QueryResult<FounderDeliverableReviewRow | null>> {
+  const { data, error } = await db(supabase)
+    .from("remote_development_founder_reviews")
+    .select(
+      "id, owner_id, project_id, remote_development_task_id, agent_task_id, authorization_id, decision, note, resulting_status, scope_fingerprint, idempotency_key, created_at",
+    )
+    .eq("owner_id", ownerId)
+    .eq("idempotency_key", idempotencyKey)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTable(error.message)) {
+      return missingSchemaError("remote_development_founder_reviews");
+    }
+    return fromError(error);
+  }
+  if (!data) return { status: "ok", data: null };
+
+  const row = data as {
+    id: string;
+    owner_id: string;
+    project_id: string;
+    remote_development_task_id: string;
+    agent_task_id: string | null;
+    authorization_id: string;
+    decision: FounderDeliverableDecision;
+    note: string;
+    resulting_status: string;
+    scope_fingerprint: string;
+    idempotency_key: string;
+    created_at: string;
+  };
+
+  return {
+    status: "ok",
+    data: {
+      id: row.id,
+      ownerId: row.owner_id,
+      projectId: row.project_id,
+      remoteDevelopmentTaskId: row.remote_development_task_id,
+      agentTaskId: row.agent_task_id,
+      authorizationId: row.authorization_id,
+      decision: row.decision,
+      note: row.note,
+      resultingStatus: row.resulting_status,
+      scopeFingerprint: row.scope_fingerprint,
+      idempotencyKey: row.idempotency_key,
+      createdAt: row.created_at,
+    },
+  };
+}
+
+export async function loadFounderDeliverableReviewsForTask(
+  supabase: GhostClient,
+  ownerId: string,
+  remoteTaskId: string,
+): Promise<QueryResult<FounderDeliverableReviewRow[]>> {
+  const { data, error } = await db(supabase)
+    .from("remote_development_founder_reviews")
+    .select(
+      "id, owner_id, project_id, remote_development_task_id, agent_task_id, authorization_id, decision, note, resulting_status, scope_fingerprint, idempotency_key, created_at",
+    )
+    .eq("owner_id", ownerId)
+    .eq("remote_development_task_id", remoteTaskId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    if (isMissingTable(error.message)) {
+      return missingSchemaError("remote_development_founder_reviews");
+    }
+    return fromError(error);
+  }
+
+  const rows = (data ?? []) as Array<{
+    id: string;
+    owner_id: string;
+    project_id: string;
+    remote_development_task_id: string;
+    agent_task_id: string | null;
+    authorization_id: string;
+    decision: FounderDeliverableDecision;
+    note: string;
+    resulting_status: string;
+    scope_fingerprint: string;
+    idempotency_key: string;
+    created_at: string;
+  }>;
+
+  return {
+    status: "ok",
+    data: rows.map((row) => ({
+      id: row.id,
+      ownerId: row.owner_id,
+      projectId: row.project_id,
+      remoteDevelopmentTaskId: row.remote_development_task_id,
+      agentTaskId: row.agent_task_id,
+      authorizationId: row.authorization_id,
+      decision: row.decision,
+      note: row.note,
+      resultingStatus: row.resulting_status,
+      scopeFingerprint: row.scope_fingerprint,
+      idempotencyKey: row.idempotency_key,
+      createdAt: row.created_at,
+    })),
   };
 }

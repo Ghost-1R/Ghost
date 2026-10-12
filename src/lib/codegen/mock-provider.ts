@@ -1,10 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import { estimateTokens, wouldExceedCost, wouldExceedTokenBudget } from "./budget";
+import { PILOT_03_OBJECTIVE } from "./pilot03-constants";
 import { CODING_PROVIDER_PRIVACY, providerSatisfiesClassification } from "./privacy";
 import { assertObjectiveSafe, validateProposals } from "./security";
 import type { CodeGenerationRequest, CodeGenerationResult, CodingProvider, FileChangeProposal } from "./types";
 
-function vehicleComparisonProposals(): FileChangeProposal[] {
+function vehicleComparisonProposals(rootDir: string): FileChangeProposal[] {
   const css = `:root{--ink:#14231c;--paper:#f3efe6;--accent:#2f6f4e;--line:#c9c1b2}
 *{box-sizing:border-box}body{margin:0;font-family:Georgia,serif;background:linear-gradient(160deg,#e8efe9,#f3efe6 45%,#efe6d8);color:var(--ink)}
 main{max-width:960px;margin:0 auto;padding:2.5rem 1.25rem 4rem}h1{font-size:clamp(2rem,4vw,3rem);margin:0 0 .5rem}
@@ -52,10 +53,10 @@ assert.equal((js.match(/id: "v\\d"/g) || []).length, 3);
 console.log("mock vehicle comparison tests passed");
 `;
   return [
-    { relativePath: "generated/vehicle-comparison/index.html", op: "CREATE", content: html, languageHint: "html" },
-    { relativePath: "generated/vehicle-comparison/styles.css", op: "CREATE", content: css, languageHint: "css" },
-    { relativePath: "generated/vehicle-comparison/app.js", op: "CREATE", content: js, languageHint: "javascript" },
-    { relativePath: "generated/vehicle-comparison/test.mjs", op: "CREATE", content: test, languageHint: "javascript" },
+    { relativePath: `${rootDir}/index.html`, op: "CREATE", content: html, languageHint: "html" },
+    { relativePath: `${rootDir}/styles.css`, op: "CREATE", content: css, languageHint: "css" },
+    { relativePath: `${rootDir}/app.js`, op: "CREATE", content: js, languageHint: "javascript" },
+    { relativePath: `${rootDir}/test.mjs`, op: "CREATE", content: test, languageHint: "javascript" },
   ];
 }
 
@@ -140,7 +141,11 @@ export function createMockCodingProvider(): CodingProvider {
         };
       }
 
-      const proposals = vehicleComparisonProposals();
+      const rootDir =
+        request.objective === PILOT_03_OBJECTIVE || /vehicle comparison/i.test(request.objective)
+          ? "generated/pilot-03-vehicle-comparison"
+          : "generated/vehicle-comparison";
+      const proposals = vehicleComparisonProposals(rootDir);
       const validated = validateProposals(proposals, request.allowedRelativeRoots, request.budget.maxOutputBytes);
       if (!validated.ok) {
         return { ok: false, reason: validated.reason, message: validated.message, attribution, checkpointId };

@@ -78,9 +78,15 @@ export async function createDurableDevelopmentRequest(
   }
 
   const at = input.at ?? new Date().toISOString();
-  const environmentLabel = (input.environmentLabel ?? "REMOTE_DEV").trim() || "REMOTE_DEV";
+  const isCodegen = input.requestKind === "CODEGEN_PILOT_03" || Boolean(input.codegenScopeFragment);
+  const environmentLabel =
+    (input.environmentLabel ?? (isCodegen ? "LOCAL_PILOT_03" : "REMOTE_DEV")).trim() ||
+    (isCodegen ? "LOCAL_PILOT_03" : "REMOTE_DEV");
   const actionType = "agent_task.develop";
-  const actionScope = `repo:${input.repository.trim()}@${input.approvedBaseBranch.trim()}|obj:${input.objective.trim().slice(0, 200)}`;
+  const baseScope = `repo:${input.repository.trim()}@${input.approvedBaseBranch.trim()}|obj:${input.objective.trim().slice(0, 200)}`;
+  const actionScope = input.codegenScopeFragment
+    ? `${baseScope}|${input.codegenScopeFragment}`
+    : baseScope;
   const fingerprint = scopeFingerprint({
     projectId: input.projectId,
     actionType,
@@ -100,8 +106,16 @@ export async function createDurableDevelopmentRequest(
     evidence:
       input.evidenceSource && input.evidenceReference
         ? [{ source: input.evidenceSource, reference: input.evidenceReference, at }]
-        : [{ source: "founder_request", reference: idempotencyKey, at }],
-    sideEffects: "Durable remote development preparation only — no deployment permission. Workers disabled.",
+        : [
+            {
+              source: isCodegen ? "codegen_pilot_03_request" : "founder_request",
+              reference: idempotencyKey,
+              at,
+            },
+          ],
+    sideEffects: isCodegen
+      ? "Pilot 03 code-generation preparation only — ONE_TIME DEVELOPMENT auth. Live dispatch disabled. No deployment permission. Workers disabled."
+      : "Durable remote development preparation only — no deployment permission. Workers disabled.",
     estimatedCost: `USD ${input.maxEstimatedCostUsd}`,
     reusePolicy: "ONE_TIME",
     expiresAt,
@@ -143,8 +157,10 @@ export async function createDurableDevelopmentRequest(
     projectId: inserted.data.projectId,
     remoteDevelopmentTaskId: inserted.data.id,
     authorizationId: authCreated.data.id,
-    eventType: "REQUEST_CREATED",
-    detail: "Durable development request created; authorization PENDING in Approval Center.",
+    eventType: isCodegen ? "CODEGEN_REQUEST_CREATED" : "REQUEST_CREATED",
+    detail: isCodegen
+      ? "Pilot 03 codegen request created; authorization PENDING. Live dispatch disabled. No deployment."
+      : "Durable development request created; authorization PENDING in Approval Center.",
     scopeFingerprint: fingerprint,
   });
 

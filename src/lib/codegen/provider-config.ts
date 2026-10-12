@@ -57,7 +57,7 @@ export const CODING_PROVIDER_CONFIGS: Record<CodingProviderId, CodingProviderCon
     liveInvocationAllowed: false,
     maxClassification: CODING_PROVIDER_PRIVACY.openai.maxClassification,
     privacyRank: CODING_PROVIDER_PRIVACY.openai.privacyRank,
-    defaultModel: "gpt-4.1-mini",
+    defaultModel: "gpt-5-mini",
     supportsCancellation: true,
     supportsUsageAccounting: true,
   },
@@ -127,20 +127,23 @@ export function resolveCodingProviderConfig(
   if (!config || !config.enabled) {
     return { ok: false, reason: "PROVIDER_DISABLED", message: `Coding provider ${id} is not enabled.` };
   }
-  if (id !== "mock" && isCodegenLiveEnabled()) {
-    // Even with flag, this foundation refuses live until a dedicated live adapter ships.
-    return {
-      ok: false,
-      reason: "LIVE_CODEGEN_NOT_IMPLEMENTED",
-      message: "Live coding-provider invocation is not implemented in this foundation. Use mock only.",
-    };
+  if (id === "mock") {
+    return { ok: true, config };
   }
-  if (id !== "mock" && !isCodegenLiveEnabled()) {
+  if (!isCodegenLiveEnabled()) {
     return {
       ok: false,
       reason: "LIVE_DISABLED",
       message: "Live coding providers remain disabled. Founder must authorize a separate live trial.",
     };
   }
-  return { ok: true, config };
+  // OpenAI HTTP adapter is implemented; other paid providers remain stubs.
+  if (id === "openai") {
+    return { ok: true, config };
+  }
+  return {
+    ok: false,
+    reason: "LIVE_CODEGEN_NOT_IMPLEMENTED",
+    message: `Live HTTP adapter for ${id} is not implemented. Use mock or openai.`,
+  };
 }

@@ -217,6 +217,15 @@ export function createDurableFakeSupabase(options?: FakeDbOptions) {
               return { duplicate: true as const, row: dup };
             }
           }
+          if (this.name === "remote_development_founder_reviews") {
+            const dup = state.rows.find(
+              (r) =>
+                r.owner_id === next.owner_id && r.idempotency_key === next.idempotency_key,
+            );
+            if (dup) {
+              return { duplicate: true as const, row: dup };
+            }
+          }
           state.rows.push(next);
           return { duplicate: false as const, row: next };
         });

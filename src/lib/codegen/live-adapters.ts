@@ -1,12 +1,17 @@
 /**
- * Live coding provider adapter contracts — prepared, not invoked.
- * Any generate() call fails closed. No network. No key reads into logs.
+ * Live coding provider adapters.
+ * OpenAI: real Chat Completions HTTP implementation (disabled by default).
+ * Gemini / OpenRouter: prepared stubs — still fail closed (HTTP not implemented).
  */
 import { CODING_PROVIDER_PRIVACY } from "./privacy";
 import { CODING_PROVIDER_CONFIGS, isCodegenLiveEnabled, isModelAllowlisted } from "./provider-config";
+import {
+  createOpenAiHttpCodingAdapter,
+  type OpenAiHttpAdapterOptions,
+} from "./openai-http";
 import type { CodeGenerationRequest, CodeGenerationResult, CodingProvider, CodingProviderId } from "./types";
 
-function disabledLiveProvider(id: Exclude<CodingProviderId, "mock">): CodingProvider {
+function disabledStubProvider(id: Exclude<CodingProviderId, "mock" | "openai">): CodingProvider {
   const config = CODING_PROVIDER_CONFIGS[id];
   return {
     id,
@@ -16,7 +21,7 @@ function disabledLiveProvider(id: Exclude<CodingProviderId, "mock">): CodingProv
         mode: "DISABLED" as const,
         providerId: id,
         model: config.defaultModel,
-        note: "Live coding adapter present but execution disabled. No API call made.",
+        note: "Live coding adapter stub — HTTP not implemented. No API call made.",
       };
       if (!isCodegenLiveEnabled()) {
         return {
@@ -36,7 +41,6 @@ function disabledLiveProvider(id: Exclude<CodingProviderId, "mock">): CodingProv
           checkpointId: null,
         };
       }
-      // Even with flags, Pilot 03 refuses HTTP — adapter is preparation only.
       void request;
       return {
         ok: false,
@@ -49,16 +53,17 @@ function disabledLiveProvider(id: Exclude<CodingProviderId, "mock">): CodingProv
   };
 }
 
-export function createOpenAiCodingAdapter(): CodingProvider {
-  return disabledLiveProvider("openai");
+/** OpenAI Chat Completions adapter — live off unless GHOST_CODEGEN_LIVE_ENABLED=1. */
+export function createOpenAiCodingAdapter(options?: OpenAiHttpAdapterOptions): CodingProvider {
+  return createOpenAiHttpCodingAdapter(options);
 }
 
 export function createGeminiCodingAdapter(): CodingProvider {
-  return disabledLiveProvider("gemini");
+  return disabledStubProvider("gemini");
 }
 
 export function createOpenRouterCodingAdapter(): CodingProvider {
-  return disabledLiveProvider("openrouter");
+  return disabledStubProvider("openrouter");
 }
 
 export function estimateTrialCostCents(input: {

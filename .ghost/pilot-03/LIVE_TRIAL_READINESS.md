@@ -13,15 +13,22 @@
 - [x] Model allowlist stub for future live trial
 - [x] Exact task definition + allowed files
 - [x] End-to-end mock pipeline: auth → reserve → generate → materialize → reconcile → founder review
+- [x] Existing `/development-tasks` UI wired for Pilot 03 prep (provider/model, allowance, estimate; live dispatch off)
+- [x] Remote Dev → durable queue → SQL allowance → MOCK codegen → Docker validate → founder review
+- [x] OpenAI Chat Completions HTTP adapter (disabled by default; `max_completion_tokens`; mock-fetch tested)
+- [x] Restricted Docker validation on MOCK materialize output (network=none; allowlisted argv)
 
 ## What is NOT ready / not done
 
-- [ ] Founder acceptance of Pilot 02 deliverable (separate decision)
 - [ ] Founder authorization for live coding spend ≤ $1
+- [ ] Project allowance ≥ 100 cents on disposable DB for live trial
 - [ ] Server-side credential provisioning in Render (names only until then)
-- [ ] HTTP implementation of live coding adapters
+- [x] Separate founder-authorized live dispatch entrypoint (`executeDurableCodegenLivePipeline`) — flag still OFF
+- [x] Founder procedure documented in `FOUNDER_LIVE_AUTHORIZATION.md`
 - [ ] Hosted Supabase migration of allowance tables
 - [ ] Production worker activation
+- [ ] Explicit `GHOST_CODEGEN_LIVE_ENABLED=1` in a founder-approved disposable env only
+- [ ] Project allowance ≥ 100¢ + real `OPENAI_API_KEY` (disposable only, never committed)
 
 ## Exact founder authorization required for first live trial
 

@@ -8,9 +8,13 @@ export const REMOTE_DEV_TASK_STATUSES = [
   "BLOCKED",
   "FAILED",
   "AWAITING_FOUNDER_REVIEW",
+  "CHANGES_REQUESTED",
   "VERIFIED",
   "CANCELLED",
 ] as const;
+
+export const FOUNDER_DELIVERABLE_DECISIONS = ["ACCEPT", "REJECT", "REQUEST_CHANGES"] as const;
+export type FounderDeliverableDecision = (typeof FOUNDER_DELIVERABLE_DECISIONS)[number];
 
 export type RemoteDevTaskStatus = (typeof REMOTE_DEV_TASK_STATUSES)[number];
 
@@ -78,6 +82,8 @@ export type GitHubEvidence = {
   /** Provider claims remain UNVERIFIED until independently checked. */
   providerClaimedAt: string | null;
   independentlyCheckedAt: string | null;
+  /** Distinguishes MOCK vs LIVE codegen evidence (optional; absent = unknown/legacy). */
+  executionMode?: "MOCK_GENERATION" | "LIVE_PROVIDER";
 };
 
 export type RemoteDevTask = {
