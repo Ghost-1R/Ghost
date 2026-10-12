@@ -11,7 +11,7 @@ EXECUTION_ENVIRONMENT:     Windows NT 10.0.26300 / Cursor Desktop
 STARTING_BRANCH:           cursor/pilot-03-real-ai-coding-prep
 STARTING_COMMIT:           a5a7a9d18dc6fefd1017995925744871e0d429ac
 FINAL_BRANCH:              cursor/pilot-03-workday-closure
-FINAL_COMMIT:              (see git log after local checkpoint commit)
+FINAL_COMMIT:              5ce647d5730de8b65d4dae1ead3aaaadc2587e8f
 DISPOSABLE_ENV_VERIFIED:   YES (3012 + 54331 + 55432; Ghost 54322 untouched)
 HOSTED_CREDENTIALS_ACTIVE: NO
 OPENAI_KEY_PRESENT:        YES
