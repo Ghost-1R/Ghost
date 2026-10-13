@@ -16,7 +16,7 @@ import type { FounderActionAuthorization } from "@/lib/approvals/types";
 import { decideApprove, decideRevoke, scopeFingerprint } from "@/lib/approvals/workflow";
 import type { GhostClient } from "@/lib/auth/session";
 import {
-  elapsedMsSinceTaskCreated,
+  elapsedMsSinceExecutionStart,
   gateRemoteDevQueue,
   gateRemoteDevStep,
 } from "./authorization-gate";
@@ -272,7 +272,7 @@ export async function queueDurableDevelopmentTask(
   const gate = gateRemoteDevQueue(authorization, remote, {
     at,
     estimatedCostUsd: plannedCost,
-    elapsedMs: elapsedMsSinceTaskCreated(remote, at),
+    // maxDuration starts at queue/claim — do not burn budget while awaiting founder approval.
   });
   if (!gate.ok) {
     return fail(gate.reason, gate.message);
@@ -402,7 +402,7 @@ export async function revalidateDurableDevelopmentStep(
       input.estimatedCostUsd !== undefined
         ? input.estimatedCostUsd
         : loaded.data.remote.spending.maxEstimatedCostUsd,
-    elapsedMs: elapsedMsSinceTaskCreated(loaded.data.remote, at),
+    elapsedMs: elapsedMsSinceExecutionStart(loaded.data.remote, at),
   });
   if (!gate.ok) {
     return fail(gate.reason, gate.message);
@@ -424,7 +424,7 @@ export async function revalidateDurableDevelopmentStep(
       input.estimatedCostUsd !== undefined
         ? input.estimatedCostUsd
         : loaded.data.remote.spending.maxEstimatedCostUsd,
-    elapsedMs: elapsedMsSinceTaskCreated(loaded.data.remote, at),
+    elapsedMs: elapsedMsSinceExecutionStart(loaded.data.remote, at),
   });
   if (!again.ok) {
     return fail(again.reason, again.message);

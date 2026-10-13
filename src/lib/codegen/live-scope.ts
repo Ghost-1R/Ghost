@@ -10,7 +10,8 @@ import { PILOT_03_MAX_TRIAL_CENTS } from "./openai-models";
 export const PILOT_03_LIVE_PROVIDER = "openai" as const;
 export const PILOT_03_LIVE_MODEL = "gpt-5-mini" as const;
 export const PILOT_03_LIVE_CLASSIFICATION = "PUBLIC" as const;
-export const PILOT_03_LIVE_ENVIRONMENTS = ["LOCAL_PILOT_03"] as const;
+export const PILOT_03_LIVE_ENVIRONMENTS = ["LOCAL_PILOT_03", "LOCAL_PILOT_04"] as const;
+/** Hard per-request ceiling remains $1; Pilot 04 may authorize ≤ remaining allowance (e.g. 99¢). */
 export const PILOT_03_LIVE_MAX_CENTS = PILOT_03_MAX_TRIAL_CENTS;
 
 export type LiveScopeOk = {
@@ -97,11 +98,15 @@ export function verifyPilot03LiveFounderScope(input: {
       message: "Live entrypoint requires PUBLIC classification only.",
     };
   }
-  if (contract.maxSpendCents !== PILOT_03_LIVE_MAX_CENTS) {
+  if (
+    !Number.isFinite(contract.maxSpendCents) ||
+    contract.maxSpendCents < 1 ||
+    contract.maxSpendCents > PILOT_03_LIVE_MAX_CENTS
+  ) {
     return {
       ok: false,
       reason: "MAX_SPEND_MISMATCH",
-      message: `Live entrypoint requires max authorized usage of $${(PILOT_03_LIVE_MAX_CENTS / 100).toFixed(2)}.`,
+      message: `Live entrypoint requires max authorized usage between $0.01 and $${(PILOT_03_LIVE_MAX_CENTS / 100).toFixed(2)} (got $${(contract.maxSpendCents / 100).toFixed(2)}).`,
     };
   }
   if (!input.actionScope.includes("deploy=false")) {
@@ -115,7 +120,7 @@ export function verifyPilot03LiveFounderScope(input: {
   return {
     ok: true,
     contract,
-    detail: `${PILOT_03_LIVE_PROVIDER}:${PILOT_03_LIVE_MODEL}|PUBLIC|max$${PILOT_03_LIVE_MAX_CENTS / 100}|deploy=false|ONE_TIME|${input.environmentLabel}`,
+    detail: `${PILOT_03_LIVE_PROVIDER}:${PILOT_03_LIVE_MODEL}|PUBLIC|max$${(contract.maxSpendCents / 100).toFixed(2)}|deploy=false|ONE_TIME|${input.environmentLabel}`,
   };
 }
 
@@ -126,6 +131,10 @@ export const UNCERTAIN_BILLING_REASONS = new Set([
   "PROVIDER_UNAVAILABLE",
   "RATE_LIMITED",
   "CANCELLED",
+  /** HTTP 200 with empty visible content — may still bill reasoning/output tokens. */
+  "EMPTY_PROVIDER_CONTENT",
+  /** finish_reason=length — may have billed before complete payload. */
+  "TRUNCATED_OUTPUT",
 ]);
 
 export function isUncertainBillingReason(reason: string): boolean {

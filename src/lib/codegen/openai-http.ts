@@ -21,6 +21,7 @@ import {
   OPENAI_MAX_RETRIES,
   estimateOpenAiCostUsd,
   PILOT_03_MAX_TRIAL_CENTS,
+  PILOT_LIVE_TOKEN_STRATEGY,
 } from "./openai-models";
 import { isCodegenLiveEnabled } from "./provider-config";
 import { assertObjectiveSafe, validateProposals } from "./security";
@@ -48,9 +49,50 @@ type ChatCompletionResponse = {
     prompt_tokens?: number;
     completion_tokens?: number;
     total_tokens?: number;
+    completion_tokens_details?: { reasoning_tokens?: number };
   };
   error?: { message?: string; type?: string; code?: string };
 };
+
+function readUsageMeta(
+  body: ChatCompletionResponse | null,
+  httpStatus: number,
+  model: string,
+) {
+  const prompt = body?.usage?.prompt_tokens;
+  const completion = body?.usage?.completion_tokens;
+  const reasoning = body?.usage?.completion_tokens_details?.reasoning_tokens;
+  const hasUsage =
+    typeof prompt === "number" &&
+    typeof completion === "number" &&
+    Number.isFinite(prompt) &&
+    Number.isFinite(completion) &&
+    prompt >= 0 &&
+    completion >= 0;
+  const cost = hasUsage
+    ? estimateOpenAiCostUsd({
+        model,
+        inputTokens: prompt,
+        outputTokens: completion,
+      })
+    : null;
+  return {
+    providerMeta: {
+      httpStatus,
+      responseId: typeof body?.id === "string" ? body.id.slice(0, 80) : undefined,
+      finishReason: body?.choices?.[0]?.finish_reason ?? null,
+      reasoningTokens: typeof reasoning === "number" ? reasoning : null,
+    },
+    usage:
+      hasUsage && cost && cost.ok
+        ? {
+            inputTokens: prompt,
+            outputTokens: completion,
+            estimatedCostUsd: cost.costUsd,
+          }
+        : undefined,
+  };
+}
 
 function attribution(model: string, note: string, mode: "DISABLED" | "LIVE_PROVIDER" = "DISABLED") {
   return {
@@ -67,6 +109,15 @@ function fail(
   model: string,
   checkpointId: string | null,
   mode: "DISABLED" | "LIVE_PROVIDER" = "DISABLED",
+  extra?: {
+    usage?: { inputTokens: number; outputTokens: number; estimatedCostUsd: number };
+    providerMeta?: {
+      httpStatus: number;
+      responseId?: string;
+      finishReason?: string | null;
+      reasoningTokens?: number | null;
+    };
+  },
 ): CodeGenerationResult {
   return {
     ok: false,
@@ -74,6 +125,8 @@ function fail(
     message: redactSecrets(message),
     attribution: attribution(model, redactSecrets(message), mode),
     checkpointId,
+    ...(extra?.usage ? { usage: extra.usage } : {}),
+    ...(extra?.providerMeta ? { providerMeta: extra.providerMeta } : {}),
   };
 }
 
@@ -257,12 +310,17 @@ export function createOpenAiHttpCodingAdapter(options: OpenAiHttpAdapterOptions 
       }
 
       // GPT-5 family: max_completion_tokens (not max_tokens); omit temperature.
+      // reasoning_effort=low leaves room for visible JSON inside the shared completion budget.
+      const completionBudget = Math.min(request.budget.maxOutputTokens, spec.maxOutputTokens);
       const body: Record<string, unknown> = {
         model,
-        max_completion_tokens: Math.min(request.budget.maxOutputTokens, spec.maxOutputTokens),
+        max_completion_tokens: completionBudget,
         response_format: { type: "json_object" as const },
         messages: buildMessages(request),
       };
+      if (model.startsWith("gpt-5")) {
+        body.reasoning_effort = PILOT_LIVE_TOKEN_STRATEGY.reasoningEffort;
+      }
 
       let lastError: CodeGenerationResult | null = null;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -348,11 +406,54 @@ export function createOpenAiHttpCodingAdapter(options: OpenAiHttpAdapterOptions 
 
         const content = parsedBody?.choices?.[0]?.message?.content?.trim() ?? "";
         if (!content) {
-          return fail("MALFORMED_RESPONSE", "OpenAI returned empty content.", model, checkpointId, "LIVE_PROVIDER");
+          // HTTP succeeded — empty visible content may still be billed (reasoning tokens).
+          // Never treat as a free clear failure; preserve usage metadata when present.
+          const meta = readUsageMeta(parsedBody, response.status, model);
+          const finish = meta.providerMeta.finishReason ?? "unknown";
+          const reasoningNote =
+            meta.providerMeta.reasoningTokens != null
+              ? ` reasoning_tokens=${meta.providerMeta.reasoningTokens}`
+              : "";
+          console.info("ghost.codegen.openai.empty_content", {
+            provider: "openai",
+            model,
+            httpStatus: response.status,
+            responseId: meta.providerMeta.responseId ?? null,
+            finishReason: finish,
+            promptTokens: meta.usage?.inputTokens ?? null,
+            completionTokens: meta.usage?.outputTokens ?? null,
+            reasoningTokens: meta.providerMeta.reasoningTokens ?? null,
+            // never log message content or secrets
+          });
+          const truncated =
+            finish === "length"
+              ? " Likely reasoning/output token budget exhausted (finish_reason=length)."
+              : "";
+          return fail(
+            "EMPTY_PROVIDER_CONTENT",
+            `OpenAI returned empty visible content (finish_reason=${finish}${reasoningNote}).${truncated} Request may be billed; reservation must not be released as unused.`,
+            model,
+            checkpointId,
+            "LIVE_PROVIDER",
+            meta,
+          );
         }
 
+        const finishReason = parsedBody?.choices?.[0]?.finish_reason ?? null;
         const structured = parseStructuredFiles(content);
         if (!structured.ok) {
+          // Truncated JSON from token exhaustion is a provider/budget failure, not a Ghost parser defect.
+          if (finishReason === "length") {
+            const meta = readUsageMeta(parsedBody, response.status, model);
+            return fail(
+              "TRUNCATED_OUTPUT",
+              `OpenAI finish_reason=length produced incomplete structured output (${structured.reason}). Request may be billed.`,
+              model,
+              checkpointId,
+              "LIVE_PROVIDER",
+              meta,
+            );
+          }
           return fail(structured.reason, structured.message, model, checkpointId, "LIVE_PROVIDER");
         }
 

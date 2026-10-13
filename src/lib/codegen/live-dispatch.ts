@@ -14,9 +14,14 @@ import { developmentApprovalGrantsDeployment } from "@/lib/agent-runtime/authori
 import type { ProviderEnv } from "@/lib/ai/live-provider-mode";
 import { materializeProposals } from "./materialize";
 import { createOpenAiHttpCodingAdapter, type OpenAiHttpAdapterOptions } from "./openai-http";
-import { estimateOpenAiCostUsd, PILOT_03_MAX_TRIAL_CENTS } from "./openai-models";
+import {
+  estimateOpenAiCostUsd,
+  PILOT_03_MAX_TRIAL_CENTS,
+  PILOT_LIVE_TOKEN_STRATEGY,
+} from "./openai-models";
 import { isCodegenLiveEnabled } from "./provider-config";
 import { PILOT_03_ALLOWED_FILES, PILOT_03_OBJECTIVE } from "./pilot03-constants";
+import { PILOT_04_ALLOWED_FILES, PILOT_04_OBJECTIVE } from "./pilot04-constants";
 import type { CodeGenerationResult, DataClassification, FileChangeProposal } from "./types";
 import { DEFAULT_CODING_BUDGET } from "./types";
 
@@ -171,11 +176,11 @@ export async function runPilot03LiveOpenAiDispatch(input: {
       budget: {
         ...DEFAULT_CODING_BUDGET,
         maxCostUsd: estimatedCents / 100,
-        maxInputTokens: 4_000,
-        maxOutputTokens: 4_000,
-        maxDurationMs: 60_000,
-        maxRetries: 2,
-        maxOutputBytes: 200_000,
+        maxInputTokens: PILOT_LIVE_TOKEN_STRATEGY.maxInputTokens,
+        maxOutputTokens: PILOT_LIVE_TOKEN_STRATEGY.maxCompletionTokens,
+        maxDurationMs: PILOT_LIVE_TOKEN_STRATEGY.maxDurationMs,
+        maxRetries: 0,
+        maxOutputBytes: PILOT_LIVE_TOKEN_STRATEGY.maxOutputBytes,
       },
       idempotencyKey: input.idempotencyKey,
     },
@@ -199,11 +204,17 @@ export async function runPilot03LiveOpenAiDispatch(input: {
     };
   }
 
-  // Restrict to Pilot 03 allowed files when objective matches pilot task.
-  const allowed = new Set<string>(PILOT_03_ALLOWED_FILES);
+  // Restrict to Pilot allowlisted files when objective matches a pilot task.
+  const pilotAllowlist =
+    objective === PILOT_04_OBJECTIVE || /pilot\s*04/i.test(objective)
+      ? PILOT_04_ALLOWED_FILES
+      : objective === PILOT_03_OBJECTIVE
+        ? PILOT_03_ALLOWED_FILES
+        : null;
+  const allowed = pilotAllowlist ? new Set<string>(pilotAllowlist) : null;
   const filtered: FileChangeProposal[] = [];
   for (const proposal of generation.proposals) {
-    if (objective === PILOT_03_OBJECTIVE && !allowed.has(proposal.relativePath)) {
+    if (allowed && !allowed.has(proposal.relativePath)) {
       const released = input.ledger.release({
         ownerId: input.ownerId,
         reservationId: reserve.reservation.id,
@@ -212,7 +223,7 @@ export async function runPilot03LiveOpenAiDispatch(input: {
       return {
         ok: false,
         reason: "OUTPUT_PATH_NOT_ALLOWED",
-        message: `Generated path ${proposal.relativePath} is outside Pilot 03 allowed files.`,
+        message: `Generated path ${proposal.relativePath} is outside Pilot allowlisted files.`,
         checkpoints,
         reservationReleased: released.ok,
       };

@@ -81,9 +81,34 @@ test("verifyPilot03LiveFounderScope refuses wrong environment and missing deploy
   if (!env.ok) assert.equal(env.reason, "ENVIRONMENT_MISMATCH");
 });
 
+test("verifyPilot03LiveFounderScope accepts LOCAL_PILOT_04 with 99¢ remaining allowance ceiling", () => {
+  const built = buildCodegenTaskContract({
+    providerId: "openai",
+    model: "gpt-5-mini",
+    classification: "PUBLIC",
+    maxSpendUsd: 0.99,
+  });
+  assert.equal(built.ok, true);
+  if (!built.ok) return;
+  const scope = `repo:Ghost-1R/Ghost@cursor/pilot-04|obj:vehicle|${encodeCodegenScopeFragment(built.contract)}`;
+  const auth = makeApprovedCodingAuth({
+    status: "CONSUMED",
+    environmentLabel: "LOCAL_PILOT_04",
+  });
+  const ok = verifyPilot03LiveFounderScope({
+    actionScope: scope,
+    environmentLabel: "LOCAL_PILOT_04",
+    authorization: auth,
+  });
+  assert.equal(ok.ok, true);
+  if (ok.ok) assert.match(ok.detail, /max\$0\.99/);
+});
+
 test("uncertain billing reasons preserve reservation semantics", () => {
   assert.equal(isUncertainBillingReason("UNCERTAIN_BILLING"), true);
   assert.equal(isUncertainBillingReason("RATE_LIMITED"), true);
+  assert.equal(isUncertainBillingReason("EMPTY_PROVIDER_CONTENT"), true);
+  assert.equal(isUncertainBillingReason("TRUNCATED_OUTPUT"), true);
   assert.equal(isUncertainBillingReason("AUTH_FAILED"), false);
   assert.equal(isUncertainBillingReason("MISSING_API_KEY"), false);
 });

@@ -75,6 +75,10 @@ function enforceBudgets(
 /**
  * Queue/submit boundary: authorization must be APPROVED, exact scope, not expired/revoked.
  * Development approval never grants deployment.
+ *
+ * maxDurationMs is an execution runtime ceiling — it does NOT consume while a request
+ * waits for founder approval. Queue therefore ignores wall-clock age since creation.
+ * Callers may still pass estimatedCostUsd; elapsedMs at queue is ignored (use step gate).
  */
 export function gateRemoteDevQueue(
   auth: FounderActionAuthorization | null,
@@ -112,7 +116,11 @@ export function gateRemoteDevQueue(
     };
   }
 
-  const budgetDenial = enforceBudgets(task, options);
+  // Spending limit still applies at queue; runtime duration starts at claim/execution.
+  const budgetDenial = enforceBudgets(task, {
+    estimatedCostUsd: options?.estimatedCostUsd,
+    // Do not apply elapsedMs at queue — waiting for approval is not execution time.
+  });
   if (budgetDenial) return budgetDenial;
 
   const exec = revalidateAuthorizationForExecution(auth, {
@@ -192,7 +200,11 @@ export function gateRemoteDevStep(
   return { ok: true, shouldConsume: false, mode: step.mode };
 }
 
-/** Elapsed wall time from task creation (fail closed on unparsable clocks). */
+/**
+ * Elapsed wall time from task creation.
+ * Prefer {@link elapsedMsSinceExecutionStart} for maxDuration enforcement —
+ * creation age includes founder-approval wait and must not burn the runtime budget.
+ */
 export function elapsedMsSinceTaskCreated(task: RemoteDevTask, at?: string): number {
   const now = Date.parse(at ?? new Date().toISOString());
   const created = Date.parse(task.createdAt);
@@ -200,4 +212,25 @@ export function elapsedMsSinceTaskCreated(task: RemoteDevTask, at?: string): num
     return Number.POSITIVE_INFINITY;
   }
   return now - created;
+}
+
+/**
+ * Elapsed wall time of actual execution/claim window for maxDurationMs.
+ * Starts at startedAt when present, else queuedAt. Before queue/claim returns 0
+ * (runtime has not begun). Fail closed on unparsable clocks after execution started.
+ */
+export function elapsedMsSinceExecutionStart(task: RemoteDevTask, at?: string): number {
+  const now = Date.parse(at ?? new Date().toISOString());
+  if (!Number.isFinite(now)) return Number.POSITIVE_INFINITY;
+
+  const startRaw = task.startedAt ?? task.queuedAt;
+  if (!startRaw) {
+    // Not yet claimed/queued — execution runtime has not started.
+    return 0;
+  }
+  const start = Date.parse(startRaw);
+  if (!Number.isFinite(start) || now < start) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return now - start;
 }

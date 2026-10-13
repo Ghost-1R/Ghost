@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { estimateTokens, wouldExceedCost, wouldExceedTokenBudget } from "./budget";
 import { PILOT_03_OBJECTIVE } from "./pilot03-constants";
+import { PILOT_04_OBJECTIVE } from "./pilot04-constants";
 import { CODING_PROVIDER_PRIVACY, providerSatisfiesClassification } from "./privacy";
 import { assertObjectiveSafe, validateProposals } from "./security";
 import type { CodeGenerationRequest, CodeGenerationResult, CodingProvider, FileChangeProposal } from "./types";
@@ -142,9 +143,11 @@ export function createMockCodingProvider(): CodingProvider {
       }
 
       const rootDir =
-        request.objective === PILOT_03_OBJECTIVE || /vehicle comparison/i.test(request.objective)
-          ? "generated/pilot-03-vehicle-comparison"
-          : "generated/vehicle-comparison";
+        request.objective === PILOT_04_OBJECTIVE || /pilot\s*04/i.test(request.objective)
+          ? "generated/pilot-04-vehicle-comparison"
+          : request.objective === PILOT_03_OBJECTIVE || /vehicle comparison/i.test(request.objective)
+            ? "generated/pilot-03-vehicle-comparison"
+            : "generated/vehicle-comparison";
       const proposals = vehicleComparisonProposals(rootDir);
       const validated = validateProposals(proposals, request.allowedRelativeRoots, request.budget.maxOutputBytes);
       if (!validated.ok) {

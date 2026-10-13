@@ -68,6 +68,15 @@ export type CodeGenerationResult =
       message: string;
       attribution: CodeGenerationAttribution;
       checkpointId: string | null;
+      /** Present when the provider returned usage even though generation failed. */
+      usage?: { inputTokens: number; outputTokens: number; estimatedCostUsd: number };
+      /** Sanitized provider response metadata — never includes secrets or reasoning text. */
+      providerMeta?: {
+        httpStatus: number;
+        responseId?: string;
+        finishReason?: string | null;
+        reasoningTokens?: number | null;
+      };
     };
 
 export type CodingProvider = {

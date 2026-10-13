@@ -1,4 +1,6 @@
 export {
+  elapsedMsSinceExecutionStart,
+  elapsedMsSinceTaskCreated,
   gateRemoteDevQueue,
   gateRemoteDevStep,
   type GateResult,

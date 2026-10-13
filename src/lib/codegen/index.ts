@@ -53,6 +53,12 @@ export {
 export { validateGeneratedInDocker, CODEGEN_DOCKER_TEST_ALLOWLIST } from "./docker-validate-generated";
 export { PILOT_03_OBJECTIVE, PILOT_03_ALLOWED_FILES } from "./pilot03-constants";
 export {
+  PILOT_04_TITLE,
+  PILOT_04_OBJECTIVE,
+  PILOT_04_ALLOWED_FILES,
+  PILOT_04_DOCKER_TEST,
+} from "./pilot04-constants";
+export {
   listVerifiedCodingOptions,
   parseCodingOptionValue,
   buildCodegenTaskContract,

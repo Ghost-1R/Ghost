@@ -37,6 +37,7 @@ import { createMockCodingProvider } from "./mock-provider";
 import { materializeProposals, cleanupWorkspace } from "./materialize";
 import { validateGeneratedInDocker } from "./docker-validate-generated";
 import { PILOT_03_ALLOWED_FILES, PILOT_03_OBJECTIVE } from "./pilot03-constants";
+import { PILOT_04_ALLOWED_FILES, PILOT_04_OBJECTIVE } from "./pilot04-constants";
 import { PILOT_03_MAX_TRIAL_CENTS } from "./openai-models";
 import { isCodegenLiveEnabled } from "./provider-config";
 import { DEFAULT_CODING_BUDGET } from "./types";
@@ -258,9 +259,11 @@ export async function executeDurableCodegenMockPipeline(
   }
 
   const provider = createMockCodingProvider();
-  const objective = remote.objective.includes("vehicle comparison")
-    ? PILOT_03_OBJECTIVE
-    : remote.objective;
+  const objective = /pilot\s*04/i.test(remote.objective)
+    ? PILOT_04_OBJECTIVE
+    : remote.objective.includes("vehicle comparison")
+      ? PILOT_03_OBJECTIVE
+      : remote.objective;
   const generation = await provider.generate({
     objective,
     ownerId: input.ownerId,
@@ -288,12 +291,18 @@ export async function executeDurableCodegenMockPipeline(
     return fail(generation.reason, generation.message);
   }
 
-  // Prefer Pilot 03 allowed paths when objective matches; otherwise keep mock paths.
+  // Prefer Pilot allowlisted paths when objective matches; otherwise keep mock paths.
   let proposals = generation.proposals;
-  if (objective === PILOT_03_OBJECTIVE) {
+  const pilotFiles =
+    objective === PILOT_04_OBJECTIVE || /pilot\s*04/i.test(objective)
+      ? PILOT_04_ALLOWED_FILES
+      : objective === PILOT_03_OBJECTIVE
+        ? PILOT_03_ALLOWED_FILES
+        : null;
+  if (pilotFiles) {
     proposals = generation.proposals.map((p) => {
       const base = path.posix.basename(p.relativePath);
-      const mapped = PILOT_03_ALLOWED_FILES.find((f) => f.endsWith(`/${base}`));
+      const mapped = pilotFiles.find((f) => f.endsWith(`/${base}`));
       return mapped ? { ...p, relativePath: mapped } : p;
     });
   }

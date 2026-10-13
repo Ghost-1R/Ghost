@@ -8,7 +8,7 @@ import {
 } from "@/lib/approvals/workflow";
 import { createRemoteDevTask, transitionRemoteDevTask } from "./contract";
 import {
-  elapsedMsSinceTaskCreated,
+  elapsedMsSinceExecutionStart,
   gateRemoteDevQueue,
   gateRemoteDevStep,
 } from "./authorization-gate";
@@ -312,7 +312,7 @@ export function queueDevelopmentTask(
   const gate = gateRemoteDevQueue(auth, session.task, {
     at,
     estimatedCostUsd: plannedCost,
-    elapsedMs: elapsedMsSinceTaskCreated(session.task, at),
+    // maxDuration starts at queue/claim — approval wait does not burn runtime.
   });
   if (!gate.ok) {
     return { ok: false, reason: gate.reason, message: gate.message };
@@ -375,7 +375,7 @@ export function runSimulatedExecution(
     authorizationConsumed: session.authorizationConsumed || memoryIsAuthConsumed(auth.id),
     at,
     estimatedCostUsd: session.task.spending.maxEstimatedCostUsd,
-    elapsedMs: elapsedMsSinceTaskCreated(session.task, at),
+    elapsedMs: elapsedMsSinceExecutionStart(session.task, at),
   });
   if (!stepGate.ok) {
     return { ok: false, reason: stepGate.reason, message: stepGate.message };

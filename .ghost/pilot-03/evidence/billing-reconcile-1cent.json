@@ -1,0 +1,93 @@
+{
+  "EXTERNAL_CHARGE_CONFIRMED": true,
+  "CONFIRMED_CHARGE_CENTS": 1,
+  "attribution": {
+    "founderReportedUsd": 0.01,
+    "founderReportedCents": 1,
+    "matchingLiveDispatches": 1,
+    "taskId": "8bdfde20-2f66-4518-9aea-6e632001fe7f",
+    "note": "Founder-confirmed OpenAI dashboard usage of $0.01 after Pilot 03 first LIVE request; one LIVE_PROVIDER dispatch exists for this task."
+  },
+  "preflight": {
+    "taskStatus": "FAILED",
+    "authStatus": "CONSUMED",
+    "authUses": 1,
+    "dispatchStatuses": [
+      "FAILED"
+    ],
+    "holdBefore": {
+      "id": "0e2aabff-8e20-4bdc-afe0-10674c986874",
+      "status": "OPEN",
+      "task_key": "billing-uncertain-hold-8bdfde20-2f66-4518-9aea-6e632001fe7f",
+      "estimated_cents": 100,
+      "idempotency_key": "billing-uncertain-hold-8bdfde20-2f66-4518-9aea-6e632001fe7f",
+      "created_at": "2026-10-13T05:36:39.09961+00:00",
+      "closed_at": null
+    },
+    "eventsBefore": [
+      {
+        "event_type": "RESERVE",
+        "amount_cents": 100,
+        "detail": "Reserved for in-flight AI task",
+        "idempotency_key": "reserve-codegen-live-8bdfde20-2f66-4518-9aea-6e632001fe7f:event",
+        "created_at": "2026-10-13T05:23:07.90691+00:00"
+      },
+      {
+        "event_type": "RELEASE",
+        "amount_cents": 100,
+        "detail": "Released unused reservation",
+        "idempotency_key": "release-genfail-codegen-live-8bdfde20-2f66-4518-9aea-6e632001fe7f",
+        "created_at": "2026-10-13T05:23:51.654729+00:00"
+      },
+      {
+        "event_type": "ALERT",
+        "amount_cents": 100,
+        "detail": "BILLING_UNCERTAIN_HOLD after empty LIVE OpenAI response; external spend unconfirmed; do not treat as $0",
+        "idempotency_key": "usage-billing-uncertain-hold-8bdfde20-2f66-4518-9aea-6e632001fe7f",
+        "created_at": "2026-10-13T05:36:39.09961+00:00"
+      }
+    ]
+  },
+  "RESERVATION_STATUS": "RECONCILED",
+  "ALLOWANCE_CENTS": 100,
+  "RESERVED_CENTS": 0,
+  "CHARGED_CENTS": 1,
+  "AVAILABLE_CENTS": 99,
+  "IDEMPOTENCY_VERIFIED": true,
+  "ORIGINAL_TASK_STATUS": "FAILED",
+  "ORIGINAL_AUTHORIZATION_STATUS": "CONSUMED/uses=1",
+  "CROSS_OWNER_ISOLATION": true,
+  "eventsAfter": [
+    {
+      "event_type": "RESERVE",
+      "amount_cents": 100,
+      "detail": "Reserved for in-flight AI task",
+      "idempotency_key": "reserve-codegen-live-8bdfde20-2f66-4518-9aea-6e632001fe7f:event",
+      "created_at": "2026-10-13T05:23:07.90691+00:00"
+    },
+    {
+      "event_type": "RELEASE",
+      "amount_cents": 100,
+      "detail": "Released unused reservation",
+      "idempotency_key": "release-genfail-codegen-live-8bdfde20-2f66-4518-9aea-6e632001fe7f",
+      "created_at": "2026-10-13T05:23:51.654729+00:00"
+    },
+    {
+      "event_type": "ALERT",
+      "amount_cents": 100,
+      "detail": "BILLING_UNCERTAIN_HOLD after empty LIVE OpenAI response; external spend unconfirmed; do not treat as $0",
+      "idempotency_key": "usage-billing-uncertain-hold-8bdfde20-2f66-4518-9aea-6e632001fe7f",
+      "created_at": "2026-10-13T05:36:39.09961+00:00"
+    },
+    {
+      "event_type": "CHARGE",
+      "amount_cents": 1,
+      "detail": "Reconciled provider usage against reservation",
+      "idempotency_key": "reconcile-billing-hold-8bdfde20-2f66-4518-9aea-6e632001fe7f-1cent",
+      "created_at": "2026-10-13T05:42:47.612766+00:00"
+    }
+  ],
+  "PRODUCTION_UNCHANGED": true,
+  "LIVE_FLAG": "0",
+  "PROVIDER_CALLS": 0
+}

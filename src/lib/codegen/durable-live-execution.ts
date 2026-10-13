@@ -33,8 +33,14 @@ import { validateGeneratedInDocker } from "./docker-validate-generated";
 import { isUncertainBillingReason, verifyPilot03LiveFounderScope } from "./live-scope";
 import { materializeProposals, cleanupWorkspace } from "./materialize";
 import { createOpenAiHttpCodingAdapter, type OpenAiHttpAdapterOptions } from "./openai-http";
-import { estimateOpenAiCostUsd, PILOT_03_MAX_TRIAL_CENTS } from "./openai-models";
+import {
+  estimateOpenAiCostUsd,
+  PILOT_03_MAX_TRIAL_CENTS,
+  PILOT_LIVE_TOKEN_STRATEGY,
+  OPENAI_LIVE_TIMEOUT_MS,
+} from "./openai-models";
 import { PILOT_03_ALLOWED_FILES, PILOT_03_OBJECTIVE } from "./pilot03-constants";
+import { PILOT_04_ALLOWED_FILES, PILOT_04_OBJECTIVE } from "./pilot04-constants";
 import { isCodegenLiveEnabled } from "./provider-config";
 import { DEFAULT_CODING_BUDGET } from "./types";
 
@@ -317,11 +323,14 @@ export async function executeDurableCodegenLivePipeline(
     env: { ...env, ...(input.adapterOptions?.env ?? {}) },
     model: scope.contract.model,
     maxRetries: 0,
+    timeoutMs: OPENAI_LIVE_TIMEOUT_MS,
   });
 
-  const objective = remote.objective.includes("vehicle comparison")
-    ? PILOT_03_OBJECTIVE
-    : remote.objective;
+  const objective = /pilot\s*04/i.test(remote.objective)
+    ? PILOT_04_OBJECTIVE
+    : remote.objective.includes("vehicle comparison")
+      ? PILOT_03_OBJECTIVE
+      : remote.objective;
 
   const generation = await adapter.generate({
     objective,
@@ -334,11 +343,11 @@ export async function executeDurableCodegenLivePipeline(
     budget: {
       ...DEFAULT_CODING_BUDGET,
       maxCostUsd: estimatedCents / 100,
-      maxInputTokens: 4_000,
-      maxOutputTokens: 4_000,
-      maxDurationMs: 60_000,
-      maxRetries: 0,
-      maxOutputBytes: 200_000,
+      maxInputTokens: PILOT_LIVE_TOKEN_STRATEGY.maxInputTokens,
+      maxOutputTokens: PILOT_LIVE_TOKEN_STRATEGY.maxCompletionTokens,
+      maxDurationMs: PILOT_LIVE_TOKEN_STRATEGY.maxDurationMs,
+      maxRetries: PILOT_LIVE_TOKEN_STRATEGY.maxRetries,
+      maxOutputBytes: PILOT_LIVE_TOKEN_STRATEGY.maxOutputBytes,
     },
     idempotencyKey: `gen-${dispatchKey}`,
     at,
@@ -346,32 +355,114 @@ export async function executeDurableCodegenLivePipeline(
 
   if (!generation.ok) {
     const uncertain = isUncertainBillingReason(generation.reason);
+    const usage = "usage" in generation ? generation.usage : undefined;
+    const providerMeta = "providerMeta" in generation ? generation.providerMeta : undefined;
+    const metaSuffix = providerMeta
+      ? ` http=${providerMeta.httpStatus} finish=${providerMeta.finishReason ?? "unknown"} resp=${providerMeta.responseId ?? "none"}`
+      : "";
+    const detailBase = uncertain
+      ? `UNCERTAIN_BILLING:${generation.reason}:${generation.message}${metaSuffix}`
+      : `${generation.reason}:${generation.message}${metaSuffix}`;
+
     await db(supabase)
       .from("codegen_provider_dispatches")
       .update({
         status: "FAILED",
-        detail: uncertain
-          ? `UNCERTAIN_BILLING:${generation.reason}:${generation.message}`.slice(0, 4000)
-          : `${generation.reason}:${generation.message}`.slice(0, 4000),
+        detail: detailBase.slice(0, 4000),
         updated_at: at,
       })
       .eq("owner_id", input.ownerId)
       .eq("idempotency_key", dispatchKey);
 
-    if (!uncertain) {
+    let reservationPreserved = uncertain;
+    if (uncertain && usage) {
+      // Empty/failed content with usable usage — charge actual cents; do not release as unused.
+      const chargeCents = Math.min(
+        estimatedCents,
+        Math.max(0, Math.ceil(usage.estimatedCostUsd * 100 - 1e-12)),
+      );
+      const charged = await reconcileSqlAllowance(supabase, {
+        ownerId: input.ownerId,
+        reservationId: reserved.reservationId,
+        actualCents: chargeCents,
+        idempotencyKey: `charge-empty-${dispatchKey}`,
+      });
+      reservationPreserved = !charged.ok;
+    } else if (!uncertain) {
       await releaseSqlAllowance(supabase, {
         ownerId: input.ownerId,
         reservationId: reserved.reservationId,
         idempotencyKey: `release-genfail-${dispatchKey}`,
       });
+      reservationPreserved = false;
     }
+
+    // Provider errors after claim must leave a terminal remote-dev status (never stuck RUNNING).
+    const currentBundle = await loadDurableDevelopmentBundle(supabase, input.ownerId, input.remoteTaskId);
+    if (currentBundle.ok && currentBundle.data.remote.status === "RUNNING") {
+      const failed = transitionRemoteDevTask(currentBundle.data.remote, "FAILED", {
+        ownerId: input.ownerId,
+        at,
+        detail: `LIVE_PROVIDER generation failed: ${generation.reason}`,
+      });
+      if (failed.ok) {
+        await updateRemoteDevTaskState(
+          supabase,
+          {
+            ...failed.task,
+            evidence: {
+              repository: currentBundle.data.remote.git.repository,
+              baseCommitSha: currentBundle.data.remote.git.baseCommitSha,
+              taskBranch: currentBundle.data.remote.git.taskBranch,
+              commitSha: null,
+              pullRequestRef: null,
+              testResultsRef: null,
+              artifactHashes: [],
+              verificationState: "FAILED",
+              providerClaimedAt: at,
+              independentlyCheckedAt: null,
+              executionMode: "LIVE_PROVIDER",
+            },
+            lastError: {
+              code: generation.reason,
+              message: generation.message.slice(0, 2000),
+              retryable: false,
+              at,
+            },
+          },
+          { expectedStatus: "RUNNING" },
+        );
+      }
+    }
+    if (agent) {
+      await persistAgentTaskState(supabase, {
+        ...agent,
+        status: "CANCELLED",
+        blockReason: `LIVE_PROVIDER failed: ${generation.reason}`.slice(0, 2000),
+        completedAt: at,
+        updatedAt: at,
+        authorizationConsumed: true,
+      });
+    }
+
+    await appendRemoteDevReviewEvent(supabase, {
+      ownerId: input.ownerId,
+      projectId: remote.projectId,
+      remoteDevelopmentTaskId: remote.id,
+      agentTaskId: remote.agentTaskId,
+      authorizationId: remote.binding.authorizationId,
+      eventType: uncertain ? "CODEGEN_LIVE_BILLING_UNCERTAIN" : "CODEGEN_LIVE_FAILED",
+      detail: detailBase.slice(0, 4000),
+      scopeFingerprint: remote.binding.scopeFingerprint,
+    });
+
     return fail(generation.reason, generation.message, {
-      reservationPreserved: uncertain,
+      reservationPreserved,
       liveHttpInvoked: true,
     });
   }
 
-  const allowed = new Set<string>(PILOT_03_ALLOWED_FILES);
+  const allowed = new Set<string>([...PILOT_03_ALLOWED_FILES, ...PILOT_04_ALLOWED_FILES]);
   const proposals = generation.proposals.filter((p) => allowed.has(p.relativePath));
   if (proposals.length === 0 || proposals.length !== generation.proposals.length) {
     // Clear path rejection after successful response with usage — reconcile actual usage first.
@@ -400,7 +491,7 @@ export async function executeDurableCodegenLivePipeline(
       .eq("idempotency_key", dispatchKey);
     return fail(
       "OUTPUT_PATH_NOT_ALLOWED",
-      "Provider returned paths outside Pilot 03 allowlist. Usage reconciled; founder must review.",
+      "Provider returned paths outside Pilot 03/04 allowlist. Usage reconciled; founder must review.",
       { liveHttpInvoked: true },
     );
   }

@@ -32,6 +32,7 @@ export type GeneratedDockerValidation =
 /** Only these relative test entrypoints may run inside Docker. */
 export const CODEGEN_DOCKER_TEST_ALLOWLIST = [
   "generated/pilot-03-vehicle-comparison/test.mjs",
+  "generated/pilot-04-vehicle-comparison/test.mjs",
   "generated/vehicle-comparison/test.mjs",
 ] as const;
 

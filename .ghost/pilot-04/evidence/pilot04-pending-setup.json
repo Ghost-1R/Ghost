@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "isolation": {
+    "ghostPort": "54322",
+    "disposablePort": "55432",
+    "apiPort": "54331"
+  },
+  "TITLE": "Generate Responsive Vehicle Comparison Component — Pilot 04",
+  "OBJECTIVE": "Generate original HTML, CSS, and JavaScript for a responsive vehicle comparison component with three fictional rental cars, prices, features, and accessible interactive selection. Pilot 04.",
+  "PILOT_04_REMOTE_TASK_ID": "b28e3536-bb16-4ce9-b427-f056aac73e39",
+  "PILOT_04_AUTHORIZATION_ID": "4e36f06e-5a54-45b4-afd8-4d3d1c665e91",
+  "PROJECT_ID": "f5397422-1c9d-4ef5-b639-8eee89981f5e",
+  "FOUNDER_ID": "adcc741f-1570-472f-9bf4-ef44028f57fc",
+  "AUTH_STATUS": "PENDING",
+  "AUTH_USES": 0,
+  "REMOTE_STATUS": "AWAITING_APPROVAL",
+  "MAX_SPEND_USD": 0.99,
+  "WORST_CASE_ESTIMATE_CENTS": 3,
+  "ALLOWANCE_AVAILABLE_CENTS": 99,
+  "ALLOWANCE_CHARGED_CENTS": 1,
+  "ALLOWANCE_TOPPED_UP": false,
+  "LIVE_ENABLED": false,
+  "PILOT_03_AUTH_REUSED": false,
+  "DEPLOYMENT_GRANTED": false,
+  "PROVIDER_CALLS": 0
+}

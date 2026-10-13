@@ -4,7 +4,7 @@ import { simulateConcurrentOneTimeConsumption } from "@/lib/agent-runtime/consum
 import { scopeFingerprint } from "@/lib/approvals/workflow";
 import { OWNER_ID, PROJECT_ID } from "@/lib/agent-runtime/test-helpers";
 import {
-  elapsedMsSinceTaskCreated,
+  elapsedMsSinceExecutionStart,
   gateRemoteDevQueue,
   gateRemoteDevStep,
 } from "./authorization-gate";
@@ -127,7 +127,7 @@ test("memory CAS consumption admits exactly one ONE_TIME winner", () => {
   assert.equal(race.finalStatus, "CONSUMED");
 });
 
-test("queue path enforces duration budget; over-budget estimate fails closed", () => {
+test("queue allows delayed approval; over-budget estimate still fails closed", () => {
   resetRemoteDevMemoryStore();
   const created = createDevelopmentRequest(
     baseRequest({
@@ -142,9 +142,11 @@ test("queue path enforces duration budget; over-budget estimate fails closed", (
   assert.equal(approved.ok, true);
   if (!approved.ok) return;
 
-  const overTime = queueDevelopmentTask(approved.session);
-  assert.equal(overTime.ok, false);
-  if (!overTime.ok) assert.equal(overTime.reason, "DURATION_EXCEEDED");
+  // Creation age > maxDuration must not block queue (runtime starts at claim).
+  const delayed = queueDevelopmentTask(approved.session);
+  assert.equal(delayed.ok, true);
+  if (!delayed.ok) return;
+  assert.equal(delayed.session.authorization.status, "CONSUMED");
 
   const fresh = createDevelopmentRequest(baseRequest({ maxEstimatedCostUsd: 2 }));
   assert.equal(fresh.ok, true);
@@ -234,7 +236,7 @@ test("step gate rechecks duration after recovery-style elapsed growth", () => {
   assert.equal(queued.ok, true);
   if (!queued.ok) return;
 
-  const elapsed = elapsedMsSinceTaskCreated(queued.session.task, new Date().toISOString());
+  const elapsed = elapsedMsSinceExecutionStart(queued.session.task, new Date().toISOString());
   assert.ok(elapsed < queued.session.task.duration.maxDurationMs);
 
   const denied = gateRemoteDevStep(queued.session.authorization, queued.session.task, {

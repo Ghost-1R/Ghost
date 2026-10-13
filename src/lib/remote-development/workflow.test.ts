@@ -130,7 +130,7 @@ test("rejects pending, revoked, expired, and mismatched authorization at queue",
   assert.equal(gate.ok, false);
 });
 
-test("budget and duration limits enforced at gate", () => {
+test("budget enforced at queue; duration wait-for-approval does not block queue", () => {
   resetRemoteDevMemoryStore();
   const created = createDevelopmentRequest(baseRequest({ maxEstimatedCostUsd: 2 }));
   assert.equal(created.ok, true);
@@ -144,11 +144,11 @@ test("budget and duration limits enforced at gate", () => {
   assert.equal(overBudget.ok, false);
   if (!overBudget.ok) assert.equal(overBudget.reason, "BUDGET_EXCEEDED");
 
-  const overTime = gateRemoteDevQueue(approved.session.authorization, approved.session.task, {
+  // Queue ignores elapsedMs — approval wait must not burn the execution runtime budget.
+  const delayedApproval = gateRemoteDevQueue(approved.session.authorization, approved.session.task, {
     elapsedMs: approved.session.task.duration.maxDurationMs + 1,
   });
-  assert.equal(overTime.ok, false);
-  if (!overTime.ok) assert.equal(overTime.reason, "DURATION_EXCEEDED");
+  assert.equal(delayedApproval.ok, true);
 });
 
 test("cross-owner isolation on review and approval", () => {

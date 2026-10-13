@@ -86,6 +86,7 @@ test("OpenAI GPT-5 request uses max_completion_tokens and omits max_tokens/tempe
   assert.equal(typeof body.max_completion_tokens, "number");
   assert.equal("max_tokens" in body, false);
   assert.equal("temperature" in body, false);
+  assert.equal(body.reasoning_effort, "low");
   assert.deepEqual(body.response_format, { type: "json_object" });
   assert.equal(String(body.messages ? "ok" : ""), "ok");
 });
@@ -383,6 +384,106 @@ test("auth required; development never grants deployment; official API URL const
     env: { GHOST_CODEGEN_LIVE_ENABLED: "1", OPENAI_API_KEY: "sk-test" },
   });
   assert.equal(rev.ok, false);
+});
+
+test("empty visible content preserves usage metadata and is not a free clear failure", async () => {
+  const env = {
+    GHOST_CODEGEN_LIVE_ENABLED: "1",
+    OPENAI_API_KEY: "sk-test-mock-key-not-real",
+    GHOST_NO_LIVE_PROVIDER_CALLS: "1",
+  };
+  const adapter = createOpenAiHttpCodingAdapter({
+    env,
+    fetchImpl: mockOpenAiFetch(() =>
+      new Response(
+        JSON.stringify({
+          id: "chatcmpl-test-empty",
+          choices: [
+            {
+              message: { content: "" },
+              finish_reason: "length",
+            },
+          ],
+          usage: {
+            prompt_tokens: 120,
+            completion_tokens: 4000,
+            completion_tokens_details: { reasoning_tokens: 3990 },
+          },
+        }),
+        { status: 200 },
+      ),
+    ),
+    model: "gpt-5-mini",
+  });
+  const result = await adapter.generate({
+    objective: PILOT_03_OBJECTIVE,
+    ownerId: randomUUID(),
+    projectId: randomUUID(),
+    authorizationId: randomUUID(),
+    environmentLabel: "LOCAL_PILOT_03",
+    classification: "PUBLIC",
+    allowedRelativeRoots: ["generated"],
+    budget: baseBudget,
+    idempotencyKey: "empty-content-usage",
+  });
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.reason, "EMPTY_PROVIDER_CONTENT");
+    assert.ok(result.usage);
+    assert.equal(result.usage?.inputTokens, 120);
+    assert.equal(result.usage?.outputTokens, 4000);
+    assert.equal(result.providerMeta?.finishReason, "length");
+    assert.equal(result.providerMeta?.reasoningTokens, 3990);
+    assert.equal(result.providerMeta?.httpStatus, 200);
+  }
+});
+
+test("finish_reason=length with malformed JSON is TRUNCATED_OUTPUT not MALFORMED_RESPONSE", async () => {
+  const env = {
+    GHOST_CODEGEN_LIVE_ENABLED: "1",
+    OPENAI_API_KEY: "sk-test-mock-key-not-real",
+    GHOST_NO_LIVE_PROVIDER_CALLS: "1",
+  };
+  const adapter = createOpenAiHttpCodingAdapter({
+    env,
+    fetchImpl: mockOpenAiFetch(() =>
+      new Response(
+        JSON.stringify({
+          id: "chatcmpl-truncated",
+          choices: [
+            {
+              message: { content: '{"files":[{"relativePath":"generated/x.js","op":"CREATE","content":"incomp' },
+              finish_reason: "length",
+            },
+          ],
+          usage: {
+            prompt_tokens: 80,
+            completion_tokens: 12000,
+            completion_tokens_details: { reasoning_tokens: 200 },
+          },
+        }),
+        { status: 200 },
+      ),
+    ),
+    model: "gpt-5-mini",
+  });
+  const result = await adapter.generate({
+    objective: PILOT_03_OBJECTIVE,
+    ownerId: randomUUID(),
+    projectId: randomUUID(),
+    authorizationId: randomUUID(),
+    environmentLabel: "LOCAL_PILOT_03",
+    classification: "PUBLIC",
+    allowedRelativeRoots: ["generated"],
+    budget: { ...baseBudget, maxOutputTokens: 12_000 },
+    idempotencyKey: "truncated-malformed",
+  });
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.reason, "TRUNCATED_OUTPUT");
+    assert.equal(result.usage?.outputTokens, 12000);
+    assert.equal(result.providerMeta?.finishReason, "length");
+  }
 });
 
 test("path escape / secret-bearing output rejected", async () => {
