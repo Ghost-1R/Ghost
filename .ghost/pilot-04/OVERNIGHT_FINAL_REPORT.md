@@ -12,7 +12,7 @@ ENVIRONMENT: Windows Cursor Desktop — worktree `C:\Users\Badge\Documents\ghost
 STARTING_BRANCH: `cursor/pilot-04-first-success-prep`  
 STARTING_COMMIT: `d6eafeefe48382a63300b0eb0f53d23861f7c23c`  
 FINAL_BRANCH: `cursor/pilot-04-first-success-prep`  
-FINAL_COMMIT: _(see git log after local checkpoint commit)_  
+FINAL_COMMIT: `730696c40794b55eeaa8fe98952ff8e3ce5fa643`  
 
 PILOT_03_ORIGINAL_TASK: `8bdfde20-2f66-4518-9aea-6e632001fe7f`  
 PILOT_03_AUTHORIZATION: `5aee1635-62c3-4ab6-8237-060ee4bc1b16`  
