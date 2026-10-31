@@ -215,6 +215,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <StatusBadge status={detail.status} />
         </div>
         <nav className="project-home-lanes" aria-label="Project workflows">
+          <Link href={`/projects/${detail.id}/workspace`}>Worker Workspace</Link>
           <Link href={`/projects/${detail.id}/architect`}>Architect</Link>
           <Link href={`/projects/${detail.id}/architecture`}>Architecture</Link>
           <Link href={`/projects/${detail.id}/build-plan`}>Build Plan</Link>

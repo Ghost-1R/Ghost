@@ -167,6 +167,12 @@ export async function executeDurableCodegenLivePipeline(
     authorization,
   });
   if (!scope.ok) return fail(scope.reason, scope.message);
+  if (scope.contract.dispatch !== "LIVE") {
+    return fail(
+      "DISPATCH_DISABLED",
+      "Approved fingerprint does not authorize paid dispatch. GHOST_CODEGEN_LIVE_ENABLED cannot override dispatch=DISABLED.",
+    );
+  }
 
   const estimatedCents = Math.min(
     PILOT_03_MAX_TRIAL_CENTS,

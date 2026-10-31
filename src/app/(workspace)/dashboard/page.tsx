@@ -20,8 +20,10 @@ import {
 } from "@/lib/dashboard/ceo";
 import { ProjectTruthPanel } from "@/components/operations/project-truth-panel";
 import { loadCeoSignals } from "@/lib/dashboard/ceo-queries";
+import { buildControlCenterBoard, controlCenterHref } from "@/lib/dashboard/control-center";
 import { resolveFounderDecision } from "@/lib/decisions/actions";
 import { loadOpenDecisions } from "@/lib/decisions/queries";
+import { loadFounderAuthorizations } from "@/lib/approvals/queries";
 import { loadTodayActions } from "@/lib/operations/actions";
 import { loadRecentActivity } from "@/lib/operations/activity";
 import {
@@ -59,12 +61,13 @@ export default async function DashboardPage() {
     .maybeSingle();
   const greeting = companionGreeting(profile.data?.display_name);
 
-  const [projects, conversation, today, openDecisions, agentTaskSurface] = await Promise.all([
+  const [projects, conversation, today, openDecisions, agentTaskSurface, authorizations] = await Promise.all([
     loadProjectSummaries(session.supabase),
     loadLatestConversation(session.supabase, null),
     loadTodayActions(session.supabase),
     loadOpenDecisions(session.supabase),
-    loadAgentTaskSurface(session.supabase, { limit: 12 }),
+    loadAgentTaskSurface(session.supabase, { limit: 24 }),
+    loadFounderAuthorizations(session.supabase, session.user.id),
   ]);
 
   const projectList = projects.status === "ok" ? projects.data : [];
@@ -156,6 +159,11 @@ export default async function DashboardPage() {
       : Promise.resolve(null),
     loadRecentActivity(session.supabase, 8),
   ]);
+
+  const board = buildControlCenterBoard(
+    agentTaskRows,
+    authorizations.status === "ok" ? authorizations.data : [],
+  );
 
   const activityItems = [
     ...(recentActivity.status === "ok" ? recentActivity.data : []),
@@ -275,6 +283,65 @@ export default async function DashboardPage() {
         </section>
       </div>
 
+      <section className="ghost-home-active" aria-labelledby="control-center-heading">
+        <div className="ghost-home-section-head ghost-home-section-head-row">
+          <div>
+            <p className="eyebrow">Founder control center</p>
+            <h2 id="control-center-heading">Worker activity</h2>
+          </div>
+          <Link href="/approvals">Approval Center</Link>
+        </div>
+        {agentTaskSurface.status === "error" ? (
+          <ErrorState message="Worker activity could not be loaded from persisted tasks." />
+        ) : authorizations.status === "error" ? (
+          <ErrorState message="Authorizations could not be loaded." />
+        ) : (
+          <ul className="worker-board worker-board-home">
+            {(
+              [
+                ["Queued", board.queued],
+                ["Running", board.running],
+                ["Blocked", board.blocked],
+                ["Failed", board.failed],
+                ["Completed", board.completed],
+                ["Awaiting approval", board.awaitingApproval],
+              ] as const
+            ).map(([label, rows]) => (
+              <li key={label}>
+                <p className="eyebrow">{label}</p>
+                <p className="worker-count">{rows.length}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        {board.running.length + board.queued.length + board.blocked.length === 0 &&
+        board.awaitingApproval.length === 0 ? (
+          <EmptyState>No persisted worker activity. Ghost does not invent in-flight work.</EmptyState>
+        ) : (
+          <ul className="ghost-home-rail-list">
+            {[...board.running, ...board.blocked, ...board.queued].slice(0, 6).map((row) => (
+              <li key={row.id}>
+                <p className="ceo-project-label">{row.projectName}</p>
+                <p>
+                  {row.status} · {row.actionType}
+                </p>
+                <Link href={controlCenterHref(row)}>Open workspace</Link>
+              </li>
+            ))}
+            {board.awaitingApproval.slice(0, 4).map((auth) => (
+              <li key={auth.id}>
+                <p className="ceo-project-label">{auth.projectName}</p>
+                <p>
+                  {auth.effectiveStatus} · {auth.actionType}
+                </p>
+                <p className="quiet">{auth.estimatedCost}</p>
+                <Link href="/approvals">Review authorization</Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {activeProject ? (
         <section className="ghost-home-active" aria-labelledby="active-project-heading">
           <div className="ghost-home-section-head ghost-home-section-head-row">
@@ -282,8 +349,8 @@ export default async function DashboardPage() {
               <p className="eyebrow">Active project</p>
               <h2 id="active-project-heading">{activeProject.projectName}</h2>
             </div>
-            <Link className="button" href={activeProject.href}>
-              Open Project Brain
+            <Link className="button" href={`/projects/${activeProject.projectId}/workspace`}>
+              Open worker workspace
             </Link>
           </div>
           <div className="ghost-home-active-body">

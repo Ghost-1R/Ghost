@@ -10,12 +10,13 @@ import {
   verifyPilot03LiveFounderScope,
 } from "./live-scope";
 
-function liveScope(): string {
+function liveScope(maxSpendUsd = 1): string {
   const built = buildCodegenTaskContract({
     providerId: "openai",
     model: "gpt-5-mini",
     classification: "PUBLIC",
-    maxSpendUsd: 1,
+    maxSpendUsd,
+    dispatch: "LIVE",
   });
   assert.equal(built.ok, true);
   if (!built.ok) throw new Error("contract");
@@ -81,12 +82,37 @@ test("verifyPilot03LiveFounderScope refuses wrong environment and missing deploy
   if (!env.ok) assert.equal(env.reason, "ENVIRONMENT_MISMATCH");
 });
 
+test("verifyPilot03LiveFounderScope refuses dispatch=DISABLED even when auth is consumed", () => {
+  const built = buildCodegenTaskContract({
+    providerId: "openai",
+    model: "gpt-5-mini",
+    classification: "PUBLIC",
+    maxSpendUsd: 0.98,
+  });
+  assert.equal(built.ok, true);
+  if (!built.ok) return;
+  assert.equal(built.contract.dispatch, "DISABLED");
+  const disabledScope = `repo:Ghost-1R/Ghost@cursor/pilot-05|obj:vehicle|${encodeCodegenScopeFragment(built.contract)}`;
+  const auth = makeApprovedCodingAuth({
+    status: "CONSUMED",
+    environmentLabel: "LOCAL_PILOT_05",
+  });
+  const denied = verifyPilot03LiveFounderScope({
+    actionScope: disabledScope,
+    environmentLabel: "LOCAL_PILOT_05",
+    authorization: auth,
+  });
+  assert.equal(denied.ok, false);
+  if (!denied.ok) assert.equal(denied.reason, "DISPATCH_DISABLED");
+});
+
 test("verifyPilot03LiveFounderScope accepts LOCAL_PILOT_04 with 99¢ remaining allowance ceiling", () => {
   const built = buildCodegenTaskContract({
     providerId: "openai",
     model: "gpt-5-mini",
     classification: "PUBLIC",
     maxSpendUsd: 0.99,
+    dispatch: "LIVE",
   });
   assert.equal(built.ok, true);
   if (!built.ok) return;

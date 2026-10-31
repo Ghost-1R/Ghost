@@ -67,6 +67,7 @@ function buildGroups(projectId: string | null): NavGroup[] {
         { href: "/ideas", label: "Idea Lab" },
         { href: projectId ? `${project}/architect` : "/projects", label: "Product Architect" },
         { href: projectId ? `${project}/architecture` : "/projects", label: "System Architecture" },
+        { href: projectId ? `${project}/workspace` : "/projects", label: "Worker Workspace" },
         { href: projectId ? `${project}/build-plan` : "/projects", label: "Build Plan" },
         { href: projectId ? `${project}/execution` : "/projects", label: "Build Execution" },
         { href: projectId ? `${project}/verification` : "/projects", label: "Verification" },

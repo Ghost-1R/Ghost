@@ -241,6 +241,27 @@ export async function loadAgentTaskByIdempotencyKey(
   return { status: "ok", data: data ? mapAgentTaskRow(data as TaskRow) : null };
 }
 
+export async function listAgentTasksForProject(
+  supabase: GhostClient,
+  ownerId: string,
+  projectId: string,
+  options?: { limit?: number },
+): Promise<QueryResult<AgentTask[]>> {
+  const { data, error } = await db(supabase)
+    .from("agent_tasks")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .eq("project_id", projectId)
+    .order("updated_at", { ascending: false })
+    .limit(options?.limit ?? 40);
+
+  if (error) {
+    if (isMissingTable(error.message)) return { status: "ok", data: [] };
+    return fromError(error);
+  }
+  return { status: "ok", data: ((data ?? []) as TaskRow[]).map(mapAgentTaskRow) };
+}
+
 export async function persistAgentTaskState(
   supabase: GhostClient,
   task: AgentTask,

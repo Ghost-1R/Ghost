@@ -14,7 +14,14 @@ import { PILOT_03_ALLOWED_FILES, PILOT_03_OBJECTIVE } from "./pilot03-constants"
 import type { CodingProviderId, DataClassification } from "./types";
 import { estimateTrialCostCents } from "./live-adapters";
 
-export type CodegenDispatchMode = "DISABLED" | "MOCK_ONLY";
+export type CodegenDispatchMode = "DISABLED" | "MOCK_ONLY" | "LIVE";
+
+const DISPATCH_MODES = new Set<CodegenDispatchMode>(["DISABLED", "MOCK_ONLY", "LIVE"]);
+
+export function parseDispatchMode(value: string | undefined): CodegenDispatchMode | null {
+  if (!value) return null;
+  return DISPATCH_MODES.has(value as CodegenDispatchMode) ? (value as CodegenDispatchMode) : null;
+}
 
 export type VerifiedCodingOption = {
   value: string;
@@ -139,6 +146,7 @@ export function buildCodegenTaskContract(input: {
   classification?: DataClassification;
   objective?: string;
   maxSpendUsd?: number;
+  dispatch?: CodegenDispatchMode;
   env?: Record<string, string | undefined>;
 }):
   | { ok: true; contract: CodegenTaskContract }
@@ -166,8 +174,16 @@ export function buildCodegenTaskContract(input: {
   }
 
   const liveFlag = isCodegenLiveEnabled(input.env);
-  // Dispatch never becomes live from this contract builder.
-  const dispatch: CodegenDispatchMode = input.providerId === "mock" ? "MOCK_ONLY" : "DISABLED";
+  // LIVE is never implied by the environment flag — founder scope must name it.
+  const dispatch: CodegenDispatchMode =
+    input.dispatch ?? (input.providerId === "mock" ? "MOCK_ONLY" : "DISABLED");
+  if (dispatch === "LIVE" && input.providerId === "mock") {
+    return {
+      ok: false,
+      reason: "DISPATCH_MISMATCH",
+      message: "Mock provider cannot carry LIVE dispatch.",
+    };
+  }
 
   return {
     ok: true,
@@ -216,13 +232,16 @@ export function parseCodegenScopeFragment(
   const providerId = map.get("provider") as CodingProviderId | undefined;
   const model = map.get("model");
   if (!providerId || !model) return null;
+  const dispatch = parseDispatchMode(map.get("dispatch"));
   const built = buildCodegenTaskContract({
     providerId,
     model,
     classification: (map.get("class") as DataClassification) || "PUBLIC",
     maxSpendUsd: Number(map.get("maxCents") ?? 100) / 100,
+    dispatch: dispatch ?? undefined,
   });
   if (!built.ok) return null;
+  if (dispatch && built.contract.dispatch !== dispatch) return null;
   return built.contract;
 }
 

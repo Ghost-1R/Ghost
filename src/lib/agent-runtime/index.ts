@@ -36,6 +36,7 @@ export {
   loadAgentTaskById,
   loadAgentTaskByIdempotencyKey,
   loadAgentTaskEvents,
+  listAgentTasksForProject,
   mapAgentTaskRow,
   persistAgentTaskState,
 } from "./queries";

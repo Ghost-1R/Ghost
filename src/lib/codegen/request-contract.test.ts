@@ -45,6 +45,33 @@ test("codegen contract encodes fingerprint fragment with deploy=false and disabl
   const parsed = parseCodegenScopeFragment(`repo:x@y|obj:z|${frag}`);
   assert.ok(parsed);
   assert.equal(parsed?.providerId, "openai");
+  assert.equal(parsed?.dispatch, "DISABLED");
+});
+
+test("parse preserves explicit LIVE dispatch and does not rewrite from env flag", () => {
+  const built = buildCodegenTaskContract({
+    providerId: "openai",
+    model: "gpt-5-mini",
+    maxSpendUsd: 0.98,
+    dispatch: "LIVE",
+    env: { GHOST_CODEGEN_LIVE_ENABLED: "0" },
+  });
+  assert.equal(built.ok, true);
+  if (!built.ok) return;
+  assert.equal(built.contract.dispatch, "LIVE");
+  const frag = encodeCodegenScopeFragment(built.contract);
+  assert.match(frag, /dispatch=LIVE/);
+  const parsed = parseCodegenScopeFragment(`repo:x@y|obj:z|${frag}`);
+  assert.equal(parsed?.dispatch, "LIVE");
+  const disabled = buildCodegenTaskContract({
+    providerId: "openai",
+    model: "gpt-5-mini",
+    maxSpendUsd: 0.98,
+    env: { GHOST_CODEGEN_LIVE_ENABLED: "1" },
+  });
+  assert.equal(disabled.ok, true);
+  if (!disabled.ok) return;
+  assert.equal(disabled.contract.dispatch, "DISABLED");
 });
 
 test("mock contract is MOCK_ONLY with zero estimate", () => {

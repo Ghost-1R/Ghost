@@ -10,7 +10,7 @@ import { PILOT_03_MAX_TRIAL_CENTS } from "./openai-models";
 export const PILOT_03_LIVE_PROVIDER = "openai" as const;
 export const PILOT_03_LIVE_MODEL = "gpt-5-mini" as const;
 export const PILOT_03_LIVE_CLASSIFICATION = "PUBLIC" as const;
-export const PILOT_03_LIVE_ENVIRONMENTS = ["LOCAL_PILOT_03", "LOCAL_PILOT_04"] as const;
+export const PILOT_03_LIVE_ENVIRONMENTS = ["LOCAL_PILOT_03", "LOCAL_PILOT_04", "LOCAL_PILOT_05"] as const;
 /** Hard per-request ceiling remains $1; Pilot 04 may authorize ≤ remaining allowance (e.g. 99¢). */
 export const PILOT_03_LIVE_MAX_CENTS = PILOT_03_MAX_TRIAL_CENTS;
 
@@ -116,11 +116,18 @@ export function verifyPilot03LiveFounderScope(input: {
       message: "Live scope must explicitly forbid deployment (deploy=false).",
     };
   }
+  if (contract.dispatch !== "LIVE") {
+    return {
+      ok: false,
+      reason: "DISPATCH_DISABLED",
+      message: `Paid live execution requires dispatch=LIVE in the approved fingerprint (got dispatch=${contract.dispatch}). The process LIVE flag cannot override this.`,
+    };
+  }
 
   return {
     ok: true,
     contract,
-    detail: `${PILOT_03_LIVE_PROVIDER}:${PILOT_03_LIVE_MODEL}|PUBLIC|max$${(contract.maxSpendCents / 100).toFixed(2)}|deploy=false|ONE_TIME|${input.environmentLabel}`,
+    detail: `${PILOT_03_LIVE_PROVIDER}:${PILOT_03_LIVE_MODEL}|PUBLIC|dispatch=LIVE|max$${(contract.maxSpendCents / 100).toFixed(2)}|deploy=false|ONE_TIME|${input.environmentLabel}`,
   };
 }
 

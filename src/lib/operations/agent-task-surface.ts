@@ -89,7 +89,7 @@ export function projectAgentTasksToActivity(
       title: `Agent task ${row.actionType}`,
       detail: detailParts.join(" · "),
       at: row.updatedAt,
-      href: `/projects/${row.projectId}`,
+      href: `/projects/${row.projectId}/workspace`,
     };
   });
 }
