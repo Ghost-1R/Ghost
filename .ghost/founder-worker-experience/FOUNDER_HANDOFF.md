@@ -2,7 +2,7 @@
 
 **Branch:** `cursor/pilot-04-first-success-prep`  
 **Tip before this continuation:** `7de7449`  
-**This tip:** see `git rev-parse HEAD` after the Next 16.4.1 + local verification commit  
+**This tip:** `5f9ad5c` (full `5f9ad5ce5d9ce769d96988b6ff0113e7c6d58c63`)  
 **Status:** Local only. Not pushed. Not deployed. `GHOST_CODEGEN_LIVE_ENABLED=0`. `GHOST_NO_LIVE_PROVIDER_CALLS=1`. No paid provider call.
 
 ## Worktree map (preserved)
