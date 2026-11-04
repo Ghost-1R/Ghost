@@ -36,7 +36,7 @@ import { loadProjectTruthSnapshot } from "@/lib/project-truth";
 import { loadProjectSummaries } from "@/lib/projects/queries";
 
 export const metadata: Metadata = {
-  title: "Home",
+  title: "Today",
 };
 
 /** Prefer a real display name; otherwise a neutral greeting (never an email handle). */
@@ -175,9 +175,11 @@ export default async function DashboardPage() {
   return (
     <div className="ghost-home">
       <header className="ghost-home-hero">
-        <p className="ghost-brand">GHOST</p>
+        <p className="ghost-brand">GHOST · TODAY</p>
         <h1>{greeting}</h1>
-        <p className="ghost-home-lede">Your second mind — ask, decide, and keep building.</p>
+        <p className="ghost-home-lede">
+          Priorities, blockers, and the next useful action — from persisted project truth only.
+        </p>
       </header>
 
       <section className="ghost-home-ask" id="ask-ghost" aria-labelledby="ask-heading">
@@ -202,7 +204,7 @@ export default async function DashboardPage() {
 
       <div className="ghost-home-triad">
         <section className="ghost-home-rail" aria-labelledby="truth-heading">
-          <h2 id="truth-heading">What is true</h2>
+          <h2 id="truth-heading">Blockers</h2>
           {redLights.length === 0 ? (
             <EmptyState>No known shipping blockers from connected evidence.</EmptyState>
           ) : (
@@ -223,7 +225,7 @@ export default async function DashboardPage() {
           aria-labelledby="decision-heading"
           id="waiting-on-me"
         >
-          <h2 id="decision-heading">Needs a decision</h2>
+          <h2 id="decision-heading">Priorities</h2>
           <p className="quiet">
             Judgment and executable authorizations are separate.{" "}
             <Link href="/approvals">Open Approval Center</Link>
@@ -260,7 +262,7 @@ export default async function DashboardPage() {
         </section>
 
         <section className="ghost-home-rail" aria-labelledby="next-heading">
-          <h2 id="next-heading">What happens next</h2>
+          <h2 id="next-heading">Next useful action</h2>
           {top3.length === 0 ? (
             <EmptyState>Nothing urgent is recorded. Ghost does not invent work.</EmptyState>
           ) : (

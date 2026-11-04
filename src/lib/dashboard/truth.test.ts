@@ -17,9 +17,10 @@ test("CEO home refuses fake analytics and hardcoding", () => {
   assert.ok(page.includes("buildRedLights"));
   assert.ok(page.includes("Ask Ghost"));
   assert.ok(page.includes("id=\"ask-ghost\""));
-  assert.ok(page.includes("What is true"));
-  assert.ok(page.includes("Needs a decision"));
-  assert.ok(page.includes("What happens next"));
+  assert.ok(page.includes("Blockers"));
+  assert.ok(page.includes("Priorities"));
+  assert.ok(page.includes("Next useful action"));
+  assert.ok(page.includes("TODAY") || page.includes("Today"));
   assert.ok(!/Cleaning Business/.test(page));
   assert.ok(!/78\s*%|Tasks completed|Bugs resolved|\$0 MRR|fake progress/i.test(page));
   assert.ok(!containsFakeProgressPercent(page));
@@ -44,34 +45,15 @@ test("imported BUILD projects still map pipeline for deeper OS views", () => {
   assert.equal(metrics.find((m) => m.key === "blockers")?.value, 1);
 });
 
-test("shell navigation keeps deep OS routes under progressive disclosure", () => {
+test("shell navigation is the founder-facing six destinations", () => {
   const shell = readFileSync(new URL("../../components/shell/app-shell.tsx", import.meta.url), "utf8");
-  for (const label of [
-    "Ask Ghost",
-    "Home",
-    "Active Project",
-    "Projects",
-    "Memory",
-    "Idea Lab",
-    "Product Architect",
-    "System Architecture",
-    "Worker Workspace",
-    "Build Plan",
-    "Build Execution",
-    "Verification",
-    "Deploy",
-    "Approvals",
-    "Remote Dev",
-    "Inspector",
-    "Presentation",
-    "Settings",
-  ]) {
-    assert.ok(shell.includes(`label: "${label}"`) || shell.includes(label), label);
+  for (const label of ["Today", "Projects", "Worker", "Files", "Decisions", "Settings"]) {
+    assert.ok(shell.includes(`label: "${label}"`), label);
   }
-  assert.ok(shell.includes("/development-tasks"), "Remote Dev surface must be linked");
-  assert.ok(!shell.includes("/agent-tasks"), "interface release must not expose Agent Tasks without schema");
-  assert.ok(shell.includes("collapsible"));
-  assert.ok(shell.includes("os-nav-collapse"));
-  assert.ok(shell.includes('label: "Build"'));
-  assert.ok(shell.includes('label: "System"'));
+  assert.ok(shell.includes("/files"));
+  assert.ok(shell.includes("/decisions"));
+  assert.ok(shell.includes("/workspace"));
+  assert.ok(!shell.includes("/agent-tasks"), "must not expose Agent Tasks without schema");
+  assert.ok(!shell.includes('label: "Build"'));
+  assert.ok(!shell.includes('label: "System"'));
 });

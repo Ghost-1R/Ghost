@@ -206,7 +206,7 @@ export default async function WorkerWorkspacePage({
         )}
         {current ? (
           <div className="worker-controls">
-            <ActionForm action={runWorkspaceMockTurn} submitLabel="Run bounded MOCK step">
+            <ActionForm action={runWorkspaceMockTurn} submitLabel="Start MOCK step">
               <input type="hidden" name="projectId" value={data.projectId} />
               <input type="hidden" name="taskId" value={current.id} />
             </ActionForm>

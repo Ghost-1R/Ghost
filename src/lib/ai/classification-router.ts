@@ -12,6 +12,7 @@ import {
   providerSatisfiesClassification,
 } from "@/lib/codegen/privacy";
 import type { CodingProviderId } from "@/lib/codegen/types";
+import { assertProviderQuotaAvailable } from "./provider-quotas";
 import { resolveModelProvider, type ProviderSelection } from "./provider";
 
 export type ClassificationRoute =
@@ -26,7 +27,11 @@ export type ClassificationRoute =
     }
   | {
       ok: false;
-      reason: "PRIVACY_MISMATCH" | "NOT_CONFIGURED" | "WEAKER_FALLBACK_FORBIDDEN";
+      reason:
+        | "PRIVACY_MISMATCH"
+        | "NOT_CONFIGURED"
+        | "WEAKER_FALLBACK_FORBIDDEN"
+        | "QUOTA_EXCEEDED";
       classification: DataClassification;
       message: string;
     };
@@ -77,6 +82,16 @@ export function routeProviderForClassification(input: {
       reason: privacy.reason,
       classification: input.classification,
       message: privacy.message,
+    };
+  }
+
+  const quota = assertProviderQuotaAvailable({ providerId: selection.providerId });
+  if (!quota.ok) {
+    return {
+      ok: false,
+      reason: "QUOTA_EXCEEDED",
+      classification: input.classification,
+      message: quota.message,
     };
   }
 

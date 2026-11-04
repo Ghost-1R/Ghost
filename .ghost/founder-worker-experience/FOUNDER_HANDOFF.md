@@ -1,95 +1,79 @@
-# Founder + worker experience — implementation handoff
+# Founder + worker experience — handoff (continued)
 
 **Branch:** `cursor/pilot-04-first-success-prep`  
-**Status:** Local implementation complete. Not pushed. Not deployed. LIVE=0. No paid provider call from this work.
+**Tip before this continuation:** `5976b83`  
+**Status:** Local only. Not pushed. Not deployed. `GHOST_CODEGEN_LIVE_ENABLED=0`. No paid provider call.
 
-## What shipped
+## Worktree map (preserved)
 
-One connected path on the existing systems:
+| Path | Branch | HEAD | Notes |
+|------|--------|------|-------|
+| `Documents/ghost-09-9d-db-verify` | `cursor/pilot-04-first-success-prep` | this tip | Active implementation |
+| `Documents/ghost` | `ghost-operations-09` | `243bf65` | Approval Center V1 — **untouched** |
+| `Documents/ghost-09-9b-docker-pilot` | detached | `bcfdaed` | Untouched |
 
-1. **Founder control center** (Home) shows persisted queued / running / blocked / failed / completed / awaiting-approval counts. No invented revenue or progress.
-2. **Worker workspace** at `/projects/[id]/workspace` binds project + idea-as-goal + conversation + plan + agent tasks + artifacts + approvals.
-3. **Bounded MOCK worker** runs one checkpointed step from the workspace. Pause / resume / cancel use real agent-task transitions.
-4. **Authorization repair:** `dispatch=DISABLED` blocks paid LIVE even if `GHOST_CODEGEN_LIVE_ENABLED=1`. LIVE must be named in the fingerprint.
-5. **Provider classification router** fails closed; missing credentials are setup-needed.
+Approval Center V1 (`243bf65`) is the **merge-base** of this branch. No cherry-pick required; this tip already contains it and extends remote-dev / worker / Pilot work on top.
+
+## Connected founder workflow
+
+Project → Goal (idea) → Worker chat → Plan → Bounded MOCK execution → Saved checkpoints → Review / Decisions → Verified result labels.
+
+Surfaces:
+
+- **Today** `/dashboard` — blockers, priorities, next useful action, worker board
+- **Projects** `/projects`
+- **Worker** `/projects/[id]/workspace` — chat, plan, tasks, Start/Pause/Resume/Cancel, artifacts, approvals
+- **Files** `/files` — persisted founder-private artifacts
+- **Decisions** `/decisions` — open decisions + PENDING authorizations
+- **Settings** `/settings`
+
+## Design
+
+Charcoal sidebar (`#2f3a44`), turquoise accent (`#14b8a6`), white raised cards, spacious radius, restrained motion, reduced-motion respected. Responsive breakpoints include **390**, **768**, and desktop width.
+
+## Authorization / privacy
+
+- `dispatch=DISABLED` refuses paid LIVE even if the process LIVE flag is on.
+- Consumed Pilot 05 auth is not reused; LIVE not enabled to bypass.
+- Five provider rules: server-side credentials, classify before route, no weaker privacy fallback, separate provider quotas/usage (`provider-quotas.ts`), fail closed.
 
 ## Startup
 
 ```bash
-# Web (isolated worktree)
 npx next dev -p 3012 -H 127.0.0.1
-
-# Optional in-process MOCK worker on the existing web process (no extra Render service)
-GHOST_WORKER_IN_PROCESS=1 npm run start
-
-# Dedicated worker process (same repo; do not add a paid Render add-on)
 npm run worker
+# optional in-process MOCK on existing web process:
+GHOST_WORKER_IN_PROCESS=1 npm run start
 ```
 
-A UI timer is not the worker. Workspace polling only refreshes status. Execution is `runBoundedMockWorkerTurn` / `npm run worker`.
+## Render release instructions (after local pass — do not deploy from this handoff)
 
-## Environment VARIABLE NAMES only
+1. Keep production on current Render service; do **not** attach a new paid worker service.
+2. Set env names only: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GHOST_CODEGEN_LIVE_ENABLED=0`, `GHOST_NO_LIVE_PROVIDER_CALLS=1`, optional `GHOST_WORKER_IN_PROCESS=1`, model keys server-side only.
+3. Deploy this branch only after founder review of the commit SHA.
+4. Confirm `/api/health` SHA matches the intended commit. Presentation Gate remains separate.
+5. Stay on Supabase Free. No `db reset`. Additive migrations only if later required (none in this change).
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `GHOST_CODEGEN_LIVE_ENABLED` (keep `0`)
-- `GHOST_WORKER_IN_PROCESS`
-- `GHOST_AGENT_EXECUTION_ENABLED` (workers stay contract-disabled)
-- `GHOST_NO_LIVE_PROVIDER_CALLS`
-- `GHOST_MODEL_PROVIDER`
-- `GROQ_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` (server-side only)
-
-## Migrations
-
-No new migration. Uses existing `agent_tasks`, `agent_review_artifacts`, `founder_action_authorizations`, `build_plans`, `ideas`, `ghost_conversations`. Rollback: revert this commit; no schema drop required.
-
-## Implemented / mocked / blocked
+## Implemented / locally verified / deployed
 
 | Area | State |
 |------|--------|
-| Authorization dispatch=DISABLED vs LIVE | Implemented |
-| Founder control center from persisted tasks | Implemented |
-| Worker workspace (chat, plan, tasks, artifacts, approvals) | Implemented |
-| Pause / resume / cancel | Implemented (legal transitions only) |
-| Bounded MOCK step + checkpoint | Implemented |
-| Progress without manual refresh | Implemented (authenticated poll `/api/workspace/[projectId]/status`) |
-| Classification fail-closed | Implemented |
-| Paid LIVE OpenAI | Blocked — fingerprint still `dispatch=DISABLED`; flag stays 0 |
-| Fresh LIVE pending authorization | Not created (founder did not authorize spend) |
-| Render extra background worker | Not required; document in-process flag |
-| Ivoire Shop / IM DISTRIBUTORS | Untouched |
-| Production / hosted Supabase | Untouched |
+| Simple nav + light charcoal/turquoise shell | Implemented + locally verified (design tests) |
+| Today / Files / Decisions / Worker controls | Implemented + unit verified |
+| dispatch=DISABLED blocks LIVE | Implemented + unit verified |
+| Provider classification + quotas | Implemented + unit verified |
+| Approval Center V1 | Already present via merge-base `243bf65` |
+| Browser responsive walkthrough | Blocked — Next CLI security-upgrade gate previously stopped `next dev`/`next build` after compile |
+| Paid LIVE / production deploy | Off / unchanged |
 
-## Pilot 05 recorded vs proposed LIVE scope
+## Checks performed
 
-Recorded (unchanged, CONSUMED):
+- Focused tests: **30 pass** (live-scope, request-contract, workspace, classification, quotas, design shell, dashboard truth, durable-live, in-process worker)
+- `GHOST_CODEGEN_LIVE_ENABLED=0` confirmed in `.env.local`
+- `tsc --noEmit` run after changes
 
-```
-dispatch=DISABLED
-fingerprint 41750dee744de6f6552bf9ffb5013604a16b5881b4d32dd894240599b06d8e7f
-```
+## Remaining blockers / founder decisions
 
-Proposed (NOT APPLIED) if founder later wants paid execution:
-
-```
-dispatch=LIVE
-fingerprint 4dcd2935c1ef79aeb276cc99b92e6528b6e3d214c746a4d41c8372f67b29e92e
-```
-
-That requires a **new** PENDING one-time authorization. Do not mutate the consumed record.
-
-## Tests run
-
-- Focused: live-scope, request-contract, workspace, classification-router, in-process-worker, dashboard truth, durable-live-execution — 27 pass
-- `tsc --noEmit` pass after artifact typing fix
-- `tsc --noEmit` pass
-- ESLint pass on changed files (full lint: 0 errors)
-- `next build` compiled routes including `/projects/[id]/workspace` and `/api/workspace/[projectId]/status`; the CLI then exited on a Next.js security-upgrade gate (not an app compile error)
-
-## Next founder step
-
-1. Open Home → Worker activity, then a project **Worker Workspace**.
-2. Persist a chat turn and, if a DRAFT/PLANNING/REVIEW plan exists, edit the summary.
-3. If a QUEUED agent task exists, run one MOCK step and confirm the label `MOCK_GENERATION`.
-4. Decide whether to create a new PENDING `dispatch=LIVE` authorization. Until then keep LIVE=0.
+1. Browser evidence blocked until Next security-upgrade prompt is handled without enabling LIVE.
+2. Whether to create a **new** PENDING `dispatch=LIVE` authorization (fingerprint `4dcd2935…`) — not done.
+3. When to deploy this branch to Render after founder review.
