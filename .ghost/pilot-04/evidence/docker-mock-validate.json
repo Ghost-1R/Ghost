@@ -1,0 +1,28 @@
+{
+  "ok": true,
+  "at": "2026-10-13T05:54:35.374Z",
+  "attribution": "MOCK_GENERATION",
+  "image": "node:22-alpine",
+  "user": "10001:10001",
+  "valid": {
+    "ok": true,
+    "passed": true,
+    "realContainerExecution": true,
+    "exitCode": 0,
+    "contentSha256": "5bb45a7c807c90b91a854b57799f8b3b535897ff05c6325e46f9c24fa16c1c98",
+    "detail": "Restricted Docker test passed (network=none).",
+    "verificationEligible": true
+  },
+  "invalid": {
+    "ok": true,
+    "passed": false,
+    "realContainerExecution": true,
+    "exitCode": 1,
+    "labeledVerified": false,
+    "detail": "Restricted Docker test failed (exit=1)."
+  },
+  "networkDisabled": true,
+  "readOnlyRoot": true,
+  "noDockerSocket": true,
+  "cleanup": true
+}

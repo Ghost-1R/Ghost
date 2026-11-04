@@ -1,3 +1,4 @@
+import { REDACTED, redactSecrets } from "../security/redact";
 import { evidenceFreshness } from "./freshness";
 import type {
   EvidenceCheckType,
@@ -181,7 +182,7 @@ export function customerHandoff(input: {
     "Demo",
     ...input.demo,
   ];
-  return lines.join("\n").replace(/sk-[A-Za-z0-9_-]{8,}/g, "[redacted]").replace(/password\s*[:=]\s*\S+/gi, "[redacted]");
+  return redactSecrets(lines.join("\n")).replace(/password\s*[:=]\s*\S+/gi, REDACTED);
 }
 
 export function requirementBlocksReady(status: RequirementStatus): boolean {

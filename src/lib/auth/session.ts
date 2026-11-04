@@ -26,6 +26,8 @@ export const getSession = cache(async (): Promise<SessionResult> => {
     return { status: "unconfigured" };
   }
 
+  // Server actions skip the proxy's auth check, so this verification must not
+  // be replaced by anything the proxy passes along.
   const { data, error } = await supabase.auth.getClaims();
   if (error || !data?.claims.sub) {
     return { status: "anonymous" };

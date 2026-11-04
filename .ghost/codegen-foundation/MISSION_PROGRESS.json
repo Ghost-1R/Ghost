@@ -1,0 +1,25 @@
+{
+  "mission": "SIX_HOUR_CODEGEN_FOUNDATION",
+  "startedAt": "2026-10-11T13:58:00Z",
+  "completedAt": "2026-10-11T14:20:00Z",
+  "startingBranch": "cursor/pilot-02-durable-supervised-execution",
+  "startingCommit": "1a4e3e6ea26bd50e1218e454038d43f6ca6002e7",
+  "phases": {
+    "1_verify": "DONE",
+    "2_pilot02_review": "DONE",
+    "3_path": "DONE",
+    "4_provider_security": "DONE",
+    "5_adapter": "DONE",
+    "6_mock_pilot": "DONE",
+    "7_failure_recovery": "DONE",
+    "8_quality": "DONE",
+    "9_handoff": "DONE"
+  },
+  "constraints": {
+    "liveProvider": false,
+    "production": false,
+    "ghostDb": false,
+    "autoAccept": false
+  },
+  "finalStatus": "GHOST_CODEGEN_FOUNDATION_READY"
+}

@@ -1,0 +1,9 @@
+{
+  "apiUrl": "http://127.0.0.1:54331",
+  "container": "supabase_db_ghost99f",
+  "dbPort": "55432",
+  "ghostDbPort": "54322",
+  "exitCode": 0,
+  "liveEnabled": false,
+  "at": "2026-10-12T14:56:11.895Z"
+}

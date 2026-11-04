@@ -1,0 +1,52 @@
+{
+  "build": "09.9F",
+  "finalStatus": "GHOST_09_9F_INTEGRATION_VERIFIED",
+  "executionEnvironment": "Windows_NT + Docker Desktop 29.8.1",
+  "verificationWorktree": "C:\\Users\\Badge\\Documents\\ghost-09-9d-db-verify",
+  "verificationHead": "5029993f44e946bc3a440eb643aafb123ebbd14d",
+  "mainCheckout": {
+    "path": "C:\\Users\\Badge\\Documents\\ghost",
+    "branch": "ghost-operations-09",
+    "head": "243bf6530b171a816ef015d64852c9b98f56c525",
+    "modified": false
+  },
+  "disposableSupabase": {
+    "projectDir": "C:\\Users\\Badge\\Documents\\ghost-09-9f-supabase",
+    "projectId": "ghost99f",
+    "apiUrl": "http://127.0.0.1:54331",
+    "dbUrlHost": "127.0.0.1:55432",
+    "dbContainer": "supabase_db_ghost99f",
+    "network": "supabase_network_ghost99f",
+    "volume": "supabase_db_ghost99f"
+  },
+  "isolation": {
+    "ghostApi": "54321",
+    "ghostDb": "54322",
+    "disposable99d": "55431 preserved",
+    "disposable99fApi": "54331",
+    "disposable99fDb": "55432",
+    "sharedGhostNetwork": false,
+    "sharedGhostVolume": false
+  },
+  "suites": {
+    "approvalsDb": "8 PASS",
+    "durableDb": "7 PASS / 1 SKIP",
+    "securityRegression": "9 PASS",
+    "apiPack": "18 PASS / 0 FAIL"
+  },
+  "gates": {
+    "typecheck": "PASS",
+    "lint": "PASS (0 errors; unused-var warning fixed)",
+    "build": "PASS"
+  },
+  "securityFindings": [
+    "DB still allows agent_tasks INSERT against REVOKED authorizations when binding fields match; app-layer revalidation remains mandatory. Model not changed."
+  ],
+  "productionModified": false,
+  "existingGhostDatabaseModified": false,
+  "pushed": false,
+  "merged": false,
+  "agentsActivated": false,
+  "readyForFirstSupervisedCodingPilot": true,
+  "at": "2026-10-11T03:10:00.000Z"
+}

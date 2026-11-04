@@ -1,0 +1,15 @@
+{
+  "os": "win32",
+  "branch": "cursor/pilot-04-first-success-prep",
+  "startingCommit": "d6eafeefe48382a63300b0eb0f53d23861f7c23c",
+  "dockerServer": "29.8.1",
+  "pilotServer3012": 200,
+  "ghost99fApiPort": "54331",
+  "ghost99fDbPort": "55432",
+  "protectedGhostDbPort": "54322",
+  "GHOST_CODEGEN_LIVE_ENABLED": "0",
+  "NEXT_PUBLIC_SUPABASE_URL": "http://127.0.0.1:54331",
+  "pilot03Preserved": true,
+  "hostedSupabaseWrites": false,
+  "productionModified": false
+}

@@ -1,14 +1,20 @@
 import type {
+  ActionPriority,
+  ActionProvenance,
   ActionStatus,
   BlockerStatus,
+  DecisionStatus,
   FounderRuleStatus,
   KnowledgeKind,
+  LifecycleStage,
   MemoryProposalStatus,
   MemoryScope,
   ProjectStatus,
   VerificationCategory,
   VerificationState,
 } from "@/lib/domain/status";
+import type { IdeaEvidenceType, IdeaReadiness, IdeaStatus, ValidationStatus } from "@/lib/ideas/types";
+import type { LifecycleActor } from "@/lib/lifecycle/stages";
 
 export type Json =
   | string
@@ -24,6 +30,46 @@ type Table<Row extends Record<string, unknown>, Insert extends Record<string, un
   Update: Partial<Insert>;
   Relationships: [];
 };
+
+/** Insert shape: the listed keys are required, every other column is optional (has a database default). */
+type DefaultedTable<Row extends Record<string, unknown>, Required extends keyof Row> = Table<
+  Row,
+  Pick<Row, Required> & Partial<Omit<Row, Required>>
+>;
+
+type SystemStatus = import("@/lib/system-architecture/types").SystemArchitectureStatus;
+type SystemRecord = import("@/lib/system-architecture/types").SystemRecordStatus;
+type SensitiveClassValue = import("@/lib/system-architecture/types").SensitiveClass;
+type BuildPlanStatusValue = import("@/lib/build-plan/types").BuildPlanStatus;
+type WorkPackageStatusValue = import("@/lib/build-plan/types").WorkPackageStatus;
+type WorkPackagePriorityValue = import("@/lib/build-plan/types").WorkPackagePriority;
+type DependencyEdgeKindValue = import("@/lib/build-plan/types").DependencyEdgeKind;
+type PathCertaintyValue = import("@/lib/build-plan/types").PathCertainty;
+type ArchitectureLinkKindValue = import("@/lib/build-plan/types").ArchitectureLinkKind;
+type VerificationKindValue = import("@/lib/build-plan/types").VerificationKind;
+type ManualActionStatusValue = import("@/lib/build-plan/types").ManualActionStatus;
+type BuildRiskSeverityValue = import("@/lib/build-plan/types").BuildRiskSeverity;
+type BuildExecutionStatusValue = import("@/lib/build-execution/types").BuildExecutionStatus;
+type PackageExecutionStatusValue = import("@/lib/build-execution/types").PackageExecutionStatus;
+type ImplementationEvidenceKindValue = import("@/lib/build-execution/types").ImplementationEvidenceKind;
+type ExecutionBlockerStatusValue = import("@/lib/build-execution/types").ExecutionBlockerStatus;
+type UpstreamChangeStatusValue = import("@/lib/build-execution/types").UpstreamChangeStatus;
+type UpstreamArtifactKindValue = import("@/lib/build-execution/types").UpstreamArtifactKind;
+type VerificationProgramStatusValue = import("@/lib/verification/types").VerificationProgramStatus;
+type VerificationCaseStatusValue = import("@/lib/verification/types").VerificationCaseStatus;
+type VerificationCaseKindValue = import("@/lib/verification/types").VerificationCaseKind;
+type VerificationEvidenceKindValue = import("@/lib/verification/types").VerificationEvidenceKind;
+type VerificationDefectStatusValue = import("@/lib/verification/types").VerificationDefectStatus;
+type VerificationDefectSeverityValue = import("@/lib/verification/types").VerificationDefectSeverity;
+type ReleaseStatusValue = import("@/lib/deployment-release/types").ReleaseStatus;
+type DeploymentAttemptStatusValue = import("@/lib/deployment-release/types").DeploymentAttemptStatus;
+type DeploymentEnvironmentTypeValue = import("@/lib/deployment-release/types").DeploymentEnvironmentType;
+type ConfigPresenceStatusValue = import("@/lib/deployment-release/types").ConfigPresenceStatus;
+type ReleaseMigrationStatusValue = import("@/lib/deployment-release/types").ReleaseMigrationStatus;
+type DeploymentHealthStatusValue = import("@/lib/deployment-release/types").DeploymentHealthStatus;
+type RollbackStatusValue = import("@/lib/deployment-release/types").RollbackStatus;
+type DeploymentManualActionStatusValue = import("@/lib/deployment-release/types").DeploymentManualActionStatus;
+type DeploymentEvidenceKindValue = import("@/lib/deployment-release/types").DeploymentEvidenceKind;
 
 export type Database = {
   public: {
@@ -49,6 +95,9 @@ export type Database = {
           name: string;
           slug: string;
           description: string;
+          kind: import("@/lib/access/types").CompanyKind;
+          site_url: string | null;
+          is_catalog: boolean;
           created_at: string;
           updated_at: string;
         },
@@ -58,9 +107,150 @@ export type Database = {
           name: string;
           slug: string;
           description?: string;
+          kind?: import("@/lib/access/types").CompanyKind;
+          site_url?: string | null;
+          is_catalog?: boolean;
           created_at?: string;
           updated_at?: string;
         }
+      >;
+      company_site_links: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          label: string;
+          url: string;
+          connected: boolean;
+          created_at: string;
+        },
+        "company_id" | "label" | "url"
+      >;
+      company_memberships: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          user_id: string;
+          role: import("@/lib/access/types").TeamRole;
+          invited_by: string | null;
+          revoked_at: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "company_id" | "user_id" | "role"
+      >;
+      project_memberships: {
+        Row: {
+          id: string;
+          project_id: string;
+          user_id: string;
+          role: import("@/lib/access/types").TeamRole;
+          company_membership_id: string | null;
+          revoked_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          user_id: string;
+          role: import("@/lib/access/types").TeamRole;
+          company_membership_id?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          project_id: string;
+          user_id: string;
+          role: import("@/lib/access/types").TeamRole;
+          company_membership_id: string | null;
+          revoked_at: string | null;
+        }>;
+        Relationships: [
+          {
+            foreignKeyName: "project_memberships_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      company_map_grants: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          user_id: string;
+          granted_by: string;
+          can_view_summaries: boolean;
+          revoked_at: string | null;
+          created_at: string;
+        },
+        "company_id" | "user_id" | "granted_by"
+      >;
+      team_invitations: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          email: string;
+          role: import("@/lib/access/types").TeamRole;
+          project_ids: string[];
+          token: string;
+          status: "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
+          invited_by: string;
+          preview_role: import("@/lib/access/types").TeamRole | null;
+          expires_at: string;
+          accepted_by: string | null;
+          accepted_at: string | null;
+          revoked_at: string | null;
+          created_at: string;
+        },
+        "company_id" | "email" | "role" | "token" | "invited_by"
+      >;
+      work_assignments: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          project_id: string;
+          next_action_id: string | null;
+          agent_task_id: string | null;
+          kind: import("@/lib/access/types").AssignmentKind;
+          status: import("@/lib/access/types").AssignmentStatus;
+          title: string;
+          instructions: string;
+          due_at: string | null;
+          assignee_user_id: string | null;
+          assigned_by: string;
+          progress_note: string;
+          submission_note: string;
+          submitted_at: string | null;
+          review_note: string;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          handed_off_from_assignment_id: string | null;
+          map_scope: Json | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "company_id" | "project_id" | "kind" | "title" | "assigned_by"
+      >;
+      project_activity_events: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          project_id: string | null;
+          actor_kind: "PERSON" | "AI" | "SYSTEM";
+          actor_user_id: string | null;
+          actor_label: string;
+          action: string;
+          summary: string;
+          record_type: string | null;
+          record_id: string | null;
+          metadata: Json;
+          external_unconnected: boolean;
+          created_at: string;
+        },
+        "company_id" | "actor_kind" | "action" | "summary"
       >;
       projects: Table<
         {
@@ -71,6 +261,7 @@ export type Database = {
           description: string;
           current_milestone: string;
           status: ProjectStatus;
+          lifecycle_stage: LifecycleStage;
           repository_url: string | null;
           repository_provider: string | null;
           repository_branch: string | null;
@@ -86,6 +277,7 @@ export type Database = {
           description?: string;
           current_milestone?: string;
           status?: ProjectStatus;
+          lifecycle_stage?: LifecycleStage;
           repository_url?: string | null;
           repository_provider?: string | null;
           repository_branch?: string | null;
@@ -138,6 +330,26 @@ export type Database = {
           provenance: string;
           status?: FounderRuleStatus;
           approved_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      founder_day_plans: Table<
+        {
+          id: string;
+          owner_id: string;
+          plan_date: string;
+          items: Json;
+          saved_at: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          owner_id: string;
+          plan_date: string;
+          items?: Json;
+          saved_at?: string;
           created_at?: string;
           updated_at?: string;
         }
@@ -195,6 +407,13 @@ export type Database = {
           description: string;
           status: ActionStatus;
           position: number;
+          priority: ActionPriority;
+          provenance: ActionProvenance;
+          source_kind: string;
+          source_ref: string | null;
+          requires_decision: boolean;
+          decision_id: string | null;
+          requirement_id: string | null;
           created_at: string;
           completed_at: string | null;
         },
@@ -206,6 +425,13 @@ export type Database = {
           description?: string;
           status?: ActionStatus;
           position?: number;
+          priority?: ActionPriority;
+          provenance?: ActionProvenance;
+          source_kind?: string;
+          source_ref?: string | null;
+          requires_decision?: boolean;
+          decision_id?: string | null;
+          requirement_id?: string | null;
           created_at?: string;
           completed_at?: string | null;
         }
@@ -294,9 +520,1439 @@ export type Database = {
           reviewed_at?: string | null;
         }
       >;
+      lifecycle_transitions: Table<
+        {
+          id: string;
+          project_id: string;
+          from_stage: LifecycleStage | null;
+          to_stage: LifecycleStage;
+          changed_at: string;
+          changed_by: string | null;
+          actor: LifecycleActor;
+          reason: string;
+          evidence_kind: string | null;
+          evidence_id: string | null;
+        },
+        {
+          id?: string;
+          project_id: string;
+          from_stage?: LifecycleStage | null;
+          to_stage: LifecycleStage;
+          changed_at?: string;
+          changed_by?: string | null;
+          actor: LifecycleActor;
+          reason: string;
+          evidence_kind?: string | null;
+          evidence_id?: string | null;
+        }
+      >;
+      project_decisions: Table<
+        {
+          id: string;
+          project_id: string | null;
+          idea_id: string | null;
+          strategy_id: string | null;
+          product_architecture_id: string | null;
+          system_architecture_id: string | null;
+          build_plan_id: string | null;
+          build_execution_id: string | null;
+          verification_program_id: string | null;
+          release_id: string | null;
+          deployment_id: string | null;
+          title: string;
+          question: string;
+          context: string;
+          status: DecisionStatus;
+          options: Json;
+          recommendation: string | null;
+          evidence: Json;
+          created_at: string;
+          created_by: string | null;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          selected_option: string | null;
+          founder_response: string | null;
+          rationale: string | null;
+        },
+        {
+          id?: string;
+          project_id?: string | null;
+          idea_id?: string | null;
+          strategy_id?: string | null;
+          product_architecture_id?: string | null;
+          system_architecture_id?: string | null;
+          build_plan_id?: string | null;
+          build_execution_id?: string | null;
+          verification_program_id?: string | null;
+          release_id?: string | null;
+          deployment_id?: string | null;
+          title: string;
+          question: string;
+          context?: string;
+          status?: DecisionStatus;
+          options?: Json;
+          recommendation?: string | null;
+          evidence?: Json;
+          created_at?: string;
+          created_by?: string | null;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          selected_option?: string | null;
+          founder_response?: string | null;
+          rationale?: string | null;
+        }
+      >;
+      ideas: Table<
+        {
+          id: string;
+          owner_id: string;
+          title: string;
+          raw_idea: string;
+          summary: string;
+          problem: string;
+          target_user: string;
+          proposed_solution: string;
+          value_proposition: string;
+          assumptions: Json;
+          risks: Json;
+          opportunities: Json;
+          constraints_json: Json;
+          open_questions: Json;
+          recommendation: string | null;
+          status: IdeaStatus;
+          readiness: IdeaReadiness;
+          note: string;
+          promoted_project_id: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          owner_id: string;
+          title: string;
+          raw_idea: string;
+          summary?: string;
+          problem?: string;
+          target_user?: string;
+          proposed_solution?: string;
+          value_proposition?: string;
+          assumptions?: Json;
+          risks?: Json;
+          opportunities?: Json;
+          constraints_json?: Json;
+          open_questions?: Json;
+          recommendation?: string | null;
+          status?: IdeaStatus;
+          readiness?: IdeaReadiness;
+          note?: string;
+          promoted_project_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      idea_transitions: Table<
+        {
+          id: string;
+          idea_id: string;
+          from_status: IdeaStatus | null;
+          to_status: IdeaStatus;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        {
+          id?: string;
+          idea_id: string;
+          from_status?: IdeaStatus | null;
+          to_status: IdeaStatus;
+          changed_at?: string;
+          changed_by?: string | null;
+          actor: string;
+          reason: string;
+        }
+      >;
+      idea_validations: Table<
+        {
+          id: string;
+          idea_id: string;
+          question: string;
+          reason: string;
+          evidence_needed: string;
+          status: ValidationStatus;
+          result: string;
+          source: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          idea_id: string;
+          question: string;
+          reason?: string;
+          evidence_needed?: string;
+          status?: ValidationStatus;
+          result?: string;
+          source?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      idea_evidence: Table<
+        {
+          id: string;
+          idea_id: string;
+          evidence_type: IdeaEvidenceType;
+          statement: string;
+          source: string;
+          confidence: string | null;
+          provenance: string;
+          observed_at: string | null;
+          created_at: string;
+          created_by: string | null;
+        },
+        {
+          id?: string;
+          idea_id: string;
+          evidence_type: IdeaEvidenceType;
+          statement: string;
+          source?: string;
+          confidence?: string | null;
+          provenance?: string;
+          observed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        }
+      >;
+      idea_strategies: Table<
+        {
+          id: string;
+          idea_id: string;
+          vision: string;
+          problem: string;
+          target_customer: string;
+          positioning: string;
+          value_proposition: string;
+          core_offer: string;
+          differentiation: string;
+          value_model: string;
+          distribution: string;
+          key_capabilities: Json;
+          constraints_json: Json;
+          risks: Json;
+          assumptions: Json;
+          success_measures: Json;
+          non_goals: Json;
+          initial_scope: string;
+          mvp: string;
+          not_building: string;
+          open_decisions: Json;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          idea_id: string;
+          vision?: string;
+          problem?: string;
+          target_customer?: string;
+          positioning?: string;
+          value_proposition?: string;
+          core_offer?: string;
+          differentiation?: string;
+          value_model?: string;
+          distribution?: string;
+          key_capabilities?: Json;
+          constraints_json?: Json;
+          risks?: Json;
+          assumptions?: Json;
+          success_measures?: Json;
+          non_goals?: Json;
+          initial_scope?: string;
+          mvp?: string;
+          not_building?: string;
+          open_decisions?: Json;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      project_repositories: Table<
+        {
+          id: string;
+          project_id: string;
+          provider: string;
+          owner_login: string;
+          repo_name: string;
+          full_name: string;
+          html_url: string;
+          default_branch: string | null;
+          is_primary: boolean;
+          associated_at: string;
+          associated_by: string | null;
+        },
+        {
+          id?: string;
+          project_id: string;
+          provider?: string;
+          owner_login: string;
+          repo_name: string;
+          full_name: string;
+          html_url: string;
+          default_branch?: string | null;
+          is_primary?: boolean;
+          associated_at?: string;
+          associated_by?: string | null;
+        }
+      >;
+      repository_observations: Table<
+        {
+          id: string;
+          project_id: string;
+          repository_id: string;
+          observed_at: string;
+          branch: string | null;
+          commit_sha: string | null;
+          commit_message: string | null;
+          open_pull_requests: number | null;
+          summary: string;
+        },
+        {
+          id?: string;
+          project_id: string;
+          repository_id: string;
+          observed_at?: string;
+          branch?: string | null;
+          commit_sha?: string | null;
+          commit_message?: string | null;
+          open_pull_requests?: number | null;
+          summary?: string;
+        }
+      >;
+      product_architectures: Table<
+        {
+          id: string;
+          project_id: string;
+          idea_id: string | null;
+          strategy_id: string | null;
+          what: string;
+          why: string;
+          who: string;
+          outcome: string;
+          non_goals: Json;
+          assumptions: Json;
+          risks: Json;
+          constraints_json: Json;
+          status: import("@/lib/product-architect/types").ProductArchitectureStatus;
+          note: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          project_id: string;
+          idea_id?: string | null;
+          strategy_id?: string | null;
+          what?: string;
+          why?: string;
+          who?: string;
+          outcome?: string;
+          non_goals?: Json;
+          assumptions?: Json;
+          risks?: Json;
+          constraints_json?: Json;
+          status?: import("@/lib/product-architect/types").ProductArchitectureStatus;
+          note?: string;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      product_architecture_transitions: Table<
+        {
+          id: string;
+          architecture_id: string;
+          from_status: import("@/lib/product-architect/types").ProductArchitectureStatus | null;
+          to_status: import("@/lib/product-architect/types").ProductArchitectureStatus;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          from_status?: import("@/lib/product-architect/types").ProductArchitectureStatus | null;
+          to_status: import("@/lib/product-architect/types").ProductArchitectureStatus;
+          changed_at?: string;
+          changed_by?: string | null;
+          actor?: string;
+          reason: string;
+        }
+      >;
+      product_requirements: Table<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          title: string;
+          description: string;
+          req_type: import("@/lib/product-architect/types").RequirementType;
+          priority: import("@/lib/product-architect/types").ProductPriority;
+          approval_status: import("@/lib/product-architect/types").RequirementApproval;
+          acceptance_criteria: Json;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          title: string;
+          description?: string;
+          req_type?: import("@/lib/product-architect/types").RequirementType;
+          priority?: import("@/lib/product-architect/types").ProductPriority;
+          approval_status?: import("@/lib/product-architect/types").RequirementApproval;
+          acceptance_criteria?: Json;
+          source?: string;
+          provenance?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      product_features: Table<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          purpose: string;
+          priority: import("@/lib/product-architect/types").ProductPriority;
+          status: import("@/lib/product-architect/types").FeatureStatus;
+          acceptance_criteria: Json;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          purpose?: string;
+          priority?: import("@/lib/product-architect/types").ProductPriority;
+          status?: import("@/lib/product-architect/types").FeatureStatus;
+          acceptance_criteria?: Json;
+          source?: string;
+          provenance?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      product_feature_requirements: Table<
+        {
+          feature_id: string;
+          requirement_id: string;
+          created_at: string;
+        },
+        {
+          feature_id: string;
+          requirement_id: string;
+          created_at?: string;
+        }
+      >;
+      product_flows: Table<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          actor: string;
+          starting_condition: string;
+          steps: Json;
+          expected_outcome: string;
+          edge_cases: Json;
+          feature_id: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          actor?: string;
+          starting_condition?: string;
+          steps?: Json;
+          expected_outcome?: string;
+          edge_cases?: Json;
+          feature_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      product_questions: Table<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          question: string;
+          status: import("@/lib/product-architect/types").ProductQuestionStatus;
+          decision_id: string | null;
+          next_action_id: string | null;
+          resolution: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          project_id: string;
+          question: string;
+          status?: import("@/lib/product-architect/types").ProductQuestionStatus;
+          decision_id?: string | null;
+          next_action_id?: string | null;
+          resolution?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      product_dependencies: Table<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          from_kind: import("@/lib/product-architect/types").DependencyKind;
+          from_ref: string;
+          to_kind: import("@/lib/product-architect/types").DependencyKind;
+          to_ref: string;
+          status: import("@/lib/product-architect/types").DependencyStatus;
+          note: string;
+          created_at: string;
+        },
+        {
+          id?: string;
+          architecture_id: string;
+          project_id: string;
+          from_kind: import("@/lib/product-architect/types").DependencyKind;
+          from_ref: string;
+          to_kind: import("@/lib/product-architect/types").DependencyKind;
+          to_ref: string;
+          status?: import("@/lib/product-architect/types").DependencyStatus;
+          note?: string;
+          created_at?: string;
+        }
+      >;
+      system_architectures: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          product_architecture_id: string;
+          summary: string;
+          auth_summary: string;
+          authorization_summary: string;
+          runtime_topology: Json;
+          status: SystemStatus;
+          note: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "project_id" | "product_architecture_id"
+      >;
+      system_architecture_transitions: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          from_status: SystemStatus | null;
+          to_status: SystemStatus;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        "architecture_id" | "to_status" | "reason"
+      >;
+      system_components: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          purpose: string;
+          component_type: import("@/lib/system-architecture/types").SystemComponentType;
+          responsibilities: Json;
+          dependency_refs: Json;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "name"
+      >;
+      system_component_requirements: DefaultedTable<
+        {
+          component_id: string;
+          requirement_id: string;
+          created_at: string;
+        },
+        "component_id" | "requirement_id"
+      >;
+      system_entities: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          purpose: string;
+          ownership_field: string;
+          rls_expectation: string;
+          retention_note: string;
+          sensitive_class: SensitiveClassValue;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "name"
+      >;
+      system_entity_fields: DefaultedTable<
+        {
+          id: string;
+          entity_id: string;
+          architecture_id: string;
+          project_id: string;
+          name: string;
+          data_type: string;
+          nullable: boolean;
+          default_value: string;
+          is_pk: boolean;
+          is_unique: boolean;
+          is_fk: boolean;
+          references_entity_id: string | null;
+          sensitive_class: SensitiveClassValue;
+          note: string;
+          position: number;
+          created_at: string;
+        },
+        "entity_id" | "architecture_id" | "project_id" | "name"
+      >;
+      system_relationships: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          source_entity_id: string;
+          target_entity_id: string;
+          cardinality: import("@/lib/system-architecture/types").RelationshipCardinality;
+          fk_strategy: string;
+          delete_behavior: string;
+          rationale: string;
+          junction_strategy: string;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "source_entity_id" | "target_entity_id" | "cardinality"
+      >;
+      system_interfaces: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          purpose: string;
+          caller: string;
+          receiver: string;
+          operation: string;
+          input_shape: Json;
+          output_shape: Json;
+          auth_required: boolean;
+          failure_behavior: string;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "name"
+      >;
+      system_interface_requirements: DefaultedTable<
+        {
+          interface_id: string;
+          requirement_id: string;
+          created_at: string;
+        },
+        "interface_id" | "requirement_id"
+      >;
+      system_data_flows: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          source_label: string;
+          process_label: string;
+          storage_label: string;
+          result_label: string;
+          steps: Json;
+          component_refs: Json;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "name"
+      >;
+      system_integrations: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          provider: string;
+          purpose: string;
+          required: boolean;
+          data_exchanged: Json;
+          secret_names: Json;
+          failure_impact: string;
+          fallback_behavior: string;
+          cost_note: string;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "provider"
+      >;
+      system_env_configs: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          variable_name: string;
+          purpose: string;
+          classification: import("@/lib/system-architecture/types").ConfigClassification;
+          required_environments: Json;
+          status: SystemRecord;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "variable_name"
+      >;
+      system_technical_risks: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          human_id: string;
+          description: string;
+          severity: import("@/lib/system-architecture/types").TechRiskSeverity;
+          likelihood: string;
+          mitigation: string;
+          linked_component_refs: Json;
+          status: SystemRecord;
+          source: string;
+          provenance: string;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "human_id" | "description"
+      >;
+      system_technical_constraints: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          statement: string;
+          constraint_source: string;
+          authoritative: boolean;
+          provenance: string;
+          created_at: string;
+        },
+        "architecture_id" | "project_id" | "statement"
+      >;
+      system_requirement_coverage: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          requirement_id: string;
+          coverage: import("@/lib/system-architecture/types").CoverageStatus;
+          supporting_refs: Json;
+          gap_note: string;
+          updated_at: string;
+        },
+        "architecture_id" | "project_id" | "requirement_id"
+      >;
+      system_questions: DefaultedTable<
+        {
+          id: string;
+          architecture_id: string;
+          project_id: string;
+          question: string;
+          status: import("@/lib/system-architecture/types").SystemQuestionStatus;
+          decision_id: string | null;
+          next_action_id: string | null;
+          resolution: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "architecture_id" | "project_id" | "question"
+      >;
+      build_plans: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          product_architecture_id: string;
+          system_architecture_id: string;
+          summary: string;
+          deployment_sequence: Json;
+          rollback_summary: string;
+          status: BuildPlanStatusValue;
+          note: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "project_id" | "product_architecture_id" | "system_architecture_id"
+      >;
+      build_plan_transitions: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          from_status: BuildPlanStatusValue | null;
+          to_status: BuildPlanStatusValue;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        "plan_id" | "to_status" | "reason"
+      >;
+      build_phases: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          human_id: string;
+          name: string;
+          objective: string;
+          position: number;
+          note: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "plan_id" | "project_id" | "human_id" | "name"
+      >;
+      work_packages: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          phase_id: string | null;
+          human_id: string;
+          title: string;
+          objective: string;
+          description: string;
+          status: WorkPackageStatusValue;
+          priority: WorkPackagePriorityValue;
+          likely_code_areas: Json;
+          path_certainty: PathCertaintyValue;
+          database_impact: string;
+          integration_impact: string;
+          security_impact: string;
+          definition_of_done: Json;
+          acceptance_criteria: Json;
+          rollback_consideration: string;
+          irreversible: boolean;
+          risk_note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "plan_id" | "project_id" | "human_id" | "title"
+      >;
+      work_package_dependencies: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          from_package_id: string;
+          to_package_id: string;
+          edge_kind: DependencyEdgeKindValue;
+          note: string;
+          created_at: string;
+        },
+        "plan_id" | "project_id" | "from_package_id" | "to_package_id"
+      >;
+      work_package_requirement_links: DefaultedTable<
+        {
+          work_package_id: string;
+          requirement_id: string;
+          created_at: string;
+        },
+        "work_package_id" | "requirement_id"
+      >;
+      work_package_feature_links: DefaultedTable<
+        {
+          work_package_id: string;
+          feature_id: string;
+          created_at: string;
+        },
+        "work_package_id" | "feature_id"
+      >;
+      work_package_architecture_links: DefaultedTable<
+        {
+          id: string;
+          work_package_id: string;
+          plan_id: string;
+          project_id: string;
+          link_kind: ArchitectureLinkKindValue;
+          record_ref: string;
+          note: string;
+          created_at: string;
+        },
+        "work_package_id" | "plan_id" | "project_id" | "link_kind" | "record_ref"
+      >;
+      work_package_verifications: DefaultedTable<
+        {
+          id: string;
+          work_package_id: string;
+          plan_id: string;
+          project_id: string;
+          kind: VerificationKindValue;
+          description: string;
+          observable_signal: string;
+          position: number;
+          created_at: string;
+        },
+        "work_package_id" | "plan_id" | "project_id" | "kind" | "description"
+      >;
+      build_manual_actions: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          work_package_id: string | null;
+          human_id: string;
+          title: string;
+          description: string;
+          status: ManualActionStatusValue;
+          evidence_note: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "plan_id" | "project_id" | "human_id" | "title"
+      >;
+      build_config_requirements: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          work_package_id: string | null;
+          variable_name: string;
+          purpose: string;
+          environment: string;
+          classification: import("@/lib/system-architecture/types").ConfigClassification;
+          founder_action_required: boolean;
+          created_at: string;
+        },
+        "plan_id" | "project_id" | "variable_name"
+      >;
+      build_plan_risks: DefaultedTable<
+        {
+          id: string;
+          plan_id: string;
+          project_id: string;
+          work_package_id: string | null;
+          human_id: string;
+          description: string;
+          severity: BuildRiskSeverityValue;
+          mitigation: string;
+          created_at: string;
+        },
+        "plan_id" | "project_id" | "human_id" | "description"
+      >;
+      build_executions: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          build_plan_id: string;
+          product_architecture_id: string;
+          system_architecture_id: string;
+          summary: string;
+          status: BuildExecutionStatusValue;
+          note: string;
+          implemented_at: string | null;
+          implemented_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "project_id" | "build_plan_id" | "product_architecture_id" | "system_architecture_id"
+      >;
+      build_execution_transitions: DefaultedTable<
+        {
+          id: string;
+          execution_id: string;
+          from_status: BuildExecutionStatusValue | null;
+          to_status: BuildExecutionStatusValue;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        "execution_id" | "to_status" | "reason"
+      >;
+      work_package_executions: DefaultedTable<
+        {
+          id: string;
+          execution_id: string;
+          project_id: string;
+          work_package_id: string;
+          status: PackageExecutionStatusValue;
+          implementation_notes: string;
+          started_at: string | null;
+          completed_at: string | null;
+          started_by: string | null;
+          completed_by: string | null;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "execution_id" | "project_id" | "work_package_id"
+      >;
+      implementation_evidence: DefaultedTable<
+        {
+          id: string;
+          package_execution_id: string;
+          execution_id: string;
+          project_id: string;
+          kind: ImplementationEvidenceKindValue;
+          reference: string;
+          summary: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          created_by: string | null;
+        },
+        "package_execution_id" | "execution_id" | "project_id" | "kind" | "reference"
+      >;
+      execution_blockers: DefaultedTable<
+        {
+          id: string;
+          package_execution_id: string;
+          execution_id: string;
+          project_id: string;
+          description: string;
+          status: ExecutionBlockerStatusValue;
+          resolution: string;
+          created_at: string;
+          created_by: string | null;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          source: string;
+          provenance: string;
+        },
+        "package_execution_id" | "execution_id" | "project_id" | "description"
+      >;
+      execution_upstream_changes: DefaultedTable<
+        {
+          id: string;
+          execution_id: string;
+          project_id: string;
+          package_execution_id: string | null;
+          artifact_kind: UpstreamArtifactKindValue;
+          artifact_ref: string;
+          issue: string;
+          status: UpstreamChangeStatusValue;
+          decision_id: string | null;
+          resolution: string;
+          created_at: string;
+          resolved_at: string | null;
+          source: string;
+          provenance: string;
+        },
+        "execution_id" | "project_id" | "artifact_kind" | "issue"
+      >;
+      verification_programs: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          build_execution_id: string;
+          build_plan_id: string;
+          product_architecture_id: string;
+          system_architecture_id: string;
+          summary: string;
+          status: VerificationProgramStatusValue;
+          note: string;
+          verified_at: string | null;
+          verified_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "project_id" | "build_execution_id" | "build_plan_id" | "product_architecture_id" | "system_architecture_id"
+      >;
+      verification_program_transitions: DefaultedTable<
+        {
+          id: string;
+          program_id: string;
+          from_status: VerificationProgramStatusValue | null;
+          to_status: VerificationProgramStatusValue;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        "program_id" | "to_status" | "reason"
+      >;
+      verification_cases: DefaultedTable<
+        {
+          id: string;
+          program_id: string;
+          project_id: string;
+          human_id: string;
+          title: string;
+          purpose: string;
+          case_kind: VerificationCaseKindValue;
+          is_automated: boolean;
+          is_required: boolean;
+          is_regression: boolean;
+          status: VerificationCaseStatusValue;
+          preconditions: string;
+          expected_result: string;
+          actual_result: string;
+          work_package_id: string | null;
+          package_execution_id: string | null;
+          plan_verification_id: string | null;
+          requirement_id: string | null;
+          feature_id: string | null;
+          source: string;
+          provenance: string;
+          started_at: string | null;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "program_id" | "project_id" | "human_id" | "title"
+      >;
+      verification_evidence: DefaultedTable<
+        {
+          id: string;
+          case_id: string;
+          program_id: string;
+          project_id: string;
+          kind: VerificationEvidenceKindValue;
+          reference: string;
+          summary: string;
+          is_automated: boolean;
+          source: string;
+          provenance: string;
+          created_at: string;
+          created_by: string | null;
+        },
+        "case_id" | "program_id" | "project_id" | "kind" | "reference"
+      >;
+      verification_defects: DefaultedTable<
+        {
+          id: string;
+          program_id: string;
+          project_id: string;
+          case_id: string;
+          human_id: string;
+          title: string;
+          description: string;
+          severity: VerificationDefectSeverityValue;
+          blocking: boolean;
+          status: VerificationDefectStatusValue;
+          resolution: string;
+          package_execution_id: string | null;
+          requirement_id: string | null;
+          feature_id: string | null;
+          retest_case_id: string | null;
+          discovered_at: string;
+          resolved_at: string | null;
+          closed_at: string | null;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "program_id" | "project_id" | "case_id" | "human_id" | "title"
+      >;
+      verification_retest_events: DefaultedTable<
+        {
+          id: string;
+          defect_id: string;
+          program_id: string;
+          project_id: string;
+          case_id: string;
+          result_status: VerificationCaseStatusValue;
+          evidence_id: string | null;
+          note: string;
+          created_at: string;
+          created_by: string | null;
+        },
+        "defect_id" | "program_id" | "project_id" | "case_id" | "result_status"
+      >;
+      deployment_environments: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          name: string;
+          environment_type: DeploymentEnvironmentTypeValue;
+          provider: string;
+          application_url: string;
+          health_endpoint: string;
+          service_identity: string;
+          is_active: boolean;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "project_id" | "name" | "environment_type"
+      >;
+      releases: DefaultedTable<
+        {
+          id: string;
+          project_id: string;
+          verification_program_id: string;
+          build_execution_id: string;
+          build_plan_id: string;
+          product_architecture_id: string;
+          system_architecture_id: string;
+          environment_id: string | null;
+          human_id: string;
+          summary: string;
+          status: ReleaseStatusValue;
+          source_branch: string;
+          source_commit_sha: string;
+          release_version: string;
+          deployment_sequence: string[];
+          rollback_strategy: string;
+          rollback_target_release_id: string | null;
+          rollback_target_commit_sha: string;
+          note: string;
+          deployed_at: string | null;
+          production_verified_at: string | null;
+          production_verified_by: string | null;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        },
+        | "project_id"
+        | "verification_program_id"
+        | "build_execution_id"
+        | "build_plan_id"
+        | "product_architecture_id"
+        | "system_architecture_id"
+        | "human_id"
+      >;
+      release_transitions: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          from_status: ReleaseStatusValue | null;
+          to_status: ReleaseStatusValue;
+          changed_at: string;
+          changed_by: string | null;
+          actor: string;
+          reason: string;
+        },
+        "release_id" | "to_status" | "reason"
+      >;
+      release_config_requirements: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          project_id: string;
+          environment_id: string | null;
+          variable_name: string;
+          is_required: boolean;
+          is_secret: boolean;
+          presence: ConfigPresenceStatusValue;
+          verified_at: string | null;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "release_id" | "project_id" | "variable_name"
+      >;
+      release_migrations: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          project_id: string;
+          environment_id: string | null;
+          migration_path: string;
+          is_required: boolean;
+          status: ReleaseMigrationStatusValue;
+          applied_at: string | null;
+          evidence_ref: string;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "release_id" | "project_id" | "migration_path"
+      >;
+      deployments: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          project_id: string;
+          environment_id: string;
+          human_id: string;
+          status: DeploymentAttemptStatusValue;
+          provider: string;
+          provider_deployment_id: string;
+          expected_commit_sha: string;
+          live_commit_sha: string;
+          deployment_url: string;
+          failure_reason: string;
+          started_at: string | null;
+          completed_at: string | null;
+          inspector_result: string;
+          presentation_result: string;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+        },
+        "release_id" | "project_id" | "environment_id" | "human_id"
+      >;
+      deployment_evidence: DefaultedTable<
+        {
+          id: string;
+          deployment_id: string;
+          release_id: string;
+          project_id: string;
+          kind: DeploymentEvidenceKindValue;
+          reference: string;
+          summary: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          created_by: string | null;
+        },
+        "deployment_id" | "release_id" | "project_id" | "kind" | "reference"
+      >;
+      deployment_health_checks: DefaultedTable<
+        {
+          id: string;
+          deployment_id: string;
+          release_id: string;
+          project_id: string;
+          check_name: string;
+          status: DeploymentHealthStatusValue;
+          expected_value: string;
+          observed_value: string;
+          evidence_ref: string;
+          checked_at: string | null;
+          note: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "deployment_id" | "release_id" | "project_id" | "check_name"
+      >;
+      deployment_manual_actions: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          project_id: string;
+          deployment_id: string | null;
+          title: string;
+          instruction: string;
+          is_required: boolean;
+          status: DeploymentManualActionStatusValue;
+          evidence_ref: string;
+          completed_at: string | null;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "release_id" | "project_id" | "title"
+      >;
+      release_rollbacks: DefaultedTable<
+        {
+          id: string;
+          release_id: string;
+          project_id: string;
+          target_release_id: string | null;
+          target_commit_sha: string;
+          status: RollbackStatusValue;
+          reason: string;
+          evidence_ref: string;
+          requested_at: string | null;
+          completed_at: string | null;
+          note: string;
+          source: string;
+          provenance: string;
+          created_at: string;
+          updated_at: string;
+        },
+        "release_id" | "project_id"
+      >;
     };
     Views: Record<string, never>;
     Functions: {
+      get_team_invitation: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      accept_team_invitation: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      record_project_activity: {
+        Args: {
+          p_company_id: string;
+          p_project_id: string | null;
+          p_actor_kind: "PERSON" | "AI" | "SYSTEM";
+          p_action: string;
+          p_summary: string;
+          p_record_type?: string | null;
+          p_record_id?: string | null;
+          p_metadata?: Json;
+          p_external_unconnected?: boolean;
+          p_actor_label?: string;
+        };
+        Returns: string;
+      };
       review_memory_proposal: {
         Args: {
           proposal_id: string;
@@ -309,6 +1965,92 @@ export type Database = {
           rule_id: string;
         };
         Returns: undefined;
+      };
+      record_lifecycle_transition: {
+        Args: {
+          target_project_id: string;
+          next_stage: LifecycleStage;
+          transition_reason: string;
+          transition_actor?: LifecycleActor;
+          evidence_kind?: string | null;
+          evidence_id?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["lifecycle_transitions"]["Row"];
+      };
+      resolve_project_decision: {
+        Args: {
+          target_decision_id: string;
+          next_status: DecisionStatus;
+          selected_option?: string | null;
+          founder_response?: string | null;
+          rationale?: string | null;
+          follow_up_action_title?: string | null;
+          follow_up_action_description?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["project_decisions"]["Row"];
+      };
+      record_idea_transition: {
+        Args: {
+          target_idea_id: string;
+          next_status: IdeaStatus;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["idea_transitions"]["Row"];
+      };
+      record_product_architecture_transition: {
+        Args: {
+          target_architecture_id: string;
+          next_status: import("@/lib/product-architect/types").ProductArchitectureStatus;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["product_architecture_transitions"]["Row"];
+      };
+      record_system_architecture_transition: {
+        Args: {
+          target_architecture_id: string;
+          next_status: SystemStatus;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["system_architecture_transitions"]["Row"];
+      };
+      record_build_plan_transition: {
+        Args: {
+          target_plan_id: string;
+          next_status: BuildPlanStatusValue;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["build_plan_transitions"]["Row"];
+      };
+      record_build_execution_transition: {
+        Args: {
+          target_execution_id: string;
+          next_status: BuildExecutionStatusValue;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["build_execution_transitions"]["Row"];
+      };
+      record_verification_program_transition: {
+        Args: {
+          target_program_id: string;
+          next_status: VerificationProgramStatusValue;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["verification_program_transitions"]["Row"];
+      };
+      record_release_transition: {
+        Args: {
+          target_release_id: string;
+          next_status: ReleaseStatusValue;
+          transition_reason: string;
+          transition_actor?: string;
+        };
+        Returns: Database["public"]["Tables"]["release_transitions"]["Row"];
       };
     };
   };

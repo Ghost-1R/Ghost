@@ -8,8 +8,10 @@ export function formatTimestamp(value: string | null): string {
     return value;
   }
 
-  return new Intl.DateTimeFormat("en", {
+  // Fixed locale + UTC so SSR and the browser render the same string.
+  return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "UTC",
   }).format(date);
 }

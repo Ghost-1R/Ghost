@@ -26,7 +26,8 @@ export function resolveAuthorizedProject(input: {
   if (named?.[1]) {
     const target = named[1].replace(/[?.!]+$/g, "").trim();
     const normalizedTarget = normalizeName(target);
-    if (GENERIC_TARGET.has(normalizedTarget)) {
+    const leadingWord = normalizedTarget.split(" ")[0] ?? "";
+    if (GENERIC_TARGET.has(normalizedTarget) || GENERIC_TARGET.has(leadingWord)) {
       return { kind: "global" };
     }
 
@@ -36,6 +37,16 @@ export function resolveAuthorizedProject(input: {
     }
     if (exact.length > 1) {
       return { kind: "ambiguous", names: exact.map((project) => project.name) };
+    }
+
+    const leading = input.projects.filter((project) => {
+      const name = normalizeName(project.name);
+      return name.length > 0 && normalizedTarget.startsWith(`${name} `);
+    });
+    if (leading.length > 0) {
+      const longest = leading.reduce((best, project) => Math.max(best, normalizeName(project.name).length), 0);
+      const top = leading.filter((project) => normalizeName(project.name).length === longest);
+      return top.length === 1 ? { kind: "one", id: top[0].id } : { kind: "ambiguous", names: top.map((project) => project.name) };
     }
     return { kind: "unknown", name: target };
   }

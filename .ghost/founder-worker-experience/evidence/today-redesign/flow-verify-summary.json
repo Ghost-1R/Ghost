@@ -1,0 +1,22 @@
+{
+  "runs": [
+    {
+      "at": "2026-11-04T07:46:24.208Z",
+      "viewport": "desktop",
+      "notices": [
+        "MOCK_GENERATION checkpoint 1 saved.",
+        "MOCK_GENERATION checkpoint 2 saved.",
+        "MOCK_GENERATION checkpoint 3 saved."
+      ],
+      "url": "http://127.0.0.1:3012/files"
+    },
+    {
+      "at": "2026-11-04T07:47:04.528Z",
+      "viewport": "ipad-recording",
+      "notices": [],
+      "video": ".ghost\\founder-worker-experience\\evidence\\today-redesign\\ipad-landscape-mock-flow.webm"
+    }
+  ],
+  "taskId": "21659476-715b-4aad-8d39-74e2b16a723f",
+  "live": "0"
+}

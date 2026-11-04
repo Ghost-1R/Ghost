@@ -1,0 +1,89 @@
+{
+  "attribution": "GHOST_ISOLATED_PILOT_FIXTURE_ONLY",
+  "note": "Executes predefined harmless Node fixture — not car-rental code generation.",
+  "workspaceRoot": "C:\\Users\\Badge\\AppData\\Local\\Temp\\ghost-pilot-01-workspaces",
+  "realContainerExecution": true,
+  "dockerAvailable": true,
+  "pilotEnabled": true,
+  "summary": {
+    "overall": "PASS",
+    "evidenceSha256": "1ab7113beceea45450acb092c43e97979d0244ab9f4622ff16a09cac4f90e771"
+  },
+  "securityChecks": [
+    {
+      "check": "PILOT_GATE",
+      "result": "PASS",
+      "detail": "Pilot flag enabled."
+    },
+    {
+      "check": "DOCKER_AVAILABLE",
+      "result": "PASS",
+      "detail": "Docker daemon reachable (server 29.8.1) — pilot may invoke when gate is open."
+    },
+    {
+      "check": "WORKSPACE_CONTRACT",
+      "result": "PASS",
+      "detail": "hostPath=C:\\Users\\Badge\\AppData\\Local\\Temp\\ghost-pilot-01-workspaces\\00000000-0000-4000-8000-0000000000a1\\00000000-0000-4000-8000-0000000000b1\\pilot-01-docker-fixture"
+    },
+    {
+      "check": "FIXTURE_MATERIALIZE",
+      "result": "PASS",
+      "detail": "sha256=832409547d6753b8e666348aacd42af59231122e3003571ccef3fe42672419a5 files=5"
+    },
+    {
+      "check": "DOCKER_SPEC",
+      "result": "PASS",
+      "detail": "user=10001:10001 network=none privileged=false"
+    },
+    {
+      "check": "REAL_CONTAINER_EXECUTION",
+      "result": "PASS",
+      "detail": "Docker available and pilot gate open — will invoke containers."
+    },
+    {
+      "check": "CLEANUP",
+      "result": "PASS",
+      "detail": "Workspace removed: C:\\Users\\Badge\\AppData\\Local\\Temp\\ghost-pilot-01-workspaces\\00000000-0000-4000-8000-0000000000a1\\00000000-0000-4000-8000-0000000000b1\\pilot-01-docker-fixture"
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario": "validate",
+      "classification": "PASS",
+      "exitCode": 0,
+      "timedOut": false,
+      "detail": "Scenario met expected outcome."
+    },
+    {
+      "scenario": "build",
+      "classification": "PASS",
+      "exitCode": 0,
+      "timedOut": false,
+      "detail": "Scenario met expected outcome."
+    },
+    {
+      "scenario": "test",
+      "classification": "PASS",
+      "exitCode": 0,
+      "timedOut": false,
+      "detail": "Scenario met expected outcome."
+    },
+    {
+      "scenario": "testFail",
+      "classification": "PASS",
+      "exitCode": 1,
+      "timedOut": false,
+      "detail": "Scenario met expected outcome."
+    },
+    {
+      "scenario": "timeout",
+      "classification": "PASS",
+      "exitCode": null,
+      "timedOut": true,
+      "detail": "Scenario met expected outcome."
+    }
+  ],
+  "cleanup": "PASS",
+  "evidencePath": "C:\\Users\\Badge\\Documents\\ghost-09-9d-db-verify\\.ghost\\pilot-01\\evidence\\ghost-09-9-pilot-evidence-1ab7113becee.json",
+  "at": "2026-10-11T03:24:17.649Z"
+}

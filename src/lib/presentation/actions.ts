@@ -10,6 +10,7 @@ import { classifyRequirementScope } from "./gate";
 import { computePresentationReview, prepareOverride } from "./records";
 import { persistOverride, persistReview } from "./remote";
 import { hashWorkingTree } from "./tree";
+import { HOSTED_REVIEW_REFUSAL, isHostedRuntime } from "@/lib/inspector/runtime";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -23,6 +24,9 @@ export async function runPresentationReview(_previous: ActionState, formData: Fo
   const session = await getSession();
   if (session.status !== "authenticated") {
     return { error: "You are not signed in.", notice: null };
+  }
+  if (isHostedRuntime()) {
+    return { error: HOSTED_REVIEW_REFUSAL, notice: null };
   }
   const projectId = readField(formData, "projectId");
   if (!UUID_PATTERN.test(projectId)) {

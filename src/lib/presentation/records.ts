@@ -30,6 +30,7 @@ export const CLIENT_EVIDENCE_FIELDS = [
   "output",
   "check_type",
   "checkType",
+  "environment",
 ] as const;
 
 export function rejectedClientEvidence(fields: Iterable<string>): string | null {

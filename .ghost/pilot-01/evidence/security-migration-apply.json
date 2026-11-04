@@ -1,0 +1,12 @@
+{
+  "container": "supabase_db_ghost99f",
+  "hostPort": "55432",
+  "ghostPort": "54322",
+  "networks": [
+    "supabase_network_ghost99f"
+  ],
+  "migration": "supabase/migrations/20261011100000_agent_tasks_reject_revoked_expired_auth.sql",
+  "sha256": "1d89f09a180231d044e93a699f8782d94dc0917d4688c2f51b71cc5da4cab17a",
+  "functionHasRevokedGate": true,
+  "at": "2026-10-11T03:22:53.043Z"
+}

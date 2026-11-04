@@ -1,0 +1,31 @@
+{
+  "live": "0",
+  "noLiveProviderCalls": "1",
+  "renderProduction": "untouched",
+  "preview": "http://127.0.0.1:3012/dashboard",
+  "dayPlan": {
+    "saved": true,
+    "planDate": "2026-11-04",
+    "items": 3,
+    "notice": "Today's plan saved · 3 items."
+  },
+  "testReview": {
+    "taskId": "bb94ca8d-2fb2-40e8-9e4c-4bf6287bf247",
+    "projectId": "f5397422-1c9d-4ef5-b639-8eee89981f5e",
+    "status": "SUCCEEDED",
+    "checkpointSequence": 4,
+    "notice": "Test run completed. 4 steps saved · $0.00 charged. This is a test result, not live spend.",
+    "artifactTitles": [
+      "Test run completed",
+      "Saved after step 4",
+      "Saved after step 3",
+      "Saved after step 2",
+      "Saved after step 1"
+    ]
+  },
+  "openedFrom": {
+    "today": true,
+    "worker": true,
+    "files": true
+  }
+}

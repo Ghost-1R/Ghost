@@ -1,0 +1,14 @@
+{
+  "container": "supabase_db_ghost99f",
+  "hostPort": "55432",
+  "ghostPort": "54322",
+  "networks": [
+    "supabase_network_ghost99f"
+  ],
+  "migration": "supabase/migrations/20261012120000_project_ai_allowance_reconcile_and_dispatch.sql",
+  "sha256": "055f38854e2e4b2f16b3a6f0878c105e7ddac76544af8835e359b18fa3643557",
+  "tableOk": true,
+  "reconcileOk": true,
+  "releaseOk": true,
+  "at": "2026-10-12T03:18:53.939Z"
+}

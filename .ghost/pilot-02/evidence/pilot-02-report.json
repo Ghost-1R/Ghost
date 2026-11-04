@@ -1,0 +1,210 @@
+{
+  "build": "PILOT_02",
+  "finalStatus": "GHOST_PILOT_02_AWAITING_FOUNDER_APPROVAL",
+  "environment": {
+    "os": "win32",
+    "host": "BADGER",
+    "root": "C:\\Users\\Badge\\Documents\\ghost-09-9d-db-verify",
+    "branch": "cursor/pilot-02-durable-supervised-execution",
+    "head": "f9c02c325a0cf2f72c48b61b793472ed717fb406"
+  },
+  "isolation": {
+    "hostPort": "55432",
+    "networks": [
+      "supabase_network_ghost99f"
+    ],
+    "ghostPort": "54322",
+    "apiPort": "54331",
+    "volume": "supabase_db_ghost99f"
+  },
+  "taskId": "1513be21-f47b-4092-8ce4-8e14c538557b",
+  "authorizationId": "b549744a-a3ad-4694-ba23-89bc040091ea",
+  "ownerId": "adcc741f-1570-472f-9bf4-ef44028f57fc",
+  "projectId": "da4946e5-2afc-497c-8302-05738f803d18",
+  "founderApprovalStatus": "PENDING",
+  "durableTaskStatus": "AWAITING_APPROVAL",
+  "agentTaskId": null,
+  "stateTransitionsObserved": [
+    "REQUESTED→AWAITING_APPROVAL/PENDING (created)",
+    "QUEUE blocked without approval",
+    "STOPPED at founder approval gate (no fabricated APPROVED)"
+  ],
+  "dockerExecution": {
+    "realContainerExecution": true,
+    "purpose": "FIXTURE_VALIDATION_CAPABILITY_PROOF",
+    "attribution": {
+      "carRentalSample": "CURSOR_PREPARED",
+      "validationFixture": "GHOST_RESTRICTED_RUNNER",
+      "autonomousCodeGeneration": "NOT_IMPLEMENTED"
+    },
+    "note": "Car rental HTML/CSS/JS is Cursor-prepared. This run only validates the predefined fixture under restricted Docker.",
+    "scenarios": [
+      {
+        "scenario": "validate",
+        "classification": "PASS",
+        "exitCode": 0,
+        "timedOut": false
+      },
+      {
+        "scenario": "build",
+        "classification": "PASS",
+        "exitCode": 0,
+        "timedOut": false
+      },
+      {
+        "scenario": "test",
+        "classification": "PASS",
+        "exitCode": 0,
+        "timedOut": false
+      },
+      {
+        "scenario": "testFail",
+        "classification": "PASS",
+        "exitCode": 1,
+        "timedOut": false
+      },
+      {
+        "scenario": "timeout",
+        "classification": "PASS",
+        "exitCode": null,
+        "timedOut": true
+      }
+    ],
+    "fixtureSha256": "24989f6b14b498678dd4db1afe113a8e87d4f610f9d92709cbc4483e9acf4b2c"
+  },
+  "carRentalValidation": "PASS",
+  "securityNegativeTests": [
+    {
+      "name": "MISSING_APPROVAL_BLOCKS_QUEUE",
+      "result": "PASS",
+      "detail": "PENDING"
+    },
+    {
+      "name": "CROSS_OWNER_DENIED",
+      "result": "PASS",
+      "detail": "NOT_FOUND"
+    },
+    {
+      "name": "CROSS_PROJECT_DENIED",
+      "result": "PASS",
+      "detail": "DURABLE_AUTH_UNAVAILABLE"
+    },
+    {
+      "name": "DEV_NOT_DEPLOYMENT",
+      "result": "PASS",
+      "detail": "development does not grant deployment"
+    },
+    {
+      "name": "NEG_REVOKED",
+      "result": "PASS",
+      "detail": "Command failed: docker exec -i supabase_db_ghost99f psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -t -A -c \n      insert into public.agent_tasks (\n        owner_id, project_id, status, authorizat"
+    },
+    {
+      "name": "NEG_EXPIRED",
+      "result": "PASS",
+      "detail": "Command failed: docker exec -i supabase_db_ghost99f psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -t -A -c \n      insert into public.agent_tasks (\n        owner_id, project_id, status, authorizat"
+    },
+    {
+      "name": "APPROVAL_REUSE_ATOMIC",
+      "result": "PASS",
+      "detail": "wins=1 final=1:CONSUMED"
+    },
+    {
+      "name": "DUPLICATE_CLAIM_BLOCKED",
+      "result": "PASS",
+      "detail": "updated=0"
+    },
+    {
+      "name": "EVIDENCE_TAMPER_BLOCKED",
+      "result": "PASS",
+      "detail": "Command failed: docker exec -i supabase_db_ghost99f psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -t -A -c update public.agent_tasks set action_scope='tampered' where id='d555"
+    }
+  ],
+  "recoveryTest": {
+    "name": "RECOVERY_CHECKPOINT",
+    "result": "PASS",
+    "detail": "state=CHECKPOINT|1"
+  },
+  "results": [
+    {
+      "name": "ISOLATION",
+      "result": "PASS",
+      "detail": "{\"hostPort\":\"55432\",\"networks\":[\"supabase_network_ghost99f\"],\"ghostPort\":\"54322\",\"apiPort\":\"54331\",\"volume\":\"supabase_db_ghost99f\"}"
+    },
+    {
+      "name": "DURABLE_REQUEST_CREATE",
+      "result": "PASS",
+      "detail": "auth=b549744a-a3ad-4694-ba23-89bc040091ea remote=1513be21-f47b-4092-8ce4-8e14c538557b authStatus=PENDING remoteStatus=AWAITING_APPROVAL"
+    },
+    {
+      "name": "DURABLE_PERSISTENCE",
+      "result": "PASS",
+      "detail": "reload auth=PENDING remote=AWAITING_APPROVAL"
+    },
+    {
+      "name": "MISSING_APPROVAL_BLOCKS_QUEUE",
+      "result": "PASS",
+      "detail": "PENDING"
+    },
+    {
+      "name": "CROSS_OWNER_DENIED",
+      "result": "PASS",
+      "detail": "NOT_FOUND"
+    },
+    {
+      "name": "CROSS_PROJECT_DENIED",
+      "result": "PASS",
+      "detail": "DURABLE_AUTH_UNAVAILABLE"
+    },
+    {
+      "name": "DEV_NOT_DEPLOYMENT",
+      "result": "PASS",
+      "detail": "development does not grant deployment"
+    },
+    {
+      "name": "NEG_REVOKED",
+      "result": "PASS",
+      "detail": "Command failed: docker exec -i supabase_db_ghost99f psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -t -A -c \n      insert into public.agent_tasks (\n        owner_id, project_id, status, authorizat"
+    },
+    {
+      "name": "NEG_EXPIRED",
+      "result": "PASS",
+      "detail": "Command failed: docker exec -i supabase_db_ghost99f psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -t -A -c \n      insert into public.agent_tasks (\n        owner_id, project_id, status, authorizat"
+    },
+    {
+      "name": "APPROVAL_REUSE_ATOMIC",
+      "result": "PASS",
+      "detail": "wins=1 final=1:CONSUMED"
+    },
+    {
+      "name": "RECOVERY_CHECKPOINT",
+      "result": "PASS",
+      "detail": "state=CHECKPOINT|1"
+    },
+    {
+      "name": "DUPLICATE_CLAIM_BLOCKED",
+      "result": "PASS",
+      "detail": "updated=0"
+    },
+    {
+      "name": "EVIDENCE_TAMPER_BLOCKED",
+      "result": "PASS",
+      "detail": "Command failed: docker exec -i supabase_db_ghost99f psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -t -A -c update public.agent_tasks set action_scope='tampered' where id='d555"
+    },
+    {
+      "name": "FOUNDER_APPROVAL_GATE",
+      "result": "PASS",
+      "detail": "status=PENDING — STOPPED awaiting founder"
+    },
+    {
+      "name": "DOCKER_CAR_RENTAL_VALIDATION",
+      "result": "PASS",
+      "detail": "real=true scenarios=validate:PASS,build:PASS,test:PASS,testFail:PASS,timeout:PASS"
+    }
+  ],
+  "passed": 15,
+  "failed": 0,
+  "founderReviewStatus": "AWAITING_FOUNDER_APPROVAL",
+  "at": "2026-10-11T13:02:47.791Z",
+  "evidenceHash": "d29174821346d19fcd38f7c2870e8a80010102af3885df6abae46badc2198995"
+}

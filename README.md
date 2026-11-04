@@ -55,13 +55,17 @@ The Alpha migration is `supabase/migrations/20260929015943_alpha_foundation.sql`
 
 These files are the project record. The database does not replace them.
 
-Ground truth means a label such as `VERIFIED_REMOTE` is used only after an outside check, not because the code exists. `IMPLEMENTED` is not evidence. Production stays `NOT_DEPLOYED` until a provider is chosen. Ghost does not use Vercel.
+Ground truth means a label such as `VERIFIED_REMOTE` is used only after an outside check, not because the code exists. `IMPLEMENTED` is not evidence. Production runs on Render. Being deployed does not make it presentation-ready: only the production Presentation Gate for the deployed commit decides that. Ghost does not use Vercel.
+
+The live server never runs the Inspector. From the trusted runner, set `GHOST_PRODUCTION_URL` and use Inspect production. The runner checks that the live `/api/health` commit matches its own clean commit, then records evidence with environment `production`.
 
 ## Ghost conversation
 
 Ask Ghost from the dashboard or from a project page. The server loads that founder's records, checks project access, and only then calls a model.
 
-No model key is required to run the app. Without `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`, Ghost stores the question and says that no provider is configured. It does not invent an answer. Keys stay server-side.
+No model key is required to run the app. Groq (`GROQ_API_KEY`) is the free default. OpenAI or Anthropic run only when `GHOST_MODEL_PROVIDER` names them, and Ghost never falls back to a paid provider on its own. Without a configured provider, Ghost stores the question and says that no provider is configured. It does not invent an answer. Keys stay server-side.
+
+Answers render a safe Markdown subset: paragraphs, bold, italic, lists, inline code, and code blocks. Raw HTML in an answer is shown as text.
 
 Conversation does not create founder rules or project knowledge.
 

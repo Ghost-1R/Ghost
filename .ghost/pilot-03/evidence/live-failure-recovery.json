@@ -1,0 +1,30 @@
+{
+  "LIVE_DISABLED": true,
+  "REMOTE_TASK_FINAL_STATUS": "FAILED",
+  "AGENT_TASK_FINAL_STATUS": "CANCELLED",
+  "AUTHORIZATION_USES": 1,
+  "AUTHORIZATION_STATUS": "CONSUMED",
+  "DISPATCH_TERMINAL": true,
+  "RESERVATION_ACCOUNTING": {
+    "originalReservation": "32d915f5-5952-4e7b-b9af-899bf916488a",
+    "originalStatus": "RELEASED",
+    "billingUncertainHold": {
+      "id": "0e2aabff-8e20-4bdc-afe0-10674c986874",
+      "status": "OPEN",
+      "task_key": "billing-uncertain-hold-8bdfde20-2f66-4518-9aea-6e632001fe7f",
+      "estimated_cents": 100
+    },
+    "allowance": {
+      "allowance_cents": 100,
+      "reserved_cents": 100,
+      "charged_cents": 0
+    }
+  },
+  "EVIDENCE": {
+    "executionMode": "LIVE_PROVIDER",
+    "verificationState": "FAILED",
+    "lastErrorCode": "EMPTY_PROVIDER_CONTENT"
+  },
+  "psqlOut": "BEGIN\nINSERT 0 1\nUPDATE 1\nINSERT 0 1\nCOMMIT\n",
+  "at": "2026-10-13T05:36:38.706Z"
+}
