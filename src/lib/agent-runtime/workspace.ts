@@ -101,8 +101,8 @@ export function createCodeWorkspaceContract(input: {
     };
   }
 
-  const appRoot = path.resolve(process.cwd());
-  const resolvedRoot = path.resolve(configuredRoot);
+  const appRoot = path.resolve(/*turbopackIgnore: true*/ process.cwd());
+  const resolvedRoot = path.resolve(/*turbopackIgnore: true*/ configuredRoot);
   if (resolvedRoot === appRoot || resolvedRoot.startsWith(`${appRoot}${path.sep}`)) {
     return {
       ok: false,

@@ -318,20 +318,22 @@ export function buildWorkerAssignmentPreview(input: {
   scope: WorkerAssignmentScope;
   agentTasks: readonly AgentTaskSurfaceRow[];
 }): WorkerAssignmentPreview {
-  if (input.scope.mode === "project") {
+  const scope = input.scope;
+  if (scope.mode === "project") {
+    const projectId = scope.projectId;
     const task =
       input.agentTasks.find(
         (row) =>
-          row.projectId === input.scope.projectId &&
+          row.projectId === projectId &&
           ["QUEUED", "CLAIMED", "RUNNING", "CHECKPOINT", "BLOCKED"].includes(row.status),
       ) ??
-      input.agentTasks.find((row) => row.projectId === input.scope.projectId) ??
+      input.agentTasks.find((row) => row.projectId === projectId) ??
       null;
     return {
       mode: "project",
-      title: `Review ${input.scope.projectName}`,
+      title: `Review ${scope.projectName}`,
       willReview: [
-        `Project: ${input.scope.projectName}`,
+        `Project: ${scope.projectName}`,
         task
           ? `Active worker task ${task.actionType} (${task.status}${
               task.checkpointSequence > 0 ? `, step ${task.checkpointSequence}` : ""
@@ -344,13 +346,13 @@ export function buildWorkerAssignmentPreview(input: {
         "Plain-language status on Today and Files",
       ],
       chargeLabel: "Test run · $0 charged (MOCK, not live spend)",
-      projectId: input.scope.projectId,
+      projectId,
       taskId: task?.id ?? null,
       linkedItemIds: [],
     };
   }
 
-  const items = input.scope.items;
+  const items = scope.items;
   const firstTask = items.find((item) => item.taskId)?.taskId ?? null;
   const projectId = items[0]?.projectId || null;
   return {

@@ -190,6 +190,26 @@ export type Database = {
           updated_at?: string;
         }
       >;
+      founder_day_plans: Table<
+        {
+          id: string;
+          owner_id: string;
+          plan_date: string;
+          items: Json;
+          saved_at: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          owner_id: string;
+          plan_date: string;
+          items?: Json;
+          saved_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
       milestones: Table<
         {
           id: string;
