@@ -34,6 +34,49 @@ export default async function DecisionsPage() {
         )
       : [];
 
+  const authIds = [
+    ...new Set([
+      ...pendingAuth.map((row) => row.id),
+      ...decisionList.flatMap((decision) =>
+        decision.evidence
+          .filter((item) => item.type === "authorization" || item.type === "task")
+          .map((item) => item.id),
+      ),
+    ]),
+  ];
+  const taskByAuth = new Map<string, { id: string; projectId: string }>();
+  const taskById = new Map<string, { id: string; projectId: string }>();
+  if (authIds.length > 0) {
+    const bound = await session.supabase
+      .from("agent_tasks")
+      .select("id, project_id, authorization_id")
+      .eq("owner_id", session.user.id)
+      .in("authorization_id", authIds)
+      .limit(80);
+    for (const row of (bound.data ?? []) as Array<{
+      id: string;
+      project_id: string;
+      authorization_id: string;
+    }>) {
+      taskByAuth.set(row.authorization_id, { id: row.id, projectId: row.project_id });
+      taskById.set(row.id, { id: row.id, projectId: row.project_id });
+    }
+  }
+  const evidenceTaskIds = decisionList.flatMap((decision) =>
+    decision.evidence.filter((item) => item.type === "task").map((item) => item.id),
+  );
+  if (evidenceTaskIds.length > 0) {
+    const evidenceTasks = await session.supabase
+      .from("agent_tasks")
+      .select("id, project_id")
+      .eq("owner_id", session.user.id)
+      .in("id", evidenceTaskIds)
+      .limit(80);
+    for (const row of (evidenceTasks.data ?? []) as Array<{ id: string; project_id: string }>) {
+      taskById.set(row.id, { id: row.id, projectId: row.project_id });
+    }
+  }
+
   return (
     <div className="surface-page">
       <header className="surface-hero">
@@ -84,11 +127,24 @@ export default async function DecisionsPage() {
                   {projectNames.get(decision.projectId ?? "") ?? "Workspace"} ·{" "}
                   {formatTimestamp(decision.createdAt)}
                 </p>
-                {decision.projectId ? (
-                  <Link href={`/projects/${decision.projectId}`}>Open project</Link>
-                ) : (
-                  <Link href="/dashboard">Back to Today</Link>
-                )}
+                {(() => {
+                  const evidenceTask = decision.evidence.find((item) => item.type === "task");
+                  const evidenceAuth = decision.evidence.find((item) => item.type === "authorization");
+                  const bound =
+                    (evidenceTask ? taskById.get(evidenceTask.id) : undefined) ??
+                    (evidenceAuth ? taskByAuth.get(evidenceAuth.id) : undefined);
+                  if (bound) {
+                    return (
+                      <Link href={`/projects/${bound.projectId}/workspace?task=${bound.id}`}>
+                        Open linked task
+                      </Link>
+                    );
+                  }
+                  if (decision.projectId) {
+                    return <Link href={`/projects/${decision.projectId}`}>Open project</Link>;
+                  }
+                  return <Link href="/dashboard">Back to Today</Link>;
+                })()}
               </li>
             ))}
           </ul>
@@ -117,7 +173,24 @@ export default async function DecisionsPage() {
                   Fingerprint {auth.scopeFingerprint.slice(0, 16)}… · spend {auth.estimatedCost} ·
                   expires {formatTimestamp(auth.expiresAt)}
                 </p>
-                <Link href="/approvals">Review in Approval Center</Link>
+                <p>
+                  <Link href="/approvals">Review in Approval Center</Link>
+                  {taskByAuth.get(auth.id) ? (
+                    <>
+                      {" · "}
+                      <Link
+                        href={`/projects/${taskByAuth.get(auth.id)!.projectId}/workspace?task=${taskByAuth.get(auth.id)!.id}`}
+                      >
+                        Open bound task
+                      </Link>
+                    </>
+                  ) : auth.projectId ? (
+                    <>
+                      {" · "}
+                      <Link href={`/projects/${auth.projectId}/workspace`}>Open project worker</Link>
+                    </>
+                  ) : null}
+                </p>
               </li>
             ))}
           </ul>

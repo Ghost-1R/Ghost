@@ -28,11 +28,14 @@ export type ProjectDecisionRecord = {
 const DECISION_COLUMNS =
   "id, project_id, idea_id, strategy_id, title, question, context, status, options, recommendation, evidence, created_at, created_by, resolved_at, resolved_by, selected_option, founder_response, rationale" as const;
 
+const DECISION_COLUMNS_CORE =
+  "id, project_id, title, question, context, status, options, recommendation, evidence, created_at, created_by, resolved_at, resolved_by, selected_option, founder_response, rationale" as const;
+
 function mapDecision(row: {
   id: string;
   project_id: string | null;
-  idea_id: string | null;
-  strategy_id: string | null;
+  idea_id?: string | null;
+  strategy_id?: string | null;
   title: string;
   question: string;
   context: string;
@@ -51,8 +54,8 @@ function mapDecision(row: {
   return {
     id: row.id,
     projectId: row.project_id,
-    ideaId: row.idea_id,
-    strategyId: row.strategy_id,
+    ideaId: row.idea_id ?? null,
+    strategyId: row.strategy_id ?? null,
     title: row.title,
     question: row.question,
     context: row.context,
@@ -68,6 +71,14 @@ function mapDecision(row: {
     founderResponse: row.founder_response,
     rationale: row.rationale,
   };
+}
+
+function isMissingDecisionTable(message: string): boolean {
+  return /does not exist|schema cache/i.test(message) && /project_decisions/i.test(message);
+}
+
+function isMissingDecisionColumn(message: string): boolean {
+  return /idea_id|strategy_id/i.test(message);
 }
 
 async function applyResolvedDecisionToStrategy(
@@ -101,11 +112,24 @@ export async function loadOpenDecisions(
   supabase: GhostClient,
   projectId?: string,
 ): Promise<QueryResult<ProjectDecisionRecord[]>> {
-  let query = supabase.from("project_decisions").select(DECISION_COLUMNS).eq("status", "OPEN").order("created_at", { ascending: true });
+  let query = supabase
+    .from("project_decisions")
+    .select(DECISION_COLUMNS)
+    .eq("status", "OPEN")
+    .order("created_at", { ascending: true });
   if (projectId) query = query.eq("project_id", projectId);
-  const result = await query;
+  let result = await query;
+  if (result.error && isMissingDecisionColumn(result.error.message)) {
+    let core = supabase
+      .from("project_decisions")
+      .select(DECISION_COLUMNS_CORE)
+      .eq("status", "OPEN")
+      .order("created_at", { ascending: true });
+    if (projectId) core = core.eq("project_id", projectId);
+    result = (await core) as typeof result;
+  }
   if (result.error) {
-    if (/project_decisions|does not exist/i.test(result.error.message)) {
+    if (isMissingDecisionTable(result.error.message)) {
       return { status: "ok", data: [] };
     }
     return fromError(result.error);

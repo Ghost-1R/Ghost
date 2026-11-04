@@ -17,6 +17,7 @@ type ArtifactRow = {
   content_sha256: string;
   created_at: string;
   project_id: string;
+  task_id: string;
 };
 
 export default async function FilesPage() {
@@ -30,7 +31,7 @@ export default async function FilesPage() {
 
   const artifacts = await session.supabase
     .from("agent_review_artifacts")
-    .select("id, title, content_ref, content_sha256, created_at, project_id")
+    .select("id, title, content_ref, content_sha256, created_at, project_id, task_id")
     .eq("owner_id", session.user.id)
     .order("created_at", { ascending: false })
     .limit(40);
@@ -66,7 +67,9 @@ export default async function FilesPage() {
                 {row.content_sha256.slice(0, 12)} · {formatTimestamp(row.created_at)}
               </p>
               <pre className="worker-preview">{row.content_ref.slice(0, 2000)}</pre>
-              <Link href={`/projects/${row.project_id}/workspace`}>Open worker workspace</Link>
+              <Link href={`/projects/${row.project_id}/workspace?task=${row.task_id}`}>
+                Open saved result in worker
+              </Link>
             </li>
           ))}
         </ul>

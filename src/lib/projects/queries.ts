@@ -166,16 +166,27 @@ export async function loadProjectDetail(
   supabase: GhostClient,
   projectId: string,
 ): Promise<QueryResult<ProjectDetail | null>> {
-  let result = await supabase
-    .from("projects")
-    .select("id, name, slug, description, current_milestone, status, lifecycle_stage, repository_url, repository_provider, repository_branch, repository_commit, updated_at")
-    .eq("id", projectId)
-    .maybeSingle();
+  const selectFull =
+    "id, name, slug, description, current_milestone, status, lifecycle_stage, repository_url, repository_provider, repository_branch, repository_commit, updated_at";
+  const selectNoRepoMeta =
+    "id, name, slug, description, current_milestone, status, lifecycle_stage, repository_url, updated_at";
+  const selectMinimal =
+    "id, name, slug, description, current_milestone, status, repository_url, updated_at";
+
+  let result = await supabase.from("projects").select(selectFull).eq("id", projectId).maybeSingle();
+
+  if (result.error && /repository_provider|repository_branch|repository_commit/.test(result.error.message)) {
+    result = (await supabase
+      .from("projects")
+      .select(selectNoRepoMeta)
+      .eq("id", projectId)
+      .maybeSingle()) as typeof result;
+  }
 
   if (result.error && /lifecycle_stage/.test(result.error.message)) {
     result = (await supabase
       .from("projects")
-      .select("id, name, slug, description, current_milestone, status, repository_url, repository_provider, repository_branch, repository_commit, updated_at")
+      .select(selectMinimal)
       .eq("id", projectId)
       .maybeSingle()) as typeof result;
   }
@@ -188,7 +199,16 @@ export async function loadProjectDetail(
     return { status: "ok", data: null };
   }
 
-  const data = result.data;
+  const data = result.data as Record<string, unknown> & {
+    id: string;
+    name: string;
+    slug: string;
+    description: string;
+    current_milestone: string;
+    status: ProjectDetail["status"];
+    repository_url: string | null;
+    updated_at: string;
+  };
   return {
     status: "ok",
     data: {
@@ -199,13 +219,16 @@ export async function loadProjectDetail(
       currentMilestone: data.current_milestone,
       status: data.status,
       lifecycleStage:
-        "lifecycle_stage" in data && typeof data.lifecycle_stage === "string"
+        typeof data.lifecycle_stage === "string"
           ? (data.lifecycle_stage as LifecycleStage)
           : seedLifecycleFromProjectStatus(data.status),
       repositoryUrl: data.repository_url,
-      repositoryProvider: data.repository_provider,
-      repositoryBranch: data.repository_branch,
-      repositoryCommit: data.repository_commit,
+      repositoryProvider:
+        typeof data.repository_provider === "string" ? data.repository_provider : null,
+      repositoryBranch:
+        typeof data.repository_branch === "string" ? data.repository_branch : null,
+      repositoryCommit:
+        typeof data.repository_commit === "string" ? data.repository_commit : null,
       updatedAt: data.updated_at,
     },
   };

@@ -1,0 +1,25 @@
+---
+pid: 37208
+cwd: "C:\\Users\\Badge\\Documents\\ghost-09-9d-db-verify"
+command: "npx next --version 2>&1; Write-Output \"==== DEV ATTEMPT ====\"; npx next dev -p 3012 -H 127.0.0.1 2>&1 | Tee-Object -FilePath \".ghost/founder-worker-experience/evidence/next-cli-dev.log\""
+title: "Reproduce next dev CLI security exit"
+status: failed   
+started_at: 2026-11-04T06:22:03.825Z
+running_for_ms: 29209    
+---
+Next.js v16.4.0
+==== DEV ATTEMPT ====
+out-file : Could not find a part of the path 
+'C:\Users\Badge\Documents\ghost-09-9d-db-verify\.ghost\founder-worker-experience\evidence\next-cli-dev.log'.
+At line:1 char:64
++ ... EMPT ===="; npx next dev -p 3012 -H 127.0.0.1 2>&1 | Tee-Object -File ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OpenError: (:) [out-file], DirectoryNotFoundException
+    + FullyQualifiedErrorId : FileOpenFailure,Microsoft.PowerShell.Commands.OutFileCommand
+ 
+
+---
+exit_code: 4294967295
+elapsed_ms: 29208
+ended_at: 2026-11-04T06:22:33.033Z
+---

@@ -5,10 +5,15 @@ import type { ActionState } from "@/lib/action-state";
 import { loadAuthorizationById } from "@/lib/approvals/queries";
 import {
   insertAgentTaskCheckpoint,
+  insertReviewArtifact,
   loadAgentTaskById,
   persistAgentTaskState,
 } from "@/lib/agent-runtime/queries";
 import { runBoundedMockWorkerTurn } from "@/lib/agent-runtime/mock-worker";
+import {
+  createCheckpointReviewArtifact,
+  createReviewArtifact,
+} from "@/lib/agent-runtime/review-artifacts";
 import { applyBlockToTask } from "@/lib/agent-runtime/workflow";
 import { getSession } from "@/lib/auth/session";
 import { isCodegenLiveEnabled } from "@/lib/codegen/provider-config";
@@ -22,6 +27,8 @@ function readField(formData: FormData, name: string): string {
 function refresh(projectId: string) {
   revalidatePath("/dashboard");
   revalidatePath("/approvals");
+  revalidatePath("/files");
+  revalidatePath("/decisions");
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/workspace`);
 }
@@ -108,19 +115,44 @@ export async function runWorkspaceMockTurn(
   const persisted = await persistAgentTaskState(session.supabase, turn.task);
   if (persisted.status === "error") return { error: persisted.message, notice: null };
   if (turn.task.lastCheckpointId) {
+    const checkpoint = {
+      id: turn.task.lastCheckpointId,
+      sequence: turn.task.checkpointSequence,
+      label: turn.stepLabel,
+      progressRef: `checkpoint:${turn.task.id}:${turn.task.checkpointSequence}`,
+      createdAt: turn.task.updatedAt,
+      authorizationId: turn.task.binding.authorizationId,
+      scopeFingerprint: turn.task.binding.scopeFingerprint,
+    };
     await insertAgentTaskCheckpoint(session.supabase, {
       ownerId: session.user.id,
       taskId: turn.task.id,
-      checkpoint: {
-        id: turn.task.lastCheckpointId,
-        sequence: turn.task.checkpointSequence,
-        label: turn.stepLabel,
-        progressRef: `checkpoint:${turn.task.id}:${turn.task.checkpointSequence}`,
-        createdAt: turn.task.updatedAt,
-        authorizationId: turn.task.binding.authorizationId,
-        scopeFingerprint: turn.task.binding.scopeFingerprint,
-      },
+      checkpoint,
     });
+    const snapshot = createCheckpointReviewArtifact(turn.task, checkpoint, turn.task.updatedAt);
+    if (snapshot.ok) {
+      await insertReviewArtifact(session.supabase, snapshot.artifact);
+    }
+  }
+  if (turn.completed) {
+    const result = createReviewArtifact({
+      task: turn.task,
+      kind: "DIFF_SUMMARY",
+      title: `MOCK result · ${turn.task.binding.actionType}`,
+      contentRef: [
+        "mode=MOCK_GENERATION",
+        `task=${turn.task.id}`,
+        `project=${turn.task.projectId}`,
+        `checkpoints=${turn.task.checkpointSequence}`,
+        `status=${turn.task.status}`,
+        "liveHttpInvoked=false",
+        "chargedCents=0",
+      ].join("\n"),
+      at: turn.task.updatedAt,
+    });
+    if (result.ok) {
+      await insertReviewArtifact(session.supabase, result.artifact);
+    }
   }
   refresh(projectId);
   return {

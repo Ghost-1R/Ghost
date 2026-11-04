@@ -32,7 +32,7 @@ export default async function WorkerWorkspacePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ goal?: string }>;
+  searchParams: Promise<{ goal?: string; task?: string }>;
 }) {
   const session = await getSession();
   if (session.status !== "authenticated") redirect("/login");
@@ -58,7 +58,12 @@ export default async function WorkerWorkspacePage({
   }
 
   const data = snapshot.data;
-  const current = data.tasks.find((task) => task.id === data.currentTaskId) ?? data.tasks[0] ?? null;
+  const requestedTask =
+    query.task && UUID_PATTERN.test(query.task)
+      ? data.tasks.find((task) => task.id === query.task)
+      : undefined;
+  const current =
+    requestedTask ?? data.tasks.find((task) => task.id === data.currentTaskId) ?? data.tasks[0] ?? null;
 
   return (
     <div className="worker-workspace">

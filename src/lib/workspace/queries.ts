@@ -72,14 +72,21 @@ export async function loadWorkspaceSnapshot(
     loadWorkspaceArtifacts(supabase, input.ownerId, input.projectId),
   ]);
 
-  if (ideas.status === "error") return ideas;
-  if (conversation.status === "error") return conversation;
-  if (plan.status === "error") return plan;
+  const softMissing = (message: string) =>
+    /does not exist|schema cache|not available/i.test(message);
+
+  if (ideas.status === "error" && !softMissing(ideas.message)) return ideas;
+  if (conversation.status === "error" && !softMissing(conversation.message)) return conversation;
+  if (plan.status === "error" && !softMissing(plan.message)) return plan;
   if (tasks.status === "error") return tasks;
   if (approvals.status === "error") return approvals;
   if (artifacts.status === "error") return artifacts;
 
-  const goalOptions = ideas.data.filter(
+  const ideaRows = ideas.status === "ok" ? ideas.data : [];
+  const conversationThread = conversation.status === "ok" ? conversation.data : null;
+  const planRow = plan.status === "ok" ? plan.data : null;
+
+  const goalOptions = ideaRows.filter(
     (idea) => idea.promotedProjectId === input.projectId || idea.promotedProjectId == null,
   );
   const selectedGoalId =
@@ -115,7 +122,7 @@ export async function loadWorkspaceSnapshot(
   const derived = deriveWorkspacePhase({
     tasks: tasks.data,
     pendingApprovals: pendingApprovals.length,
-    hasPlan: Boolean(plan.data),
+    hasPlan: Boolean(planRow),
   });
 
   return {
@@ -123,11 +130,11 @@ export async function loadWorkspaceSnapshot(
     data: {
       projectId: input.projectId,
       projectName: input.projectName,
-      goal: goal.data,
+      goal: goal.status === "ok" ? goal.data : null,
       goalOptions,
-      conversationId: conversation.data?.id ?? null,
-      messages: conversation.data?.messages ?? [],
-      plan: plan.data,
+      conversationId: conversationThread?.id ?? null,
+      messages: conversationThread?.messages ?? [],
+      plan: planRow,
       tasks: tasks.data,
       events: events.status === "ok" ? events.data : [],
       artifacts: artifacts.data,
@@ -135,7 +142,8 @@ export async function loadWorkspaceSnapshot(
       counts,
       phase: derived.phase,
       currentTaskId: derived.currentTaskId,
-      lastActivityAt: tasks.data[0]?.updatedAt ?? conversation.data?.messages.at(-1)?.createdAt ?? null,
+      lastActivityAt:
+        tasks.data[0]?.updatedAt ?? conversationThread?.messages.at(-1)?.createdAt ?? null,
       providerConfigured: isModelConfigured(),
       liveEnabled: isCodegenLiveEnabled(),
       executionMode: "MOCK_ONLY",

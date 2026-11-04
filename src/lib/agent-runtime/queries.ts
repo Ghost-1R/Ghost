@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GhostClient } from "@/lib/auth/session";
 import { fromError, type QueryResult } from "@/lib/result";
+import type { ReviewArtifact } from "./review-artifacts";
 import type {
   AgentAuthorizationKind,
   AgentTask,
@@ -350,6 +351,72 @@ export async function insertAgentTaskCheckpoint(
       createdAt: row.created_at,
       authorizationId: row.authorization_id,
       scopeFingerprint: row.scope_fingerprint,
+    },
+  };
+}
+
+export async function insertReviewArtifact(
+  supabase: GhostClient,
+  artifact: ReviewArtifact,
+): Promise<QueryResult<ReviewArtifact>> {
+  const { data, error } = await db(supabase)
+    .from("agent_review_artifacts")
+    .insert({
+      id: artifact.id,
+      task_id: artifact.taskId,
+      owner_id: artifact.ownerId,
+      project_id: artifact.projectId,
+      kind: artifact.kind,
+      title: artifact.title,
+      content_ref: artifact.contentRef,
+      content_sha256: artifact.contentSha256,
+      visibility: artifact.visibility,
+      publicly_published: artifact.publiclyPublished,
+      created_at: artifact.createdAt,
+    })
+    .select(
+      "id, task_id, owner_id, project_id, kind, title, content_ref, content_sha256, visibility, publicly_published, created_at",
+    )
+    .single();
+
+  if (error) {
+    if (isMissingTable(error.message)) {
+      return {
+        status: "error",
+        message: "agent_review_artifacts table is not available in this environment.",
+      };
+    }
+    return fromError(error);
+  }
+
+  const row = data as {
+    id: string;
+    task_id: string;
+    owner_id: string;
+    project_id: string;
+    kind: ReviewArtifact["kind"];
+    title: string;
+    content_ref: string;
+    content_sha256: string;
+    visibility: ReviewArtifact["visibility"];
+    publicly_published: boolean;
+    created_at: string;
+  };
+
+  return {
+    status: "ok",
+    data: {
+      id: row.id,
+      taskId: row.task_id,
+      ownerId: row.owner_id,
+      projectId: row.project_id,
+      kind: row.kind,
+      title: row.title,
+      contentRef: row.content_ref,
+      contentSha256: row.content_sha256,
+      visibility: row.visibility,
+      publiclyPublished: false,
+      createdAt: row.created_at,
     },
   };
 }
