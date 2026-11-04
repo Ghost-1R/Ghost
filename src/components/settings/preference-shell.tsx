@@ -18,6 +18,7 @@ export function PreferenceShell({ preferences }: { preferences: FounderPreferenc
   useEffect(() => {
     const root = document.documentElement;
     const apply = () => {
+      root.dataset.appearance = preferences.appearance;
       root.dataset.theme = resolveAppearance(preferences.appearance);
       root.dataset.reduceMotion = preferences.reduceMotion ? "1" : "0";
     };

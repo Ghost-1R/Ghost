@@ -5,11 +5,14 @@ import test from "node:test";
 test("founder shell uses charcoal sidebar, turquoise accent, and light cards", () => {
   const css = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
   assert.match(css, /--sidebar:\s*#2f3a44/);
-  assert.match(css, /--accent:\s*#14b8a6/);
-  assert.match(css, /--bg-raise:\s*#ffffff/);
+  assert.match(css, /--accent:\s*#0f9f94/);
+  assert.match(css, /--bg-raise:\s*#fffdf9/);
   assert.match(css, /--radius-card/);
   assert.match(css, /@media \(max-width: 390px\)/);
   assert.match(css, /@media \(max-width: 768px\)/);
+  assert.match(css, /@media \(max-width: 1180px\)/);
+  assert.match(css, /today-card-in/);
+  assert.match(css, /prefers-reduced-motion/);
 });
 
 test("Today, Files, and Decisions routes exist", () => {

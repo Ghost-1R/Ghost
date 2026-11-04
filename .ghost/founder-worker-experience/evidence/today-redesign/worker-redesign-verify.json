@@ -1,0 +1,30 @@
+{
+  "verifiedAt": "2026-11-04T17:25:00-05:00",
+  "live": {
+    "GHOST_CODEGEN_LIVE_ENABLED": "0",
+    "GHOST_NO_LIVE_PROVIDER_CALLS": "1"
+  },
+  "freshReview": {
+    "taskId": "6d80ad00-412f-4863-be41-7418476d84eb",
+    "projectId": "f5397422-1c9d-4ef5-b639-8eee89981f5e",
+    "entry": "Today → Assign worker → Preview → Start test review",
+    "redirect": "/projects/f5397422-1c9d-4ef5-b639-8eee89981f5e/workspace?task=6d80ad00-412f-4863-be41-7418476d84eb&review=1",
+    "status": "SUCCEEDED",
+    "checkpoints": 4,
+    "savedResults": true,
+    "chargedCents": 0
+  },
+  "expiredSession": {
+    "taskId": "d5551124-b002-4ad7-9daa-dee428899dc1",
+    "projectId": "da4946e5-2afc-497c-8302-05738f803d18",
+    "notice": "This test session expired.",
+    "controls": ["View saved step", "Cancel"],
+    "hidden": ["Continue test run", "Pause"]
+  },
+  "screenshots": [
+    "worker-completed-desktop.png",
+    "worker-completed-ipad.png",
+    "worker-expired-desktop.png",
+    "worker-expired-ipad.png"
+  ]
+}

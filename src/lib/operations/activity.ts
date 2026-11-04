@@ -1,4 +1,5 @@
 import type { GhostClient } from "@/lib/auth/session";
+import { plainDecisionTitle } from "@/lib/dashboard/day-plan";
 import { classifyDeploymentAttemptStatuses, type DeploymentAttemptInput } from "@/lib/project-truth";
 import { fromError, type QueryResult } from "@/lib/result";
 
@@ -93,9 +94,11 @@ export async function loadRecentActivity(
         kind: "decision",
         title:
           row.status === "OPEN"
-            ? `Decision waiting: ${row.title}`
-            : `Decision ${row.status.toLowerCase()}: ${row.title}`,
-        detail: row.selected_option ? `Selected: ${row.selected_option}` : row.title,
+            ? `Decision waiting: ${plainDecisionTitle(row.title)}`
+            : `Decision ${row.status.toLowerCase()}: ${plainDecisionTitle(row.title)}`,
+        detail: row.selected_option
+          ? `Selected: ${row.selected_option}`
+          : plainDecisionTitle(row.title),
         at: row.resolved_at ?? row.created_at,
         href: `/projects/${row.project_id}`,
       });

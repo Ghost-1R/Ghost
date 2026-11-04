@@ -236,6 +236,7 @@ export function GhostConversation({
   messages,
   providerConfigured,
   variant = "thread",
+  loadError = null,
 }: {
   projectId: string | null;
   projectName: string | null;
@@ -244,6 +245,8 @@ export function GhostConversation({
   messages: ConversationMessage[];
   providerConfigured: boolean;
   variant?: "thread" | "command";
+  /** Surface load failures inside the chat dock instead of above it. */
+  loadError?: string | null;
 }) {
   const [pendingQuestion, showPendingQuestion] = useOptimistic<string | null>(null);
   const [state, formAction, pending] = useActionState(async (previous: ActionState, formData: FormData) => {
@@ -294,16 +297,22 @@ export function GhostConversation({
   );
 
   if (variant === "command") {
+    const scopeLabel = projectName
+      ? `Answering about ${projectName}`
+      : "Answering across your workspace";
     return (
       <div className="command-experience">
         <div className="command-dock">
+          <p className="command-scope" data-scoped={projectName ? "project" : "workspace"}>
+            {scopeLabel}
+          </p>
           <form action={formAction} className="command-bar" data-pending={pending}>
             {hidden}
             <span className="command-mark" aria-hidden="true">
               <GhostCore size="mark" />
             </span>
             <label className="sr-only" htmlFor="ghost-command">
-              Ask Ghost
+              Ask Ghost{projectName ? ` about ${projectName}` : ""}
             </label>
             <textarea
               id="ghost-command"
@@ -313,7 +322,11 @@ export function GhostConversation({
               required
               maxLength={4000}
               enterKeyHint="send"
-              placeholder="What do you need to know or decide?"
+              placeholder={
+                projectName
+                  ? `Ask about ${projectName}…`
+                  : "What do you need to know or decide?"
+              }
               aria-describedby={hintId}
               onKeyDown={submitOnEnter}
             />
@@ -324,11 +337,17 @@ export function GhostConversation({
             {voice.snapshot.message}
           </p>
           <p className="command-hint" id={hintId}>
-            Enter to send · Shift+Enter for a new line · Answers stay grounded in Project Brain
+            Enter to send · Shift+Enter for a new line · {scopeLabel}. Answers stay grounded in Project
+            Brain
           </p>
+          {loadError ? (
+            <p className="alert command-load-error" role="alert">
+              {loadError}
+            </p>
+          ) : null}
+          {feedback}
+          {providerNotice}
         </div>
-        {feedback}
-        {providerNotice}
         <LatestExchange messages={messages} pendingQuestion={pendingQuestion} />
       </div>
     );

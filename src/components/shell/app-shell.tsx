@@ -15,7 +15,8 @@ type NavItem = {
   match?: "exact" | "prefix";
 };
 
-const MOBILE_QUERY = "(max-width: 899px)";
+/** Phone + iPad (incl. landscape) keep a collapsible charcoal sidebar. */
+const MOBILE_QUERY = "(max-width: 1180px)";
 
 function subscribeToMobile(onStoreChange: () => void) {
   const media = window.matchMedia(MOBILE_QUERY);
@@ -166,9 +167,15 @@ export function AppShell({
           >
             {open ? "Close" : "Menu"}
           </button>
-          {pathname === "/dashboard" ? <div className="topbar-spacer" aria-hidden="true" /> : <TopCommandSearch />}
+          {pathname === "/dashboard" ? (
+            <p className="topbar-today-label quiet">Today</p>
+          ) : pathname.includes("/workspace") ? (
+            <p className="topbar-today-label quiet">Worker</p>
+          ) : (
+            <TopCommandSearch />
+          )}
           <div className="topbar-actions">
-            <Link className="button" href="/dashboard#ask-ghost">
+            <Link className="button ask-ghost-jump" href="/dashboard#ask-ghost">
               Ask Ghost
             </Link>
             <Link className="button-secondary topbar-profile" href="/settings" title={email ?? "Settings"}>

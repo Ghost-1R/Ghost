@@ -7,7 +7,6 @@ import { SoundSettings } from "@/components/ghost/experience";
 import { VoiceSettings } from "@/components/ghost/voice";
 import { SettingsControlCenter } from "@/components/settings/control-center";
 import { FounderPreferenceForm } from "@/components/settings/preference-form";
-import { PreferenceShell } from "@/components/settings/preference-shell";
 import { ActionForm } from "@/components/ui/action-form";
 import { ErrorState, Panel } from "@/components/ui/panel";
 import { describeProviderPolicy } from "@/lib/ai/provider";
@@ -114,18 +113,20 @@ export default async function SettingsPage() {
       <Panel title="Ghost Personality">
         <p className="quiet">
           Style and detail change how Ghost speaks. They cannot invent evidence, bypass privacy, or execute work.
+          Other account preferences stay as saved when you update this section.
         </p>
-        <FounderPreferenceForm preferences={preferences} />
+        <FounderPreferenceForm preferences={preferences} section="personality" />
         <p className="quiet">Active account layer: {status.preferenceSummary}</p>
       </Panel>
     ),
     voice: (
       <div className="stack">
-        <Panel title="Account audio defaults">
+        <Panel title="Voice &amp; Audio">
           <p className="quiet">
-            Sound enablement and volume persist per account (save under Ghost Personality or Appearance). Device voice
-            engine settings below stay on this browser because voices are local.
+            Account sound enablement and volume persist with your preferences. Device voice engine settings below stay
+            on this browser because voices are local. Theme and response style stay as saved when you update audio.
           </p>
+          <FounderPreferenceForm preferences={preferences} section="voice" />
           <ul className="meta">
             <li>Account sound: {preferences.soundEnabled ? "enabled" : "disabled"}</li>
             <li>Account volume: {preferences.soundVolume}</li>
@@ -142,10 +143,10 @@ export default async function SettingsPage() {
     appearance: (
       <Panel title="Appearance">
         <p className="quiet">
-          Appearance and reduced-motion are saved with account preferences. Light theme uses Ghost light tokens; system
-          follows the OS color scheme.
+          Theme and reduced-motion save to your account. Light and Dark use Ghost tokens; System follows the OS color
+          scheme. Personality and audio stay as saved when you update this section.
         </p>
-        <FounderPreferenceForm preferences={preferences} />
+        <FounderPreferenceForm preferences={preferences} section="appearance" />
       </Panel>
     ),
     memory: (
@@ -253,7 +254,6 @@ export default async function SettingsPage() {
 
   return (
     <div className="stack">
-      <PreferenceShell preferences={preferences} />
       <div className="page-head">
         <div>
           <p className="eyebrow">Settings</p>

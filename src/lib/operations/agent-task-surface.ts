@@ -22,6 +22,7 @@ export type AgentTaskSurfaceRow = {
   checkpointSequence: number;
   lastStepIdempotencyKey: string;
   blockReason: string;
+  leaseExpiresAt: string | null;
   updatedAt: string;
   claimedAt: string | null;
   completedAt: string | null;
@@ -89,7 +90,7 @@ export function projectAgentTasksToActivity(
       title: `Agent task ${row.actionType}`,
       detail: detailParts.join(" · "),
       at: row.updatedAt,
-      href: `/projects/${row.projectId}/workspace`,
+      href: `/projects/${row.projectId}/workspace?task=${encodeURIComponent(row.id)}`,
     };
   });
 }
@@ -109,6 +110,7 @@ type TaskRow = {
   checkpoint_sequence: number;
   last_step_idempotency_key: string;
   block_reason: string;
+  lease_expires_at: string | null;
   updated_at: string;
   claimed_at: string | null;
   completed_at: string | null;
@@ -133,7 +135,7 @@ export async function loadAgentTaskSurface(
   const { data, error } = await supabase
     .from("agent_tasks")
     .select(
-      "id, owner_id, project_id, status, action_type, action_scope, authorization_kind, checkpoint_sequence, last_step_idempotency_key, block_reason, updated_at, claimed_at, completed_at, projects(name)",
+      "id, owner_id, project_id, status, action_type, action_scope, authorization_kind, checkpoint_sequence, last_step_idempotency_key, block_reason, lease_expires_at, updated_at, claimed_at, completed_at, projects(name)",
     )
     .order("updated_at", { ascending: false })
     .limit(limit);
@@ -157,6 +159,7 @@ export async function loadAgentTaskSurface(
     checkpointSequence: row.checkpoint_sequence ?? 0,
     lastStepIdempotencyKey: row.last_step_idempotency_key ?? "",
     blockReason: row.block_reason ?? "",
+    leaseExpiresAt: row.lease_expires_at ?? null,
     updatedAt: row.updated_at,
     claimedAt: row.claimed_at,
     completedAt: row.completed_at,
@@ -182,6 +185,7 @@ export function surfaceRowFromTask(
     checkpointSequence: task.checkpointSequence,
     lastStepIdempotencyKey: task.lastStepIdempotencyKey,
     blockReason: task.blockReason,
+    leaseExpiresAt: task.lease?.expiresAt ?? null,
     updatedAt: task.updatedAt,
     claimedAt: task.claimedAt,
     completedAt: task.completedAt,

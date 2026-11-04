@@ -17,6 +17,11 @@ import {
 import { applyBlockToTask } from "@/lib/agent-runtime/workflow";
 import { getSession } from "@/lib/auth/session";
 import { isCodegenLiveEnabled } from "@/lib/codegen/provider-config";
+import {
+  explainMockNotice,
+  friendlyArtifactTitle,
+} from "@/lib/dashboard/result-labels";
+import { isTestSessionExpired } from "@/lib/dashboard/today-board";
 import { planWorkspaceControl, type WorkspaceControl } from "./workflow";
 
 function readField(formData: FormData, name: string): string {
@@ -98,6 +103,19 @@ export async function runWorkspaceMockTurn(
     return { error: "Task is not in this project.", notice: null };
   }
 
+  if (
+    isTestSessionExpired({
+      status: loaded.data.status,
+      leaseExpiresAt: loaded.data.lease?.expiresAt ?? null,
+    })
+  ) {
+    return {
+      error:
+        "This test session expired. View the saved step on Worker, or start a new review from Today.",
+      notice: null,
+    };
+  }
+
   const auth = await loadAuthorizationById(
     session.supabase,
     session.user.id,
@@ -131,14 +149,33 @@ export async function runWorkspaceMockTurn(
     });
     const snapshot = createCheckpointReviewArtifact(turn.task, checkpoint, turn.task.updatedAt);
     if (snapshot.ok) {
-      await insertReviewArtifact(session.supabase, snapshot.artifact);
+      const labeled = createReviewArtifact({
+        task: turn.task,
+        kind: snapshot.artifact.kind,
+        title: friendlyArtifactTitle({
+          completed: false,
+          checkpointSequence: turn.task.checkpointSequence,
+        }),
+        contentRef: [
+          snapshot.artifact.contentRef,
+          "mode=MOCK_GENERATION",
+          "chargedCents=0",
+          `checkpoints=${turn.task.checkpointSequence}`,
+        ].join("\n"),
+        at: turn.task.updatedAt,
+      });
+      if (labeled.ok) await insertReviewArtifact(session.supabase, labeled.artifact);
     }
   }
   if (turn.completed) {
     const result = createReviewArtifact({
       task: turn.task,
       kind: "DIFF_SUMMARY",
-      title: `MOCK result · ${turn.task.binding.actionType}`,
+      title: friendlyArtifactTitle({
+        completed: true,
+        checkpointSequence: turn.task.checkpointSequence,
+        actionType: turn.task.binding.actionType,
+      }),
       contentRef: [
         "mode=MOCK_GENERATION",
         `task=${turn.task.id}`,
@@ -147,6 +184,7 @@ export async function runWorkspaceMockTurn(
         `status=${turn.task.status}`,
         "liveHttpInvoked=false",
         "chargedCents=0",
+        "label=Test run completed",
       ].join("\n"),
       at: turn.task.updatedAt,
     });
@@ -157,9 +195,11 @@ export async function runWorkspaceMockTurn(
   refresh(projectId);
   return {
     error: null,
-    notice: turn.completed
-      ? "MOCK_GENERATION completed. This is not a live provider run."
-      : `MOCK_GENERATION checkpoint ${turn.task.checkpointSequence} saved.`,
+    notice: explainMockNotice({
+      completed: turn.completed,
+      checkpointSequence: turn.task.checkpointSequence,
+      chargedCents: turn.chargedCents,
+    }),
   };
 }
 

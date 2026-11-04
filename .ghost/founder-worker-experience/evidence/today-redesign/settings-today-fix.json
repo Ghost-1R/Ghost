@@ -1,0 +1,34 @@
+{
+  "verifiedAt": "2026-11-04T17:00:00-05:00",
+  "preview": "http://127.0.0.1:3012",
+  "database": {
+    "container": "supabase_db_ghost99f",
+    "url": "http://127.0.0.1:54331",
+    "founder_preferences": "applied",
+    "finalAppearance": "SYSTEM",
+    "preserved": {
+      "response_style": "DIRECT",
+      "response_detail": "BALANCED",
+      "sound_enabled": true
+    }
+  },
+  "live": {
+    "GHOST_CODEGEN_LIVE_ENABLED": "0",
+    "GHOST_NO_LIVE_PROVIDER_CALLS": "1"
+  },
+  "themes": ["LIGHT", "DARK", "SYSTEM"],
+  "assignScopes": {
+    "project": "Review Ghost Pilot 03 — AI Coding Test",
+    "plan_tasks": "Review 1 item from today's plan · Continue test run · Pilot02 Proj"
+  },
+  "copy": {
+    "decision": "Accept the vehicle test result?",
+    "agentDetail": "Saved after step 1",
+    "chargeOnce": "$0 charged",
+    "technicalDetailsKeepRawIds": true
+  },
+  "ipad": {
+    "viewport": "1180x820",
+    "menuCollapsed": true
+  }
+}
