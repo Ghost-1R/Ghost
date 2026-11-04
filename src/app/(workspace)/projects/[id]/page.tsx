@@ -33,6 +33,18 @@ import {
 import { ProjectTruthPanel } from "@/components/operations/project-truth-panel";
 import { loadProjectTruthSnapshot } from "@/lib/project-truth";
 import { loadPrimaryRepository } from "@/lib/repository/association";
+import { AssignWorkPanel } from "@/components/assignments/assign-work-panel";
+import {
+  completeAssignmentReviewForm,
+  handAiResultToHumanForm,
+} from "@/lib/assignments/actions";
+import {
+  listAssignmentsForProject,
+  loadAssignPanelData,
+} from "@/lib/assignments/queries";
+import { loadProjectTimeline } from "@/lib/activity/queries";
+import { canAdminProject } from "@/lib/access/permissions";
+import { getAccessContext } from "@/lib/access/session-access";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -84,6 +96,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     projectDecisions,
     openDecisions,
     primaryRepo,
+    access,
+    projectAssignments,
+    timeline,
+    assignPanel,
   ] = await Promise.all([
     loadProjectDetail(session.supabase, id),
     loadMilestones(session.supabase, id),
@@ -98,6 +114,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     loadProjectDecisions(session.supabase, id),
     loadOpenDecisions(session.supabase, id),
     loadPrimaryRepository(session.supabase, id),
+    getAccessContext(session.supabase, session.user.id, session.user.email),
+    listAssignmentsForProject(session.supabase, id, { limit: 20 }),
+    loadProjectTimeline(session.supabase, id, { limit: 30 }),
+    loadAssignPanelData(session.supabase, { projectIds: [id] }),
   ]);
   if (project.status === "error") {
     return (
@@ -224,6 +244,111 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <Link href={`/projects/${detail.id}/deploy`}>Deploy</Link>
         </nav>
       </header>
+
+      {canAdminProject(access, detail.id, detail.companyId) ? (
+        <Panel title="Assign work">
+          <AssignWorkPanel
+            mode="today"
+            projects={assignPanel.projects}
+            teammates={assignPanel.teammates}
+            defaultProjectId={detail.id}
+            heading="Assign to a teammate or Ghost AI"
+          />
+        </Panel>
+      ) : null}
+
+      <Panel title="Assignments">
+        {projectAssignments.status === "error" ? (
+          <ErrorState message={projectAssignments.message} />
+        ) : (projectAssignments.data ?? []).length === 0 ? (
+          <EmptyState>No human or Ghost AI assignments on this project yet.</EmptyState>
+        ) : (
+          <ul className="projects-index-list">
+            {(projectAssignments.data ?? []).map((assignment) => (
+              <li key={assignment.id}>
+                <div className="projects-index-row">
+                  <h3>{assignment.title}</h3>
+                  <StatusBadge status={assignment.status} />
+                </div>
+                <ul className="meta">
+                  <li>{assignment.kind === "AI" ? "Ghost AI" : "Team member"}</li>
+                  {assignment.dueAt ? <li>Due {formatTimestamp(assignment.dueAt)}</li> : null}
+                </ul>
+                {assignment.kind === "AI" &&
+                (assignment.status === "SUBMITTED" || assignment.status === "COMPLETED") &&
+                canAdminProject(access, detail.id, detail.companyId) ? (
+                  <ActionForm action={handAiResultToHumanForm} submitLabel="Hand to teammate">
+                    <input type="hidden" name="assignmentId" value={assignment.id} />
+                    <label className="field">
+                      <span>Teammate</span>
+                      <select name="assigneeUserId" required defaultValue="">
+                        <option value="" disabled>
+                          Select teammate
+                        </option>
+                        {assignPanel.teammates
+                          .filter((mate) => mate.companyId === detail.companyId)
+                          .map((mate) => (
+                            <option key={mate.userId} value={mate.userId}>
+                              {mate.label}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Review instructions</span>
+                      <textarea
+                        name="instructions"
+                        rows={2}
+                        defaultValue="Review the Ghost AI result and confirm or request changes."
+                      />
+                    </label>
+                  </ActionForm>
+                ) : null}
+                {assignment.status === "SUBMITTED" &&
+                assignment.kind === "HUMAN" &&
+                canAdminProject(access, detail.id, detail.companyId) ? (
+                  <ActionForm action={completeAssignmentReviewForm} submitLabel="Complete review">
+                    <input type="hidden" name="assignmentId" value={assignment.id} />
+                    <label className="field">
+                      <span>Decision</span>
+                      <select name="decision" defaultValue="APPROVE">
+                        <option value="APPROVE">Approve</option>
+                        <option value="REQUEST_CHANGES">Request changes</option>
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Review note</span>
+                      <textarea name="reviewNote" rows={2} />
+                    </label>
+                  </ActionForm>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      <Panel title="Activity timeline">
+        {timeline.status === "error" ? (
+          <ErrorState message={timeline.message} />
+        ) : (timeline.data ?? []).length === 0 ? (
+          <EmptyState>No project activity recorded yet.</EmptyState>
+        ) : (
+          <ul className="projects-index-list">
+            {(timeline.data ?? []).map((event) => (
+              <li key={event.id}>
+                <p>{event.summary}</p>
+                <ul className="meta">
+                  <li>{event.actorLabel || event.actorKind}</li>
+                  <li>{event.action}</li>
+                  <li>{formatTimestamp(event.at)}</li>
+                  {event.externalUnconnected ? <li>External site unconnected</li> : null}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
 
       <Panel title="Operating state">
         <ul className="meta">

@@ -38,17 +38,36 @@ function contextProjectId(pathname: string, projects: NavProject[]): string | nu
   return projects[0]?.id ?? null;
 }
 
+export type NavFlags = {
+  showCompanies: boolean;
+  showTeam: boolean;
+  showMyWork: boolean;
+  showSettings: boolean;
+};
+
+/** Without flags the shell keeps the pre-teams founder navigation. */
+const DEFAULT_NAV_FLAGS: NavFlags = {
+  showCompanies: true,
+  showTeam: true,
+  showMyWork: false,
+  showSettings: true,
+};
+
 /** Founder-facing primary navigation — deep OS routes stay reachable from project pages. */
-function buildPrimaryNav(projectId: string | null): NavItem[] {
+function buildPrimaryNav(projectId: string | null, flags: NavFlags): NavItem[] {
   const workerHref = projectId ? `/projects/${projectId}/workspace` : "/projects";
-  return [
+  const items: NavItem[] = [
     { href: "/dashboard", label: "Today", match: "exact" },
     { href: "/projects", label: "Projects", match: "exact" },
-    { href: workerHref, label: "Worker", match: "prefix" },
-    { href: "/files", label: "Files", match: "exact" },
-    { href: "/decisions", label: "Decisions", match: "exact" },
-    { href: "/settings", label: "Settings", match: "exact" },
   ];
+  if (flags.showCompanies) items.push({ href: "/companies", label: "Companies", match: "prefix" });
+  items.push({ href: workerHref, label: "Worker", match: "prefix" });
+  items.push({ href: "/files", label: "Files", match: "exact" });
+  items.push({ href: "/decisions", label: "Decisions", match: "exact" });
+  if (flags.showTeam) items.push({ href: "/team", label: "Team", match: "exact" });
+  if (flags.showMyWork) items.push({ href: "/team/my-work", label: "My Work", match: "exact" });
+  if (flags.showSettings) items.push({ href: "/settings", label: "Settings", match: "exact" });
+  return items;
 }
 
 function isCurrent(pathname: string, href: string, match: "exact" | "prefix" = "prefix"): boolean {
@@ -71,10 +90,12 @@ function isCurrent(pathname: string, href: string, match: "exact" | "prefix" = "
 export function AppShell({
   email,
   projects,
+  navFlags,
   children,
 }: {
   email: string | null;
   projects: NavProject[];
+  navFlags?: Partial<NavFlags>;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -84,7 +105,8 @@ export function AppShell({
   const open = openPath === pathname;
   const pending = pendingNav?.from === pathname ? pendingNav.href : null;
   const activeId = contextProjectId(pathname, projects);
-  const items = buildPrimaryNav(activeId);
+  const flags: NavFlags = { ...DEFAULT_NAV_FLAGS, ...navFlags };
+  const items = buildPrimaryNav(activeId, flags);
 
   return (
     <div className="shell ghost-light">
@@ -178,9 +200,15 @@ export function AppShell({
             <Link className="button ask-ghost-jump" href="/dashboard#ask-ghost">
               Ask Ghost
             </Link>
-            <Link className="button-secondary topbar-profile" href="/settings" title={email ?? "Settings"}>
-              Account
-            </Link>
+            {flags.showSettings ? (
+              <Link className="button-secondary topbar-profile" href="/settings" title={email ?? "Settings"}>
+                Account
+              </Link>
+            ) : (
+              <span className="topbar-profile quiet" title={email ?? undefined}>
+                {email ?? "Account"}
+              </span>
+            )}
           </div>
         </header>
         <div className="content os-content" id="main">

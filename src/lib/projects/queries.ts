@@ -26,6 +26,7 @@ export type ProjectSummary = {
 
 export type ProjectDetail = {
   id: string;
+  companyId: string;
   name: string;
   slug: string;
   description: string;
@@ -167,11 +168,11 @@ export async function loadProjectDetail(
   projectId: string,
 ): Promise<QueryResult<ProjectDetail | null>> {
   const selectFull =
-    "id, name, slug, description, current_milestone, status, lifecycle_stage, repository_url, repository_provider, repository_branch, repository_commit, updated_at";
+    "id, company_id, name, slug, description, current_milestone, status, lifecycle_stage, repository_url, repository_provider, repository_branch, repository_commit, updated_at";
   const selectNoRepoMeta =
-    "id, name, slug, description, current_milestone, status, lifecycle_stage, repository_url, updated_at";
+    "id, company_id, name, slug, description, current_milestone, status, lifecycle_stage, repository_url, updated_at";
   const selectMinimal =
-    "id, name, slug, description, current_milestone, status, repository_url, updated_at";
+    "id, company_id, name, slug, description, current_milestone, status, repository_url, updated_at";
 
   let result = await supabase.from("projects").select(selectFull).eq("id", projectId).maybeSingle();
 
@@ -213,6 +214,7 @@ export async function loadProjectDetail(
     status: "ok",
     data: {
       id: data.id,
+      companyId: typeof data.company_id === "string" ? data.company_id : "",
       name: data.name,
       slug: data.slug,
       description: data.description,

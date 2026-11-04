@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { PreferenceShell } from "@/components/settings/preference-shell";
 import { AppShell } from "@/components/shell/app-shell";
+import { buildNavFlags, getAccessContext } from "@/lib/access/session-access";
 import { getSession } from "@/lib/auth/session";
 import { loadFounderPreferences } from "@/lib/preferences/store";
 import { DEFAULT_FOUNDER_PREFERENCES } from "@/lib/preferences/types";
@@ -19,10 +20,12 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
-  const [projects, prefsResult] = await Promise.all([
+  const [projects, prefsResult, access] = await Promise.all([
     loadProjectSummaries(session.supabase),
     loadFounderPreferences(session.supabase, session.user.id),
+    getAccessContext(session.supabase, session.user.id, session.user.email),
   ]);
+  const navFlags = buildNavFlags(access);
   const navProjects =
     projects.status === "ok"
       ? projects.data.map((project) => ({ id: project.id, name: project.name }))
@@ -33,7 +36,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   return (
     <>
       <PreferenceShell preferences={preferences} />
-      <AppShell email={session.user.email} projects={navProjects}>
+      <AppShell email={session.user.email} projects={navProjects} navFlags={navFlags}>
         {children}
       </AppShell>
     </>

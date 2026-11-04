@@ -4276,3 +4276,279 @@ html[data-theme="dark"] .worker-card-icon {
     flex: 1 1 auto;
   }
 }
+
+/* —— Companies + Team —— */
+.group-heading {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.inline-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.85rem;
+}
+
+.project-picks {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.project-picks .check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.project-picks .check input {
+  width: auto;
+  accent-color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+   Sales map (companies/[id]/map) + Assign work panel
+   --------------------------------------------------------------------------- */
+.sales-map {
+  display: grid;
+  gap: 1rem;
+}
+
+.sales-map-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.sales-map-chip {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.sales-map-chip[data-test="true"] {
+  background: rgba(183, 121, 31, 0.16);
+  color: var(--warn);
+}
+
+.sales-map-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.sales-map-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  grid-column: 1 / -1;
+}
+
+.sales-map-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .sales-map-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.sales-map-side {
+  display: grid;
+  gap: 1rem;
+}
+
+.sales-map-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.sales-map-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.sales-map-stage {
+  perspective: 1100px;
+  overflow: hidden;
+  padding: 0.5rem 0;
+}
+
+.sales-map-plane {
+  transform-style: preserve-3d;
+  transform-origin: 50% 60%;
+  transition: transform var(--motion-deliberate) var(--ease-out);
+}
+
+.sales-map-stage[data-mode="tilt"] .sales-map-plane {
+  transform: rotateX(48deg) rotateZ(-14deg) scale(0.92);
+}
+
+.sales-map-stage[data-mode="flat"] .sales-map-plane {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sales-map-plane {
+    transition: none;
+  }
+}
+
+.sales-map-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.sales-map-tile {
+  cursor: pointer;
+  outline: none;
+}
+
+.sales-map-face {
+  fill: var(--bg-sunken);
+  stroke: var(--line);
+  stroke-width: 1;
+  transition: fill var(--motion-fast) var(--ease-out);
+}
+
+.sales-map-depth {
+  fill: rgba(36, 48, 57, 0.28);
+}
+
+.sales-map-tile[data-level="1"] .sales-map-face { fill: rgba(15, 159, 148, 0.22); }
+.sales-map-tile[data-level="2"] .sales-map-face { fill: rgba(15, 159, 148, 0.42); }
+.sales-map-tile[data-level="3"] .sales-map-face { fill: rgba(15, 159, 148, 0.65); }
+.sales-map-tile[data-level="4"] .sales-map-face { fill: rgba(15, 159, 148, 0.9); }
+
+.sales-map-tile:hover .sales-map-face,
+.sales-map-tile:focus-visible .sales-map-face {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.sales-map-tile[data-selected="true"] .sales-map-face {
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+
+.sales-map-code {
+  font-size: 15px;
+  font-weight: 700;
+  fill: var(--ink);
+  pointer-events: none;
+}
+
+.sales-map-value {
+  font-size: 10px;
+  fill: var(--ink);
+  pointer-events: none;
+}
+
+.sales-map-tile[data-level="3"] .sales-map-code,
+.sales-map-tile[data-level="3"] .sales-map-value,
+.sales-map-tile[data-level="4"] .sales-map-code,
+.sales-map-tile[data-level="4"] .sales-map-value {
+  fill: #ffffff;
+}
+
+.sales-map-prospect {
+  fill: #e07a1f;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+
+.sales-map-legend {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+}
+
+.sales-map-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.sales-map-stats dt {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.sales-map-stats dd {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.sales-map-bubbles {
+  display: block;
+  width: 100%;
+  max-width: 34rem;
+  height: auto;
+  margin: 0 0 1rem;
+}
+
+.sales-map-bubbles-bg {
+  fill: var(--bg-sunken);
+}
+
+.sales-map-bubble {
+  fill: rgba(15, 159, 148, 0.55);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.sales-map-bubble-label {
+  font-size: 8px;
+  fill: var(--ink);
+  pointer-events: none;
+}
+
+.sales-map-table-wrap {
+  overflow-x: auto;
+}
+
+.sales-map-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.sales-map-table th,
+.sales-map-table td {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.sales-map-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.assign-work-panel {
+  display: grid;
+  gap: 0.75rem;
+}

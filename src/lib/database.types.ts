@@ -95,6 +95,9 @@ export type Database = {
           name: string;
           slug: string;
           description: string;
+          kind: import("@/lib/access/types").CompanyKind;
+          site_url: string | null;
+          is_catalog: boolean;
           created_at: string;
           updated_at: string;
         },
@@ -104,9 +107,150 @@ export type Database = {
           name: string;
           slug: string;
           description?: string;
+          kind?: import("@/lib/access/types").CompanyKind;
+          site_url?: string | null;
+          is_catalog?: boolean;
           created_at?: string;
           updated_at?: string;
         }
+      >;
+      company_site_links: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          label: string;
+          url: string;
+          connected: boolean;
+          created_at: string;
+        },
+        "company_id" | "label" | "url"
+      >;
+      company_memberships: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          user_id: string;
+          role: import("@/lib/access/types").TeamRole;
+          invited_by: string | null;
+          revoked_at: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "company_id" | "user_id" | "role"
+      >;
+      project_memberships: {
+        Row: {
+          id: string;
+          project_id: string;
+          user_id: string;
+          role: import("@/lib/access/types").TeamRole;
+          company_membership_id: string | null;
+          revoked_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          user_id: string;
+          role: import("@/lib/access/types").TeamRole;
+          company_membership_id?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          project_id: string;
+          user_id: string;
+          role: import("@/lib/access/types").TeamRole;
+          company_membership_id: string | null;
+          revoked_at: string | null;
+        }>;
+        Relationships: [
+          {
+            foreignKeyName: "project_memberships_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      company_map_grants: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          user_id: string;
+          granted_by: string;
+          can_view_summaries: boolean;
+          revoked_at: string | null;
+          created_at: string;
+        },
+        "company_id" | "user_id" | "granted_by"
+      >;
+      team_invitations: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          email: string;
+          role: import("@/lib/access/types").TeamRole;
+          project_ids: string[];
+          token: string;
+          status: "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
+          invited_by: string;
+          preview_role: import("@/lib/access/types").TeamRole | null;
+          expires_at: string;
+          accepted_by: string | null;
+          accepted_at: string | null;
+          revoked_at: string | null;
+          created_at: string;
+        },
+        "company_id" | "email" | "role" | "token" | "invited_by"
+      >;
+      work_assignments: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          project_id: string;
+          next_action_id: string | null;
+          agent_task_id: string | null;
+          kind: import("@/lib/access/types").AssignmentKind;
+          status: import("@/lib/access/types").AssignmentStatus;
+          title: string;
+          instructions: string;
+          due_at: string | null;
+          assignee_user_id: string | null;
+          assigned_by: string;
+          progress_note: string;
+          submission_note: string;
+          submitted_at: string | null;
+          review_note: string;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          handed_off_from_assignment_id: string | null;
+          map_scope: Json | null;
+          created_at: string;
+          updated_at: string;
+        },
+        "company_id" | "project_id" | "kind" | "title" | "assigned_by"
+      >;
+      project_activity_events: DefaultedTable<
+        {
+          id: string;
+          company_id: string;
+          project_id: string | null;
+          actor_kind: "PERSON" | "AI" | "SYSTEM";
+          actor_user_id: string | null;
+          actor_label: string;
+          action: string;
+          summary: string;
+          record_type: string | null;
+          record_id: string | null;
+          metadata: Json;
+          external_unconnected: boolean;
+          created_at: string;
+        },
+        "company_id" | "actor_kind" | "action" | "summary"
       >;
       projects: Table<
         {
@@ -1786,6 +1930,29 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      get_team_invitation: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      accept_team_invitation: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      record_project_activity: {
+        Args: {
+          p_company_id: string;
+          p_project_id: string | null;
+          p_actor_kind: "PERSON" | "AI" | "SYSTEM";
+          p_action: string;
+          p_summary: string;
+          p_record_type?: string | null;
+          p_record_id?: string | null;
+          p_metadata?: Json;
+          p_external_unconnected?: boolean;
+          p_actor_label?: string;
+        };
+        Returns: string;
+      };
       review_memory_proposal: {
         Args: {
           proposal_id: string;

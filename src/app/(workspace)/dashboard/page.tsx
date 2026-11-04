@@ -7,6 +7,7 @@ import { FounderDate } from "@/components/today/founder-date";
 import { SoftNavLink, StaggerBoard, StaggerCard } from "@/components/today/motion";
 import { EmptyState, ErrorState } from "@/components/ui/panel";
 import { isModelConfigured } from "@/lib/ai/provider";
+import { loadAssignPanelData } from "@/lib/assignments/queries";
 import { getSession } from "@/lib/auth/session";
 import { loadLatestConversation } from "@/lib/conversation/queries";
 import {
@@ -73,6 +74,8 @@ export default async function DashboardPage() {
     ]);
 
   const projectList = projects.status === "ok" ? projects.data : [];
+  // Team / Ghost AI assignment options; resolves to empty lists when the schema is not applied.
+  const assignWork = await loadAssignPanelData(session.supabase).catch(() => null);
   const decisionList = openDecisions.status === "ok" ? openDecisions.data : [];
   const agentTaskRows = agentTaskSurface.status === "ok" ? agentTaskSurface.data : [];
   const todayList = prioritizeTodayActions([
@@ -246,6 +249,7 @@ export default async function DashboardPage() {
         projects={projectList.map((project) => ({ id: project.id, name: project.name }))}
         latestResult={latestResult}
         needsDecision={needsDecision}
+        assignWork={assignWork}
       />
 
       <StaggerBoard>

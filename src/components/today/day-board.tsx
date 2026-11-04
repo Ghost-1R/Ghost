@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { AssignWorkPanel } from "@/components/assignments/assign-work-panel";
 import { ActionForm } from "@/components/ui/action-form";
 import { EmptyState } from "@/components/ui/panel";
 import { SoftNavLink } from "@/components/today/motion";
@@ -25,6 +26,7 @@ import {
   type DayPlanPlacement,
   type OpenDecisionSeed,
 } from "@/lib/dashboard/day-plan";
+import type { AssignPanelProject, AssignPanelTeammate } from "@/lib/assignments/queries";
 import type { AgentTaskSurfaceRow } from "@/lib/operations/agent-task-surface";
 import type { TodayAction } from "@/lib/operations/today";
 
@@ -57,6 +59,7 @@ export function TodayDayBoard({
   projects,
   latestResult,
   needsDecision,
+  assignWork,
 }: {
   actions: TodayAction[];
   agentTasks: AgentTaskSurfaceRow[];
@@ -67,6 +70,8 @@ export function TodayDayBoard({
   projects: ProjectOption[];
   latestResult: LatestResult | null;
   needsDecision: NeedsDecisionCard | null;
+  /** Team / AI assignment options. Omitted when assignments are unavailable. */
+  assignWork?: { projects: AssignPanelProject[]; teammates: AssignPanelTeammate[] } | null;
 }) {
   const router = useRouter();
   const recommended = useMemo(
@@ -444,6 +449,15 @@ export function TodayDayBoard({
               </div>
             )}
           </section>
+
+          {assignWork && assignWork.projects.length > 0 ? (
+            <AssignWorkPanel
+              mode="today"
+              projects={assignWork.projects}
+              teammates={assignWork.teammates}
+              defaultProjectId={projectId || null}
+            />
+          ) : null}
 
           {latestResult ? (
             <ResultExplainCard

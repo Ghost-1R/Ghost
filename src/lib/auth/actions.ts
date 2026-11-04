@@ -118,13 +118,26 @@ export async function authenticate(
     return fail(failure.message);
   }
 
+  const signedInUserId = result?.data.user?.id;
+  if (signedInUserId) {
+    const { recordSignIn } = await import("@/lib/activity/presence");
+    await recordSignIn(supabase, signedInUserId);
+  }
+
   redirect("/dashboard");
 }
 
 export async function signOut(): Promise<void> {
-  const supabase = await createSupabaseServerClient();
-  if (supabase) {
-    await supabase.auth.signOut();
+  const session = await getSession();
+  if (session.status === "authenticated") {
+    const { recordSignOut } = await import("@/lib/activity/presence");
+    await recordSignOut(session.supabase, session.user.id);
+    await session.supabase.auth.signOut();
+  } else {
+    const supabase = await createSupabaseServerClient();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
   }
   redirect("/login");
 }

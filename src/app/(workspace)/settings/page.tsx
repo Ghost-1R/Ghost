@@ -11,6 +11,7 @@ import { ActionForm } from "@/components/ui/action-form";
 import { ErrorState, Panel } from "@/components/ui/panel";
 import { describeProviderPolicy } from "@/lib/ai/provider";
 import { createOwnProfile, updateProfile } from "@/lib/auth/actions";
+import { getAccessContext, hasFounderSurface } from "@/lib/access/session-access";
 import { getSession } from "@/lib/auth/session";
 import { getDeploymentSelection } from "@/lib/deployment/provider";
 import { buildControlCenterStatus } from "@/lib/preferences/status";
@@ -39,6 +40,11 @@ export default async function SettingsPage() {
   const session = await getSession();
   if (session.status !== "authenticated") {
     redirect("/login");
+  }
+
+  const access = await getAccessContext(session.supabase, session.user.id, session.user.email);
+  if (!hasFounderSurface(access)) {
+    redirect("/team/my-work");
   }
 
   const deployment = getDeploymentSelection();
