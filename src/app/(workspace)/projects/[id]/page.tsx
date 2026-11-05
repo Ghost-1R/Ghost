@@ -265,7 +265,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         ) : (
           <ul className="projects-index-list">
             {(projectAssignments.data ?? []).map((assignment) => (
-              <li key={assignment.id}>
+              <li key={assignment.id} id={`assignment-${assignment.id}`}>
                 <div className="projects-index-row">
                   <h3>{assignment.title}</h3>
                   <StatusBadge status={assignment.status} />
@@ -567,7 +567,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <EmptyState>No open next action recorded.</EmptyState>
         ) : null}
         {openActions.map((action) => (
-          <article className="list-item" key={action.id}>
+          <article className="list-item" key={action.id} id={`action-${action.id}`}>
             <h3>{action.title}</h3>
             <p className="quiet">{action.description || "No description recorded."}</p>
             <ul className="meta">

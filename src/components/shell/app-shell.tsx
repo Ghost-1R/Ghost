@@ -65,6 +65,7 @@ function buildPrimaryNav(projectId: string | null, flags: NavFlags): NavItem[] {
   items.push({ href: "/files", label: "Files", match: "exact" });
   items.push({ href: "/decisions", label: "Decisions", match: "exact" });
   if (flags.showTeam) items.push({ href: "/team", label: "Team", match: "exact" });
+  if (flags.showTeam) items.push({ href: "/underworld", label: "Underworld", match: "exact" });
   if (flags.showMyWork) items.push({ href: "/team/my-work", label: "My Work", match: "exact" });
   if (flags.showSettings) items.push({ href: "/settings", label: "Settings", match: "exact" });
   return items;
