@@ -98,7 +98,17 @@ export function CommandDashboard({
               <strong>{board.alerts.filter((a) => a.severity === "critical").length}</strong>
             </div>
           </div>
-          <form className={styles.filter} action="/command" method="get">
+          <form
+            className={styles.filter}
+            action="/command"
+            method="get"
+            onChange={(event) => {
+              const form = event.currentTarget;
+              const data = new FormData(form);
+              const value = String(data.get("company") ?? "");
+              router.push(value ? `/command?company=${encodeURIComponent(value)}` : "/command");
+            }}
+          >
             <label className={styles.muted} htmlFor="company-filter">
               Company
             </label>
@@ -106,10 +116,6 @@ export function CommandDashboard({
               id="company-filter"
               name="company"
               defaultValue={board.companyFilterId ?? ""}
-              onChange={(event) => {
-                const value = event.target.value;
-                router.push(value ? `/command?company=${value}` : "/command");
-              }}
             >
               <option value="">All companies</option>
               {companies.map((company) => (
@@ -118,6 +124,9 @@ export function CommandDashboard({
                 </option>
               ))}
             </select>
+            <noscript>
+              <button type="submit">Apply</button>
+            </noscript>
             <Link className={styles.goldBtn} href="/dashboard#ask-ghost">
               Ask Ghost
             </Link>

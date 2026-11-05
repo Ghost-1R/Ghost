@@ -40,7 +40,12 @@ function founderDisplayName(
     return profile;
   }
   // Default founder greeting name when profile is a local login alias.
-  if (email && /jittabadger|ghost-founder/i.test(email)) return "CEO JITTA";
+  if (
+    (email && /jittabadger|ghost-founder/i.test(email)) ||
+    /pr9-owner|ghost[-_]?founder|local[-_]?owner/i.test(profile)
+  ) {
+    return "CEO JITTA";
+  }
   return "CEO";
 }
 

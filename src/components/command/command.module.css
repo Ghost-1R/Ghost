@@ -435,12 +435,15 @@
   background: rgba(245, 158, 11, 0.08);
 }
 
-:global(html[data-reduce-motion="1"]) .command,
 @media (prefers-reduced-motion: reduce) {
   .row:hover,
   .pulse:hover {
     box-shadow: none;
   }
+}
+:global(html[data-reduce-motion="1"]) .row:hover,
+:global(html[data-reduce-motion="1"]) .pulse:hover {
+  box-shadow: none;
 }
 
 @media (max-width: 1100px) {
