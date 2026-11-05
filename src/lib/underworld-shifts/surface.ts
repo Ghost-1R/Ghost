@@ -75,6 +75,6 @@ export function projectShiftJobsToActivity(
     detail: row.reviewSummary || row.checkpointLabel || row.workflow,
     at: row.updatedAt,
     href: `/underworld/watch?project=${row.projectId}`,
-    kind: "underworld_shift" as const,
+    kind: "agent_task" as const,
   }));
 }

@@ -39,6 +39,8 @@ export type CommandAlert = {
   at: string | null;
   href: string;
   companyName?: string;
+  projectId?: string | null;
+  companyId?: string | null;
 };
 
 export type CommandTaskColumn = {
@@ -106,4 +108,7 @@ export type CommandBoard = {
   companyFilterId: string | null;
   underworldHref: string;
   briefing: Array<{ id: string; title: string; next: string; href: string }>;
+  workMode: "desk" | "home" | "gym" | "entertainment" | "field";
+  inboxUnread: number;
+  projectsForConvert: Array<{ id: string; name: string; companyId: string }>;
 };

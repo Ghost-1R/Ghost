@@ -1,52 +1,55 @@
-# Morning handoff — Ghost CEO Command (overnight partial)
+# Morning handoff — Ghost CEO Command (overnight)
 
-**Not 100% complete.** This handoff separates what shipped, what was verified locally, and what remains blocked.
+**Not 100% complete.** Full acceptance matrix (invite isolation, interrupt/resume AI claim, phone-signed flows for every step) was not finished overnight. Production / Render remains untouched.
 
 ## Preview
 - Local: http://127.0.0.1:3012/command
-- Start: `npm run dev -- -p 3012 -H 127.0.0.1` with `.env.local` pointing at disposable ghost99f (`54331`)
+- Start: `npm run dev -- -p 3012 -H 127.0.0.1` with `.env.local` → disposable ghost99f (`54331`)
+- Optional: `GHOST_CEO_NAME=CEO JITTA` (local owner aliases also map to CEO JITTA)
 - Branch: `ghost-ceo-command`
-- Commits: see `git log --oneline -5`
-- Production / Render: **untouched** (no deploy)
+- Tip: see `git rev-parse HEAD` after push
+- Screenshots: `ceo-command-desktop.png`, `ceo-command-desktop-phase3.png`, `ceo-command-phone-390.png`
 
 ## One-minute walkthrough
-1. Sign in → open **Command** in the primary nav (or `/command`).
-2. Read greeting, system health, company filter (Ivoire Market / IM Distributors present).
-3. Open a Sentinel/alert row → lands on source project evidence.
-4. Scroll to Task Command → open an In Progress assignment → Worker / Underworld.
-5. Click **Command · Grow · Lead** or Shifts → Underworld desks/monitors (PR #9 work).
+1. Sign in → **Command** (`/command`).
+2. Filter **Ivoire Market** / **IM Distributors**; read KPIs + Company Pulse.
+3. Acknowledge a Sentinel alert or open its source project.
+4. Opportunity Radar → **Create research task** (no outreach sent).
+5. **Command · Grow · Lead** → Underworld city + desk monitors + **SHIFT RUNNER** jobs.
 
 ## Module status
 
 | Module | State | Notes |
 |--------|-------|-------|
-| `/command` shell + GRIDD hierarchy | **Completed + locally verified** | Navy/gold CSS, rail, KPI, pulse, alerts, board, strip |
-| Company filter | **Completed** | Query `?company=`; Ivoire + IM in selector |
-| CEO briefing / What needs me | **Completed** | From `rankTop3Actions` + real signals |
-| Company Pulse | **Completed** | Real companies; health from open tasks/critical signals |
-| Workforce / Team links | **Partial** | Counts real; invite/revoke reuse `/team` (not rebuilt) |
-| Task Command board | **Partial** | Read-only board from `work_assignments`; mutations still on project pages |
-| Approvals / AI Control Room link | **Completed (link)** | `/approvals` existing gates |
-| Opportunity Radar | **Locally verified (demo seed)** | Migration + labeled sample rows; no external connectors |
-| Finance | **Locally verified (demo seed)** | Cleared cash vs unpaid invoice distinguished |
-| Communications inbox | **Not built** | Links to Ask Ghost / activity; no read/unread inbox table |
-| AI company schedules + durable shift E2E | **Not completed on this branch** | Default 9–5 cue only; full shift jobs live on `underworld-shifts` |
-| Underworld cinematic desks | **Completed earlier (PR #9)** | On `underworld-watch-review` / included base |
-| External lead connectors / LIVE providers | **Blocked** | Needs account secrets; UI shows connection health |
-| Commit `314c8c1` | **Missing** | Not in this clone/remotes |
+| `/command` GRIDD shell | **Completed + locally verified** | Navy/gold, rail, KPIs, pulse, alerts, board, strip |
+| Company filter | **Completed** | `?company=` with Ivoire + IM |
+| CEO briefing / What needs me | **Completed** | Ranked from real signals |
+| Communications inbox | **Completed + locally wired** | `/communications` from activity/presence; cookie read state |
+| Sentinel acknowledge | **Completed** | Cookie + activity audit when company/project known |
+| Opportunity Radar | **Locally verified** | Manual add + convert→AI proposal task; no external connectors |
+| Finance ledger | **Locally verified** | `/command/finance` drill-down; cash ≠ unpaid invoice |
+| Work Mode | **Completed** | Cookie-persisted visual modes only |
+| Task Command board | **Partial** | Read board; mutations still on project pages / Team |
+| Workforce invite/revoke | **Reuse** | Existing `/team` |
+| Underworld desks + scenes | **Completed (PR #9 base)** | Distinct locations + monitors |
+| Underworld shift jobs | **Merged + locally verified UI** | Migration present; runner panel + jobs on `/underworld`; worker needs `GHOST_UNDERWORLD_SHIFTS=1` + service role |
+| Full founder demo matrix | **Not fully executed** | See morning actions |
+| External lead connectors / LIVE | **Blocked** | Needs account secrets; UI shows connection health |
+| Commit `314c8c1` | **Missing** | Not in this clone |
 
-## Migrations
-- Applied on disposable ghost99f: `20261105093000_ceo_opportunities_finance.sql`
-- Demo seed (labeled): opportunities + finance for Ivoire Market / IM Distributors
+## Migrations (disposable ghost99f)
+- `20261105090000_underworld_shift_jobs.sql` — applied
+- `20261105093000_ceo_opportunities_finance.sql` — applied
 
-## Checks run
+## Checks
 - `npm run typecheck` — pass
-- eslint on command files — pass
-- Browser open `/command` — pass after CSS fix
-- Full founder demo matrix (invite iso, interrupt AI shift, approve consequential, phone 390) — **not fully executed overnight**
+- eslint on command / shifts / underworld page — pass
+- `npm run test:underworld-shifts` — 9/9 pass
+- Browser `/command` + `/underworld` — pass after actions.ts export fix
+- Production build / full invite+shift interrupt matrix — not re-run in this segment
 
 ## Morning actions for you
-1. Set `GHOST_CEO_NAME=CEO JITTA` in `.env.local` if you want that greeting over profile display name.
-2. Continue phases 3–4 on this branch or merge `underworld-shifts` carefully for durable AI shift jobs.
-3. Authorize Render/provider secrets only when ready for LIVE; keep consequential actions approval-gated.
-4. Support contacts (for unexpected errors policy): 3138259887 · jittabadger.business@gmail.com
+1. Set `GHOST_CEO_NAME=CEO JITTA` if you want that greeting over other profiles.
+2. To exercise durable shifts: `GHOST_UNDERWORLD_SHIFTS=1`, `GHOST_UNDERWORLD_SHIFT_FORCE=1` (local only), service role in env, `npm run worker`.
+3. Do not enable LIVE / Render without separate authorization.
+4. Support: 3138259887 · jittabadger.business@gmail.com

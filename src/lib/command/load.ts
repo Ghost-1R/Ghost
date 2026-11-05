@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import type { GhostClient } from "@/lib/auth/session";
 import type { AccessContext } from "@/lib/access/permissions";
 import { ASSIGNMENT_COLUMNS, ASSIGNMENT_STATUS_LABEL, mapAssignmentRow } from "@/lib/assignments/types";
@@ -8,21 +9,9 @@ import { loadCompaniesForUser } from "@/lib/companies/queries";
 import { listAgentTasksForProject } from "@/lib/agent-runtime/queries";
 import { loose } from "@/lib/db/loose";
 import { isModelConfigured } from "@/lib/ai/provider";
+import { isWithinShift } from "@/lib/underworld-shifts/schedule";
+import { ACK_COOKIE, INBOX_READ_COOKIE, WORK_MODE_COOKIE } from "./cookies";
 import type { CommandBoard, CommandAlert, CommandTaskColumn } from "./types";
-
-/** Default Mon–Fri 9–5 America/New_York — scene/shift cue only until company schedules ship. */
-function isWithinDefaultShiftWindow(at: string): boolean {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    weekday: "short",
-    hour: "numeric",
-    hour12: false,
-  }).formatToParts(new Date(at));
-  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
-  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "0");
-  if (/Sat|Sun/i.test(weekday)) return false;
-  return hour >= 9 && hour < 17;
-}
 
 function greetingFor(hour: number, name: string): string {
   const part = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -36,15 +25,15 @@ function founderDisplayName(
   const configured = (process.env.GHOST_CEO_NAME ?? "").trim();
   if (configured) return configured;
   const profile = profileName?.trim() ?? "";
-  if (profile.length >= 2 && !profile.includes("@") && !/^ghost[-_]/i.test(profile)) {
-    return profile;
-  }
-  // Default founder greeting name when profile is a local login alias.
+  // Prefer CEO JITTA for local verification owner aliases before raw profile labels.
   if (
-    (email && /jittabadger|ghost-founder/i.test(email)) ||
+    (email && /jittabadger|ghost-founder|pr9-owner/i.test(email)) ||
     /pr9-owner|ghost[-_]?founder|local[-_]?owner/i.test(profile)
   ) {
     return "CEO JITTA";
+  }
+  if (profile.length >= 2 && !profile.includes("@") && !/^ghost[-_]/i.test(profile)) {
+    return profile;
   }
   return "CEO";
 }
@@ -156,7 +145,27 @@ export async function loadCommandBoard(
     ["CLAIMED", "RUNNING", "CHECKPOINT"].includes(task.status),
   ).length;
   const aiRegistered = agentTasks.length;
-  const withinShift = isWithinDefaultShiftWindow(checkedAt);
+  const withinShift = isWithinShift(now);
+  const jar = await cookies();
+  const workModeRaw = jar.get(WORK_MODE_COOKIE)?.value ?? "home";
+  const workModes = ["desk", "home", "gym", "entertainment", "field"] as const;
+  const workMode: CommandBoard["workMode"] = workModes.includes(
+    workModeRaw as (typeof workModes)[number],
+  )
+    ? (workModeRaw as CommandBoard["workMode"])
+    : "home";
+  const ackIds = new Set(
+    (jar.get(ACK_COOKIE)?.value ?? "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean),
+  );
+  const readIds = new Set(
+    (jar.get(INBOX_READ_COOKIE)?.value ?? "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean),
+  );
 
   // Optional opportunity / finance tables (Phase 6 migrations). Missing → honest blockers.
   const opportunitiesQuery = await loose(supabase)
@@ -267,6 +276,7 @@ export async function loadCommandBoard(
     decisions: [],
   });
 
+  const projectCompany = new Map(projects.map((project) => [project.id, project.company_id]));
   const alerts: CommandAlert[] = [
     ...signals.slice(0, 8).map((signal) => ({
       id: signal.id,
@@ -276,6 +286,8 @@ export async function loadCommandBoard(
       at: signal.at,
       href: signal.href,
       companyName: signal.projectName,
+      projectId: signal.projectId,
+      companyId: projectCompany.get(signal.projectId) ?? null,
     })),
     ...pendingAuth.slice(0, 4).map((auth) => ({
       id: `auth-${auth.id}`,
@@ -284,8 +296,10 @@ export async function loadCommandBoard(
       detail: auth.reason || "Founder authorization pending.",
       at: auth.requestedAt,
       href: "/approvals",
+      projectId: auth.projectId ?? null,
+      companyId: auth.projectId ? projectCompany.get(auth.projectId) ?? null : null,
     })),
-  ];
+  ].filter((alert) => !ackIds.has(alert.id));
 
   const money = moneyStatusPhase1();
   let cashCents = 0;
@@ -367,7 +381,7 @@ export async function loadCommandBoard(
           ? "ceo_finance_entries not applied — totals unavailable."
           : "Company-scoped finance entries loaded.",
         checkedAt,
-        href: "/command#finance",
+        href: "/command/finance",
       },
       {
         id: "radar",
@@ -378,6 +392,15 @@ export async function loadCommandBoard(
           : "Opportunity records loaded.",
         checkedAt,
         href: "/command#radar",
+      },
+      {
+        id: "shifts",
+        label: "Underworld shift jobs",
+        state: "healthy",
+        detail:
+          "Durable shift claim/checkpoint lives behind GHOST_UNDERWORLD_SHIFTS=1 (service role). LIVE remains refused.",
+        checkedAt,
+        href: "/underworld",
       },
     ],
     kpis: [
@@ -509,7 +532,9 @@ export async function loadCommandBoard(
         ? `${money.label}. ${money.detail}`
         : "Profit here = cleared cash − expenses. Unpaid invoices are not cash collected.",
       connected: !financeMissing,
-      href: firstCompany ? `/companies/${firstCompany.id}/map` : "/companies",
+      href: companyFilterId
+        ? `/command/finance?company=${companyFilterId}`
+        : "/command/finance",
     },
     decisionsPending: pendingAuth.slice(0, 5).map((auth) => ({
       id: auth.id,
@@ -524,6 +549,13 @@ export async function loadCommandBoard(
       title: item.headline,
       next: item.nextAction,
       href: item.href,
+    })),
+    workMode,
+    inboxUnread: Math.max(0, alerts.length - readIds.size),
+    projectsForConvert: projects.slice(0, 24).map((project) => ({
+      id: project.id,
+      name: project.name,
+      companyId: project.company_id,
     })),
   };
 }

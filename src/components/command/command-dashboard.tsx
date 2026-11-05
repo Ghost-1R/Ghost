@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  acknowledgeSentinelAlert,
+  convertOpportunityToProposalTask,
+  createOpportunity,
+  setWorkMode,
+} from "@/lib/command/actions";
 import type { CommandBoard } from "@/lib/command/types";
 import styles from "./command.module.css";
 
@@ -14,8 +20,8 @@ const RAIL = [
   { href: "/command#tasks", label: "Task Command" },
   { href: "/underworld", label: "Shifts & Attendance" },
   { href: "/command#radar", label: "Opportunity Radar" },
-  { href: "/command#finance", label: "Finance" },
-  { href: "/dashboard#ask-ghost", label: "Communications" },
+  { href: "/command/finance", label: "Finance" },
+  { href: "/communications", label: "Communications" },
   { href: "/approvals", label: "AI Control Room" },
   { href: "/underworld", label: "Underworld" },
   { href: "/settings", label: "Settings" },
@@ -37,7 +43,8 @@ export function CommandDashboard({
   companies: Array<{ id: string; name: string }>;
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<(typeof WORK_MODES)[number]["id"]>("home");
+  const [pending, startTransition] = useTransition();
+  const [mode, setMode] = useState<(typeof WORK_MODES)[number]["id"]>(board.workMode);
   const clock = useMemo(() => {
     try {
       return new Intl.DateTimeFormat("en-US", {
@@ -96,6 +103,8 @@ export function CommandDashboard({
             <div>
               Alerts{" "}
               <strong>{board.alerts.filter((a) => a.severity === "critical").length}</strong>
+              {" · "}
+              <Link href="/communications">Inbox {board.inboxUnread}</Link>
             </div>
           </div>
           <form
@@ -193,17 +202,32 @@ export function CommandDashboard({
                 <p className={styles.muted}>No open signals from blockers, verification, or approvals.</p>
               )}
               {board.alerts.map((alert) => (
-                <Link key={alert.id} href={alert.href} className={`${styles.row} ${styles.alert}`}>
+                <div key={alert.id} className={`${styles.row} ${styles.alert}`}>
                   <span className={styles.dot} data-severity={alert.severity} aria-hidden="true" />
                   <span>
-                    <strong>{alert.title}</strong>
+                    <Link href={alert.href}>
+                      <strong>{alert.title}</strong>
+                    </Link>
                     <span className={styles.muted}>
                       {" "}
                       · {alert.detail}
                       {alert.companyName ? ` · ${alert.companyName}` : ""}
                     </span>
+                    <form
+                      action={acknowledgeSentinelAlert}
+                      style={{ marginTop: 6 }}
+                      onSubmit={() => startTransition(() => router.refresh())}
+                    >
+                      <input type="hidden" name="alertId" value={alert.id} />
+                      <input type="hidden" name="title" value={alert.title} />
+                      <input type="hidden" name="projectId" value={alert.projectId ?? ""} />
+                      <input type="hidden" name="companyId" value={alert.companyId ?? ""} />
+                      <button type="submit" className={styles.muted} disabled={pending}>
+                        Acknowledge
+                      </button>
+                    </form>
                   </span>
-                </Link>
+                </div>
               ))}
             </div>
           </div>
@@ -220,18 +244,69 @@ export function CommandDashboard({
               <p className={styles.muted}>No opportunities recorded yet. Add one after the migration.</p>
             ) : (
               <div className={styles.list}>
-                {board.opportunities.map((item) => (
-                  <article key={item.id} className={styles.row}>
-                    <strong>{item.title}</strong>
-                    <span className={styles.muted}>
-                      {item.valueLabel} · {item.geography} · score{" "}
-                      {item.score == null ? "—" : `${item.score}/100`} · {item.source}
-                    </span>
-                    <Link href={item.href}>Review opportunity</Link>
-                  </article>
-                ))}
+                {board.opportunities.map((item) => {
+                  const projects = board.projectsForConvert.filter((project) =>
+                    board.companyFilterId
+                      ? project.companyId === board.companyFilterId
+                      : true,
+                  );
+                  return (
+                    <article key={item.id} className={styles.row}>
+                      <strong>{item.title}</strong>
+                      <span className={styles.muted}>
+                        {item.valueLabel} · {item.geography} · score{" "}
+                        {item.score == null ? "—" : `${item.score}/100`} · {item.source} ·{" "}
+                        {item.status}
+                      </span>
+                      <form action={convertOpportunityToProposalTask} className={styles.list}>
+                        <input type="hidden" name="opportunityId" value={item.id} />
+                        <label className={styles.muted} htmlFor={`opp-project-${item.id}`}>
+                          Convert to proposal task
+                        </label>
+                        <select
+                          id={`opp-project-${item.id}`}
+                          name="projectId"
+                          required
+                          defaultValue={projects[0]?.id ?? ""}
+                        >
+                          {projects.map((project) => (
+                            <option key={project.id} value={project.id}>
+                              {project.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button type="submit" className={styles.goldBtn} disabled={!projects.length}>
+                          Create research task
+                        </button>
+                      </form>
+                      <span className={styles.muted}>
+                        Outreach is never sent from this action — drafts stay approval-gated.
+                      </span>
+                    </article>
+                  );
+                })}
               </div>
             )}
+            <form action={createOpportunity} className={styles.list} style={{ marginTop: 12 }}>
+              <strong>Add opportunity (manual)</strong>
+              <select
+                name="companyId"
+                required
+                defaultValue={board.companyFilterId ?? companies[0]?.id ?? ""}
+              >
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+              <input name="title" required placeholder="Title" maxLength={200} />
+              <input name="geography" placeholder="Geography" maxLength={120} />
+              <input name="valueDollars" type="number" step="1" placeholder="Value USD" />
+              <input name="score" type="number" min={0} max={100} placeholder="Fit score" />
+              <input name="fitReason" placeholder="Why it fits" maxLength={200} />
+              <button type="submit">Save opportunity</button>
+            </form>
             <p className={styles.muted} style={{ marginTop: 10 }}>
               Sales Map stays separate for synced customer orders by geography.
             </p>
@@ -330,18 +405,43 @@ export function CommandDashboard({
             </p>
             <div className={styles.modes} role="group" aria-label="Work mode">
               {WORK_MODES.map((entry) => (
-                <button
+                <form
                   key={entry.id}
-                  type="button"
-                  className={styles.mode}
-                  aria-pressed={mode === entry.id}
-                  onClick={() => setMode(entry.id)}
+                  action={setWorkMode}
+                  onSubmit={() => {
+                    setMode(entry.id);
+                    startTransition(() => router.refresh());
+                  }}
                 >
-                  <strong>{entry.label}</strong>
-                  <span className={styles.muted}>{entry.detail}</span>
-                </button>
+                  <input type="hidden" name="mode" value={entry.id} />
+                  <button
+                    type="submit"
+                    className={styles.mode}
+                    aria-pressed={mode === entry.id}
+                    disabled={pending}
+                  >
+                    <strong>{entry.label}</strong>
+                    <span className={styles.muted}>{entry.detail}</span>
+                  </button>
+                </form>
               ))}
             </div>
+            <p className={styles.muted} style={{ marginTop: 8 }}>
+              Active: {mode}. Opens Underworld destinations as visual context only.
+            </p>
+            <p>
+              <Link
+                href={
+                  mode === "gym"
+                    ? "/underworld?scene=gym"
+                    : mode === "desk"
+                      ? "/underworld?scene=engineering"
+                      : "/underworld"
+                }
+              >
+                Open Underworld in this mode →
+              </Link>
+            </p>
           </div>
         </section>
 
@@ -364,7 +464,7 @@ export function CommandDashboard({
             </div>
             <p className={styles.muted}>{board.finance.detail}</p>
             <p>
-              <Link href={board.finance.href}>Open Sales Map / company records →</Link>
+              <Link href={board.finance.href}>Open finance ledger →</Link>
             </p>
           </div>
           <div className={styles.panel}>

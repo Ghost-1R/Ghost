@@ -16,7 +16,11 @@ import {
   preferredCrewForDepartment,
   UNDERWORLD_CREW,
 } from "@/lib/underworld/desks";
+import { listShiftJobsForProject } from "@/lib/underworld-shifts/queries";
+import { isWithinShift } from "@/lib/underworld-shifts/schedule";
+import type { UnderworldShiftJob } from "@/lib/underworld-shifts/types";
 import { UnderworldCity, type CityDesk, type CityWork } from "@/components/underworld/city";
+import { ShiftRunnerPanel } from "@/components/underworld/shift-runner-panel";
 
 export const metadata = { title: "Underworld" };
 
@@ -33,7 +37,7 @@ export default async function UnderworldPage({
 
   const { data: projects, error } = await supabase
     .from("projects")
-    .select("id, name")
+    .select("id, name, company_id")
     .in("company_id", access.ownedCompanyIds)
     .order("name");
   const { project } = await searchParams;
@@ -55,9 +59,10 @@ export default async function UnderworldPage({
   );
   let warning = error ? "Projects could not be loaded." : "";
   let recordsFailed = false;
+  let shiftJobs: UnderworldShiftJob[] = [];
 
   if (selected) {
-    const [assignments, runs, plan, buildPlan] = await Promise.all([
+    const [assignments, runs, plan, buildPlan, shifts] = await Promise.all([
       loose(supabase)
         .from("work_assignments")
         .select(ASSIGNMENT_COLUMNS)
@@ -68,7 +73,9 @@ export default async function UnderworldPage({
       listAgentTasksForProject(supabase, user.id, selected.id),
       loadNextActions(supabase, selected.id),
       loadBuildPlan(supabase, selected.id),
+      listShiftJobsForProject(supabase, selected.id, 12),
     ]);
+    if (shifts.status === "ok") shiftJobs = shifts.data;
     if (
       assignments.error ||
       runs.status === "error" ||
@@ -250,6 +257,15 @@ export default async function UnderworldPage({
         projectId={selected?.id}
         recordsWarning={recordsFailed ? warning : undefined}
       />
+      {selected && (
+        <ShiftRunnerPanel
+          companyId={selected.company_id}
+          projectId={selected.id}
+          projectName={selected.name}
+          jobs={shiftJobs}
+          withinShift={isWithinShift()}
+        />
+      )}
     </div>
   );
 }
