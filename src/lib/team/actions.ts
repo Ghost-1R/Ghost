@@ -8,6 +8,7 @@ import { isCompanyOwner } from "@/lib/access/permissions";
 import { getAccessContext } from "@/lib/access/session-access";
 import type { TeamRole } from "@/lib/access/types";
 import { getSession } from "@/lib/auth/session";
+import { SCHEMA_UNAVAILABLE_USER_ERROR, requireSchemaFeature } from "@/lib/schema/readiness";
 import { recordActivitySoft } from "@/lib/team/activity";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -75,6 +76,11 @@ export async function inviteTeammate(input: {
   }
   if (!input.companyId) {
     return { ok: false, error: "Choose a company." };
+  }
+
+  const schema = await requireSchemaFeature(session.supabase, "team");
+  if (!schema.ok) {
+    return { ok: false, error: SCHEMA_UNAVAILABLE_USER_ERROR };
   }
 
   const owner = await requireOwner(session, input.companyId);

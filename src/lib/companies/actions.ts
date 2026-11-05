@@ -7,11 +7,22 @@ import { getAccessContext } from "@/lib/access/session-access";
 import { CATALOG_COMPANIES } from "@/lib/access/types";
 import { getSession } from "@/lib/auth/session";
 import { ensureCatalogCompanies, ensureSiteLinks, linkProjectsToCatalog } from "@/lib/companies/catalog";
+import {
+  SCHEMA_UNAVAILABLE_USER_ERROR,
+  requireSchemaFeature,
+} from "@/lib/schema/readiness";
 import { recordActivitySoft } from "@/lib/team/activity";
 
 function readField(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value.trim() : "";
+}
+
+function userFacingDbError(message: string): string {
+  if (/column .* does not exist|does not exist|PGRST205|42703|schema cache/i.test(message)) {
+    return SCHEMA_UNAVAILABLE_USER_ERROR;
+  }
+  return message;
 }
 
 /** Create the four catalog companies (idempotent) and relink existing projects onto them. */
@@ -22,14 +33,21 @@ export async function ensureCatalogAction(_previous: ActionState): Promise<Actio
     return { error: "You are not signed in.", notice: null };
   }
 
+  const schema = await requireSchemaFeature(session.supabase, "companies_catalog");
+  if (!schema.ok) {
+    return { error: SCHEMA_UNAVAILABLE_USER_ERROR, notice: null };
+  }
+
   const catalog = await ensureCatalogCompanies(session.supabase, session.user.id);
   if (catalog.status !== "ok") {
-    return { error: catalog.error, notice: null };
+    console.error("[ensureCatalogAction]", catalog.error);
+    return { error: userFacingDbError(catalog.error), notice: null };
   }
 
   const linked = await linkProjectsToCatalog(session.supabase, session.user.id);
   if (linked.status !== "ok") {
-    return { error: linked.error, notice: null };
+    console.error("[ensureCatalogAction] link", linked.error);
+    return { error: userFacingDbError(linked.error), notice: null };
   }
 
   // Seed known site URLs as UNCONNECTED links — Ghost has not verified any of them.
@@ -95,7 +113,8 @@ export async function addSiteLinkAction(
     .insert({ company_id: companyId, label, url, connected: false });
 
   if (error) {
-    return { error: error.message, notice: null };
+    console.error("[addSiteLinkAction]", error.message);
+    return { error: userFacingDbError(error.message), notice: null };
   }
 
   await recordActivitySoft(session.supabase, {

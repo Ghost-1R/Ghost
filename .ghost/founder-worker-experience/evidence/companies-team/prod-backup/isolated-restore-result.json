@@ -1,0 +1,6 @@
+{
+    "ok":  true,
+    "tables":  "company_map_grants,company_memberships,company_orders,project_activity_events,team_invitations,work_assignments,zip_centroids",
+    "note":  "Isolated restore from ghost99f public schema dump; companies-team tables present after restore.",
+    "at":  "2026-11-04T23:43:51.3214200Z"
+}

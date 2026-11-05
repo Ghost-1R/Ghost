@@ -30,6 +30,7 @@ import {
   validateAssignmentText,
   type ReviewDecision,
 } from "@/lib/assignments/workflow";
+import { SCHEMA_UNAVAILABLE_USER_ERROR, requireSchemaFeature } from "@/lib/schema/readiness";
 
 type AuthedSession = {
   supabase: GhostClient;
@@ -199,6 +200,9 @@ export async function createHumanAssignment(
   const ctx = await requireSession();
   if ("error" in ctx) return { ok: false, error: ctx.error };
 
+  const schema = await requireSchemaFeature(ctx.supabase, "assignments");
+  if (!schema.ok) return { ok: false, error: SCHEMA_UNAVAILABLE_USER_ERROR };
+
   const text = validateAssignmentText(input);
   if (!text.ok) return text;
 
@@ -259,6 +263,9 @@ export async function createAiAssignment(input: CreateAiAssignmentInput): Promis
   }
   const ctx = await requireSession();
   if ("error" in ctx) return { ok: false, error: ctx.error };
+
+  const schema = await requireSchemaFeature(ctx.supabase, "assignments");
+  if (!schema.ok) return { ok: false, error: SCHEMA_UNAVAILABLE_USER_ERROR };
 
   const text = validateAssignmentText({ ...input, dueAt: null });
   if (!text.ok) return text;

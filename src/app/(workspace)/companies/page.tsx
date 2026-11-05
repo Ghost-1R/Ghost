@@ -8,6 +8,7 @@ import { CATALOG_COMPANIES } from "@/lib/access/types";
 import { getSession } from "@/lib/auth/session";
 import { ensureCatalogAction } from "@/lib/companies/actions";
 import { loadCompaniesForUser, type CompanySummary } from "@/lib/companies/queries";
+import { checkSchemaFeature } from "@/lib/schema/readiness";
 
 export const metadata: Metadata = {
   title: "Companies",
@@ -45,9 +46,10 @@ export default async function CompaniesPage() {
   const session = await getSession();
   if (session.status !== "authenticated") redirect("/login");
 
-  const [access, result] = await Promise.all([
+  const [access, result, catalogSchema] = await Promise.all([
     getAccessContext(session.supabase, session.user.id, session.user.email),
     loadCompaniesForUser(session.supabase, session.user.id),
+    checkSchemaFeature(session.supabase, "companies_catalog"),
   ]);
   const founderSurface = hasFounderSurface(access);
 
@@ -58,7 +60,8 @@ export default async function CompaniesPage() {
   const operating = shown.filter((company) => company.kind === "OPERATING");
   const internal = shown.filter((company) => company.kind === "INTERNAL");
   const catalogCount = shown.filter((company) => company.isCatalog).length;
-  const needsSetup = founderSurface && catalogCount < CATALOG_COMPANIES.length;
+  const needsSetup = founderSurface && catalogSchema.ready && catalogCount < CATALOG_COMPANIES.length;
+  const schemaBlocked = founderSurface && !catalogSchema.ready;
 
   return (
     <div className="stack">
@@ -71,6 +74,19 @@ export default async function CompaniesPage() {
       </div>
 
       {result.status === "error" ? <ErrorState message={result.message} /> : null}
+
+      {schemaBlocked ? (
+        <section className="notice" role="status" aria-label="Company setup unavailable">
+          <p>
+            <strong>Company setup is temporarily unavailable.</strong> The production database still needs the
+            verified Companies/Team migration before catalog companies can be created.
+          </p>
+          <p className="quiet">
+            Next action: finish a privileged backup and isolated restore for project{" "}
+            <code>wzwrrleqfylhuxfbukfu</code>, then apply the hosted migration playbook.
+          </p>
+        </section>
+      ) : null}
 
       {needsSetup ? (
         <ActionForm action={ensureCatalogAction} submitLabel="Set up companies">
