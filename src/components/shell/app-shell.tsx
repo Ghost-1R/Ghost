@@ -58,8 +58,11 @@ function buildPrimaryNav(projectId: string | null, flags: NavFlags): NavItem[] {
   const workerHref = projectId ? `/projects/${projectId}/workspace` : "/projects";
   const items: NavItem[] = [
     { href: "/dashboard", label: "Today", match: "exact" },
-    { href: "/projects", label: "Projects", match: "exact" },
   ];
+  if (flags.showCompanies) {
+    items.push({ href: "/command", label: "Command", match: "exact" });
+  }
+  items.push({ href: "/projects", label: "Projects", match: "exact" });
   if (flags.showCompanies) items.push({ href: "/companies", label: "Companies", match: "prefix" });
   items.push({ href: workerHref, label: "Worker", match: "prefix" });
   items.push({ href: "/files", label: "Files", match: "exact" });
