@@ -29,7 +29,7 @@ export default async function WatchRoom({ searchParams }: {
   ]) : null;
 
   return (
-    <div className="stack">
+    <div className="stack underworld-review">
       <header>
         <p className="ghost-brand">UNDERWORLD</p>
         <h1>Watch Room</h1>
