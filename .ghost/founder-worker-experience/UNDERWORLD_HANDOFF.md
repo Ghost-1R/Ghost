@@ -1,9 +1,11 @@
 # Ghost release + Underworld handoff
 
 **Worktree:** `Documents/ghost-09-9d-db-verify`  
-**Branch tip (pre-handoff commits):** see git log — foundation repair + Underworld staged on `cursor/pilot-04-today-redesign`  
+**Foundation commit:** `e5a125f` (schema soft-fail + playbook)  
+**Underworld commit:** `d28585d` (staged locally; not production-ready)  
+**Branch:** `cursor/pilot-04-today-redesign` (2 commits ahead of origin; not pushed)  
 **Documents\\ghost:** `243bf65` on `ghost-operations-09` — **untouched**  
-**Render live (at handoff start):** `eaad3d2` on `ghost-experience`  
+**Render live:** still `eaad3d2` on `ghost-experience`  
 **LIVE:** local `GHOST_CODEGEN_LIVE_ENABLED=0`, `GHOST_NO_LIVE_PROVIDER_CALLS=1`
 
 ## Exact blocker (hosted)
