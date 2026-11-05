@@ -57,12 +57,49 @@ export type CommandTaskColumn = {
 
 export type CommandOpportunity = {
   id: string;
+  companyId: string;
   title: string;
   valueLabel: string;
   score: number | null;
   geography: string;
   status: string;
   source: string;
+  sourceUrl: string;
+  contactEmail: string;
+  outreachStage:
+    | "new"
+    | "waiting"
+    | "queued"
+    | "sending"
+    | "sent"
+    | "delivered"
+    | "bounced"
+    | "needs_attention"
+    | "replied"
+    | "won"
+    | "closed";
+  serviceInterest: "" | "website" | "app" | "ads" | "wholesale";
+  industry: string;
+  market: string;
+  fitReason: string;
+  followUpOn: string | null;
+  sentAt: string | null;
+  isMock: boolean;
+  discoveredByWorker: string;
+  evidenceSignal: string;
+  outreachDraft: string;
+  outreachSubject: string;
+  outreachMessageId: string | null;
+  doNotContact: boolean;
+  /** True when a public email exists but no opt-in/documented request covers the send scope. */
+  needsPermission: boolean;
+  eligibility: Array<{
+    id: string;
+    kind: "opt_in" | "documented_request";
+    source: string;
+    scope: string;
+    recordedAt: string;
+  }>;
   href: string;
 };
 
@@ -100,6 +137,8 @@ export type CommandBoard = {
     nextHandoverLabel: string;
     href: string;
   };
+  leadWorkers: import("@/lib/lead-workers/types").LeadWorkerBoardState;
+  outreachWorker: import("@/lib/outreach-worker/types").OutreachBoardState;
   opportunities: CommandOpportunity[];
   opportunityBlocker: string | null;
   finance: CommandFinanceSummary;

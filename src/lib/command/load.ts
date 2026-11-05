@@ -10,6 +10,13 @@ import { listAgentTasksForProject } from "@/lib/agent-runtime/queries";
 import { loose } from "@/lib/db/loose";
 import { isModelConfigured } from "@/lib/ai/provider";
 import { isWithinShift } from "@/lib/underworld-shifts/schedule";
+import { loadLeadWorkerBoard } from "@/lib/lead-workers/load";
+import { loadOutreachBoard } from "@/lib/outreach-worker/load";
+import {
+  loadEligibilityByOpportunityIds,
+  needsPermissionLabel,
+} from "@/lib/outreach-worker/eligibility";
+import { isOutreachStage } from "./outreach";
 import { ACK_COOKIE, INBOX_READ_COOKIE, WORK_MODE_COOKIE } from "./cookies";
 import type { CommandBoard, CommandAlert, CommandTaskColumn } from "./types";
 
@@ -168,12 +175,34 @@ export async function loadCommandBoard(
   );
 
   // Optional opportunity / finance tables (Phase 6 migrations). Missing → honest blockers.
-  const opportunitiesQuery = await loose(supabase)
+  const opportunityScope = scopedCompanyIds.length
+    ? scopedCompanyIds
+    : ["00000000-0000-0000-0000-000000000000"];
+  const opportunitySelect =
+    "id, company_id, title, value_cents, currency, score, geography, status, source, source_url, contact_email, fit_reason, outreach_stage, service_interest, industry, market, follow_up_on, sent_at, is_mock, discovered_by_worker, evidence_signal, outreach_draft, outreach_subject, outreach_message_id, do_not_contact, updated_at";
+  const opportunitiesFull = await loose(supabase)
     .from("ceo_opportunities")
-    .select("id, company_id, title, value_cents, currency, score, geography, status, source, updated_at")
-    .in("company_id", scopedCompanyIds.length ? scopedCompanyIds : ["00000000-0000-0000-0000-000000000000"])
+    .select(opportunitySelect)
+    .in("company_id", opportunityScope)
     .order("updated_at", { ascending: false })
-    .limit(12);
+    .limit(80);
+  const opportunitiesLegacy =
+    opportunitiesFull.error &&
+    /source_url|contact_email|outreach_stage|service_interest|is_mock|follow_up_on|sent_at|industry|market|fit_reason|discovered_by_worker|evidence_signal|outreach_draft|outreach_subject|outreach_message_id|do_not_contact/i.test(
+      opportunitiesFull.error.message,
+    )
+      ? await loose(supabase)
+          .from("ceo_opportunities")
+          .select(
+            "id, company_id, title, value_cents, currency, score, geography, status, source, source_url, contact_email, fit_reason, updated_at",
+          )
+          .in("company_id", opportunityScope)
+          .order("updated_at", { ascending: false })
+          .limit(80)
+      : null;
+  const opportunitiesQuery = opportunitiesLegacy ?? opportunitiesFull;
+  const leadWorkers = await loadLeadWorkerBoard(supabase);
+  const outreachWorker = await loadOutreachBoard(supabase);
   const financeQuery = await loose(supabase)
     .from("ceo_finance_entries")
     .select("id, company_id, kind, amount_cents, currency, status, occurred_on")
@@ -511,16 +540,69 @@ export async function loadCommandBoard(
     },
     opportunities: opportunitiesMissing
       ? []
-      : (opportunitiesQuery.data ?? []).map((row) => ({
-          id: row.id as string,
-          title: String(row.title),
-          valueLabel: formatMoney(Number(row.value_cents) || 0),
-          score: typeof row.score === "number" ? row.score : null,
-          geography: String(row.geography || "—"),
-          status: String(row.status),
-          source: String(row.source || "manual"),
-          href: `/command?company=${row.company_id}#radar`,
-        })),
+      : await (async () => {
+          const rows = opportunitiesQuery.data ?? [];
+          const ids = rows.map((raw) => String((raw as Record<string, unknown>).id));
+          const eligibilityMap = await loadEligibilityByOpportunityIds(supabase, ids);
+          return rows.map((raw) => {
+            const row = raw as Record<string, unknown>;
+            const stageRaw = String(row.outreach_stage ?? "new");
+            const outreachStage = isOutreachStage(stageRaw) ? stageRaw : "new";
+            const serviceRaw = String(row.service_interest ?? "");
+            const serviceInterest =
+              serviceRaw === "website" ||
+              serviceRaw === "app" ||
+              serviceRaw === "ads" ||
+              serviceRaw === "wholesale"
+                ? serviceRaw
+                : "";
+            const oppId = String(row.id);
+            const eligibility = (eligibilityMap.get(oppId) ?? []).map((entry) => ({
+              id: entry.id,
+              kind: entry.kind,
+              source: entry.source,
+              scope: entry.scope,
+              recordedAt: entry.recordedAt,
+            }));
+            const contactEmail = String(row.contact_email ?? "");
+            return {
+              id: oppId,
+              companyId: String(row.company_id),
+              title: String(row.title),
+              valueLabel: formatMoney(Number(row.value_cents) || 0),
+              score: typeof row.score === "number" ? row.score : null,
+              geography: String(row.geography || "—"),
+              status: String(row.status),
+              source: String(row.source || "manual"),
+              sourceUrl: String(row.source_url ?? ""),
+              contactEmail,
+              outreachStage,
+              serviceInterest,
+              industry: String(row.industry ?? ""),
+              market: String(row.market ?? row.geography ?? ""),
+              fitReason: String(row.fit_reason ?? ""),
+              followUpOn: row.follow_up_on ? String(row.follow_up_on).slice(0, 10) : null,
+              sentAt: row.sent_at ? String(row.sent_at) : null,
+              isMock: Boolean(row.is_mock),
+              discoveredByWorker: String(row.discovered_by_worker ?? ""),
+              evidenceSignal: String(row.evidence_signal ?? ""),
+              outreachDraft: String(row.outreach_draft ?? ""),
+              outreachSubject: String(row.outreach_subject ?? ""),
+              outreachMessageId: row.outreach_message_id ? String(row.outreach_message_id) : null,
+              doNotContact: Boolean(row.do_not_contact),
+              needsPermission: needsPermissionLabel({
+                contactEmail,
+                eligibility: eligibilityMap.get(oppId) ?? [],
+                serviceInterest,
+                isFollowUp: outreachStage === "sent" || outreachStage === "delivered",
+              }),
+              eligibility,
+              href: `/command?company=${row.company_id}#radar`,
+            };
+          });
+        })(),
+    leadWorkers,
+    outreachWorker,
     opportunityBlocker: opportunitiesMissing
       ? "Opportunity Radar needs the ceo_opportunities migration. Manual entry and import will unlock after apply on the disposable DB."
       : null,

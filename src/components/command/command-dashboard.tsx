@@ -3,13 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  acknowledgeSentinelAlert,
-  convertOpportunityToProposalTask,
-  createOpportunity,
-  setWorkMode,
-} from "@/lib/command/actions";
+import { acknowledgeSentinelAlert, setWorkMode } from "@/lib/command/actions";
 import type { CommandBoard } from "@/lib/command/types";
+import { LeadWorkerPanel } from "./lead-worker-panel";
+import { OutreachWorkerPanel } from "./outreach-worker-panel";
+import { OpportunityRadar } from "./opportunity-radar";
 import styles from "./command.module.css";
 
 const RAIL = [
@@ -234,83 +232,15 @@ export function CommandDashboard({
         </section>
 
         <section className={styles.grid2} aria-label="Radar and workforce">
-          <div className={styles.panel} id="radar">
-            <h2>Opportunity Radar</h2>
-            {board.opportunityBlocker ? (
-              <p className={styles.blocker} role="status">
-                {board.opportunityBlocker}
-              </p>
-            ) : board.opportunities.length === 0 ? (
-              <p className={styles.muted}>No opportunities recorded yet. Add one after the migration.</p>
-            ) : (
-              <div className={styles.list}>
-                {board.opportunities.map((item) => {
-                  const projects = board.projectsForConvert.filter((project) =>
-                    board.companyFilterId
-                      ? project.companyId === board.companyFilterId
-                      : true,
-                  );
-                  return (
-                    <article key={item.id} className={styles.row}>
-                      <strong>{item.title}</strong>
-                      <span className={styles.muted}>
-                        {item.valueLabel} · {item.geography} · score{" "}
-                        {item.score == null ? "—" : `${item.score}/100`} · {item.source} ·{" "}
-                        {item.status}
-                      </span>
-                      <form action={convertOpportunityToProposalTask} className={styles.list}>
-                        <input type="hidden" name="opportunityId" value={item.id} />
-                        <label className={styles.muted} htmlFor={`opp-project-${item.id}`}>
-                          Convert to proposal task
-                        </label>
-                        <select
-                          id={`opp-project-${item.id}`}
-                          name="projectId"
-                          required
-                          defaultValue={projects[0]?.id ?? ""}
-                        >
-                          {projects.map((project) => (
-                            <option key={project.id} value={project.id}>
-                              {project.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button type="submit" className={styles.goldBtn} disabled={!projects.length}>
-                          Create research task
-                        </button>
-                      </form>
-                      <span className={styles.muted}>
-                        Outreach is never sent from this action — drafts stay approval-gated.
-                      </span>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-            <form action={createOpportunity} className={styles.list} style={{ marginTop: 12 }}>
-              <strong>Add opportunity (manual)</strong>
-              <select
-                name="companyId"
-                required
-                defaultValue={board.companyFilterId ?? companies[0]?.id ?? ""}
-              >
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
-              <input name="title" required placeholder="Title" maxLength={200} />
-              <input name="geography" placeholder="Geography" maxLength={120} />
-              <input name="valueDollars" type="number" step="1" placeholder="Value USD" />
-              <input name="score" type="number" min={0} max={100} placeholder="Fit score" />
-              <input name="fitReason" placeholder="Why it fits" maxLength={200} />
-              <button type="submit">Save opportunity</button>
-            </form>
-            <p className={styles.muted} style={{ marginTop: 10 }}>
-              Sales Map stays separate for synced customer orders by geography.
-            </p>
-          </div>
+          <OpportunityRadar
+            opportunities={board.opportunities}
+            opportunityBlocker={board.opportunityBlocker}
+            companies={companies}
+            projects={board.projectsForConvert}
+            companyFilterId={board.companyFilterId}
+            founderName={board.founderName}
+            outreachWorker={board.outreachWorker}
+          />
 
           <div className={styles.panel}>
             <h2>Workforce Overview</h2>
@@ -356,7 +286,7 @@ export function CommandDashboard({
         </section>
 
         <section className={styles.grid3} aria-label="Command board">
-          <div className={styles.panel} id="tasks">
+          <div className={`${styles.panel} ${styles.taskPanel}`} id="tasks">
             <h2>Task Command Board</h2>
             <div className={styles.board}>
               {board.taskBoard.map((column) => (
@@ -385,14 +315,16 @@ export function CommandDashboard({
             </div>
           </div>
 
-          <div className={styles.panel}>
+          <div className={styles.panel} id="shifts">
             <h2>Shift Intelligence</h2>
             <p>
-              Default window: Mon–Fri 9–5 {board.shifts.timezone} ·{" "}
+              Underworld default: Mon–Fri 9–5 {board.shifts.timezone} ·{" "}
               {board.shifts.withinDefaultWindow ? "Open now" : "Closed now"}
             </p>
-            <p className={styles.muted}>AI executing: {board.shifts.aiActive}</p>
-            <p className={styles.muted}>Next handover: {board.shifts.nextHandoverLabel}</p>
+            <p className={styles.muted}>Underworld AI executing: {board.shifts.aiActive}</p>
+            <p className={styles.muted}>Next Underworld handover: {board.shifts.nextHandoverLabel}</p>
+            <LeadWorkerPanel state={board.leadWorkers} />
+            <OutreachWorkerPanel state={board.outreachWorker} />
             <p style={{ marginTop: 10 }}>
               <Link href={board.shifts.href}>Open Underworld shifts →</Link>
             </p>

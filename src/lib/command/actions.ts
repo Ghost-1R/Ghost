@@ -7,7 +7,16 @@ import { getAccessContext, hasFounderSurface } from "@/lib/access/session-access
 import { recordActivity } from "@/lib/activity/record";
 import { getSession } from "@/lib/auth/session";
 import { isUuid, loose } from "@/lib/db/loose";
+import { searchProspectsWithBrave, type ProspectSearchResult } from "./brave-search";
 import { ACK_COOKIE, INBOX_READ_COOKIE, WORK_MODE_COOKIE } from "./cookies";
+import {
+  isMockSourceUrl,
+  isOutreachService,
+  isOutreachStage,
+  nextOutreachStage,
+  type OutreachAction,
+  type OutreachStage,
+} from "./outreach";
 
 function field(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -124,6 +133,15 @@ export async function convertOpportunityToProposalTask(formData: FormData): Prom
   const companyId = String(opp.data.company_id);
   if (!auth.access.ownedCompanyIds.includes(companyId)) return;
 
+  const project = await loose(auth.session.supabase)
+    .from("projects")
+    .select("id, company_id")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (project.error || !project.data || String(project.data.company_id) !== companyId) {
+    return;
+  }
+
   const created = await createAiAssignment({
     projectId,
     companyId,
@@ -160,6 +178,298 @@ export async function convertOpportunityToProposalTask(formData: FormData): Prom
   revalidatePath(`/projects/${projectId}`);
 }
 
+/** Brave Search (or labeled MOCK) for Opportunity Radar Find prospects. */
+export async function searchProspects(formData: FormData): Promise<ProspectSearchResult> {
+  const auth = await requireFounder();
+  if (!auth.ok) {
+    return {
+      ok: false,
+      mode: "error",
+      setupMessage: auth.error,
+      query: "",
+      results: [],
+    };
+  }
+  return searchProspectsWithBrave({
+    businessType: field(formData, "businessType"),
+    city: field(formData, "city"),
+  });
+}
+
+export type SaveProspectResult =
+  | { ok: true; notice: string; opportunityId: string }
+  | { ok: false; error: string };
+
+/**
+ * Save a verified prospect under a company the founder owns.
+ * Deduplicates by company_id + source_url. Does not send email.
+ * MOCK source URLs are stored as is_mock and excluded from outreach.
+ */
+export async function saveProspect(formData: FormData): Promise<SaveProspectResult> {
+  const auth = await requireFounder();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const companyId = field(formData, "companyId");
+  const title = field(formData, "title");
+  const geography = field(formData, "geography");
+  const sourceUrl = field(formData, "sourceUrl");
+  const contactEmail = field(formData, "contactEmail").toLowerCase();
+  const fitReason = field(formData, "fitReason");
+  const industry = field(formData, "industry").slice(0, 120);
+  const market = (field(formData, "market") || geography).slice(0, 120);
+  const serviceRaw = field(formData, "serviceInterest");
+  const serviceInterest = isOutreachService(serviceRaw) ? serviceRaw : "";
+  const mockLead = isMockSourceUrl(sourceUrl);
+
+  if (!isUuid(companyId) || !auth.access.ownedCompanyIds.includes(companyId)) {
+    return { ok: false, error: "Choose a company you own." };
+  }
+  if (title.length < 2 || title.length > 200) {
+    return { ok: false, error: "Business name must be 2–200 characters." };
+  }
+  if (!sourceUrl || !/^https?:\/\//i.test(sourceUrl) || sourceUrl.length > 2000) {
+    return { ok: false, error: "Source URL must be an http(s) link." };
+  }
+  if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+    return { ok: false, error: "Contact email looks invalid." };
+  }
+
+  const existing = await loose(auth.session.supabase)
+    .from("ceo_opportunities")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("source_url", sourceUrl)
+    .maybeSingle();
+  if (existing.data?.id) {
+    return {
+      ok: false,
+      error: "This prospect is already saved for that company (same source URL).",
+    };
+  }
+
+  const inserted = await loose(auth.session.supabase)
+    .from("ceo_opportunities")
+    .insert({
+      owner_id: auth.session.user.id,
+      company_id: companyId,
+      title,
+      value_cents: 0,
+      currency: "USD",
+      score: null,
+      geography: geography.slice(0, 120),
+      status: "PROSPECT",
+      source: mockLead ? "brave_search_mock" : "brave_search",
+      fit_reason: (fitReason || "Saved from Opportunity Radar prospect discovery.").slice(0, 2000),
+      source_url: sourceUrl,
+      contact_email: contactEmail.slice(0, 320),
+      outreach_stage: "new",
+      service_interest: serviceInterest,
+      industry,
+      market,
+      is_mock: mockLead,
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (inserted.error) {
+    if (/ceo_opportunities_company_source_url|duplicate|unique/i.test(inserted.error.message)) {
+      return {
+        ok: false,
+        error: "This prospect is already saved for that company (same source URL).",
+      };
+    }
+    if (/source_url|contact_email|outreach_stage|is_mock|schema cache|does not exist/i.test(inserted.error.message)) {
+      return {
+        ok: false,
+        error:
+          "Prospect/outreach columns are missing. Apply ceo_opportunity_prospects and ceo_opportunity_outreach_pipeline migrations on the disposable database.",
+      };
+    }
+    return { ok: false, error: inserted.error.message };
+  }
+
+  const opportunityId = String(inserted.data?.id ?? "");
+  revalidatePath("/command");
+  if (mockLead) {
+    return {
+      ok: true,
+      opportunityId,
+      notice: "MOCK prospect stored for reference only — it is hidden from the outreach pipeline.",
+    };
+  }
+  return {
+    ok: true,
+    opportunityId,
+    notice: contactEmail
+      ? "Prospect saved to New leads. You can open an email draft after Move to review — Ghost will not send it."
+      : "Prospect saved to New leads. Move to review when you are ready to verify a public email.",
+  };
+}
+
+export type OutreachUpdateResult =
+  | { ok: true; notice: string; stage: OutreachStage }
+  | { ok: false; error: string };
+
+/**
+ * Advance or update an outreach lead. Opening an email draft is client-only and
+ * must never call this with mark_sent — Mark as sent is the founder's confirmation.
+ */
+export async function updateOutreachLead(formData: FormData): Promise<OutreachUpdateResult> {
+  const auth = await requireFounder();
+  if (!auth.ok) return { ok: false, error: auth.error };
+
+  const opportunityId = field(formData, "opportunityId");
+  const actionRaw = field(formData, "action") as OutreachAction;
+  const allowedActions: OutreachAction[] = [
+    "move_to_review",
+    "close",
+    "save_email",
+    "mark_sent",
+    "mark_replied",
+    "mark_won",
+    "save_details",
+  ];
+  if (!isUuid(opportunityId) || !allowedActions.includes(actionRaw)) {
+    return { ok: false, error: "Invalid outreach update." };
+  }
+
+  const existing = await loose(auth.session.supabase)
+    .from("ceo_opportunities")
+    .select(
+      "id, company_id, owner_id, outreach_stage, contact_email, source_url, is_mock, service_interest, industry, market, fit_reason, follow_up_on, sent_at, outreach_draft, outreach_subject",
+    )
+    .eq("id", opportunityId)
+    .maybeSingle();
+
+  if (existing.error) {
+    return { ok: false, error: existing.error.message };
+  }
+  if (!existing.data) {
+    return { ok: false, error: "Lead not found." };
+  }
+
+  const row = existing.data as Record<string, unknown>;
+  const companyId = String(row.company_id);
+  if (!auth.access.ownedCompanyIds.includes(companyId)) {
+    return { ok: false, error: "You can only update leads for companies you own." };
+  }
+
+  const isMock = Boolean(row.is_mock) || isMockSourceUrl(String(row.source_url ?? ""));
+  if (isMock) {
+    return { ok: false, error: "MOCK leads are excluded from outreach actions." };
+  }
+
+  const currentStage = isOutreachStage(String(row.outreach_stage ?? "new"))
+    ? (String(row.outreach_stage) as OutreachStage)
+    : "new";
+  const nextStage = nextOutreachStage(currentStage, actionRaw);
+  if (!nextStage) {
+    return { ok: false, error: `Cannot ${actionRaw.replaceAll("_", " ")} from ${currentStage}.` };
+  }
+
+  const patch: Record<string, unknown> = {
+    outreach_stage: nextStage,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (actionRaw === "save_email" || actionRaw === "save_details" || actionRaw === "mark_sent") {
+    const email = field(formData, "contactEmail").toLowerCase();
+    if (email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return { ok: false, error: "Contact email looks invalid." };
+      }
+      patch.contact_email = email.slice(0, 320);
+    } else if (actionRaw === "save_email") {
+      return { ok: false, error: "Enter a verified business email first." };
+    } else if (actionRaw === "mark_sent" && !String(row.contact_email ?? "").trim()) {
+      return { ok: false, error: "Save a verified business email before marking sent." };
+    }
+  }
+
+  if (actionRaw === "save_details" || actionRaw === "move_to_review") {
+    const fitReason = field(formData, "fitReason");
+    if (fitReason) patch.fit_reason = fitReason.slice(0, 2000);
+    const industry = field(formData, "industry");
+    if (industry || actionRaw === "save_details") patch.industry = industry.slice(0, 120);
+    const market = field(formData, "market");
+    if (market || actionRaw === "save_details") patch.market = market.slice(0, 120);
+    const serviceRaw = field(formData, "serviceInterest");
+    if (serviceRaw === "" || isOutreachService(serviceRaw)) {
+      patch.service_interest = serviceRaw;
+    }
+  }
+
+  const draftBody = field(formData, "outreachDraft");
+  const draftSubject = field(formData, "outreachSubject");
+  if (draftBody) patch.outreach_draft = draftBody.slice(0, 4000);
+  if (draftSubject) patch.outreach_subject = draftSubject.slice(0, 300);
+
+  if (actionRaw === "mark_sent") {
+    // Manual confirmation only (mailto path). Outreach worker moves to sent after provider acceptance.
+    if (currentStage === "queued" || currentStage === "sending") {
+      return {
+        ok: false,
+        error: "This lead is in the Outreach send queue — wait for provider acceptance or cancel from Needs attention.",
+      };
+    }
+    const followUpOn = field(formData, "followUpOn");
+    patch.sent_at = new Date().toISOString();
+    if (followUpOn) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(followUpOn)) {
+        return { ok: false, error: "Follow-up date must be YYYY-MM-DD." };
+      }
+      patch.follow_up_on = followUpOn;
+    }
+  }
+
+  const updated = await loose(auth.session.supabase)
+    .from("ceo_opportunities")
+    .update(patch)
+    .eq("id", opportunityId)
+    .eq("company_id", companyId)
+    .select("id, outreach_stage")
+    .maybeSingle();
+
+  if (updated.error) {
+    if (/outreach_stage|is_mock|follow_up_on|sent_at|outreach_subject|schema cache|does not exist/i.test(updated.error.message)) {
+      return {
+        ok: false,
+        error:
+          "Outreach columns are missing. Apply migrations through 20261105160000_ceo_outreach_worker.sql.",
+      };
+    }
+    return { ok: false, error: updated.error.message };
+  }
+  if (!updated.data) {
+    return { ok: false, error: "Update denied — check company ownership." };
+  }
+
+  // Editing recipient/subject/body after Approve & queue requires fresh approval.
+  if (actionRaw === "save_email" || actionRaw === "save_details") {
+    const { invalidateOutreachApprovalIfChanged } = await import("@/lib/outreach-worker/actions");
+    await invalidateOutreachApprovalIfChanged({
+      supabase: auth.session.supabase,
+      opportunityId,
+      companyId,
+      recipientEmail: String(patch.contact_email ?? row.contact_email ?? ""),
+      subject: String(patch.outreach_subject ?? row.outreach_subject ?? ""),
+      body: String(patch.outreach_draft ?? row.outreach_draft ?? ""),
+    });
+  }
+
+  revalidatePath("/command");
+  const notices: Record<OutreachAction, string> = {
+    move_to_review: "Moved to Waiting for approval.",
+    close: "Lead closed.",
+    save_email: "Business email saved. Opening a draft will not mark this as sent.",
+    mark_sent: "Marked as sent (manual). Ghost did not send via Outreach worker.",
+    mark_replied: "Moved to Replied.",
+    mark_won: "Marked as won.",
+    save_details: "Lead details saved.",
+  };
+  return { ok: true, notice: notices[actionRaw], stage: nextStage };
+}
+
 /** Manual opportunity entry for Opportunity Radar. */
 export async function createOpportunity(formData: FormData): Promise<void> {
   const auth = await requireFounder();
@@ -179,6 +489,11 @@ export async function createOpportunity(formData: FormData): Promise<void> {
   const score =
     scoreRaw === "" ? null : Math.min(100, Math.max(0, Math.round(Number(scoreRaw) || 0)));
 
+  const industry = field(formData, "industry").slice(0, 120);
+  const market = (field(formData, "market") || geography).slice(0, 120);
+  const serviceRaw = field(formData, "serviceInterest");
+  const serviceInterest = isOutreachService(serviceRaw) ? serviceRaw : "";
+
   await loose(auth.session.supabase).from("ceo_opportunities").insert({
     owner_id: auth.session.user.id,
     company_id: companyId,
@@ -190,6 +505,11 @@ export async function createOpportunity(formData: FormData): Promise<void> {
     status: "NEW",
     source: "manual",
     fit_reason: fitReason.slice(0, 2000),
+    outreach_stage: "new",
+    service_interest: serviceInterest,
+    industry,
+    market,
+    is_mock: false,
   });
 
   revalidatePath("/command");
