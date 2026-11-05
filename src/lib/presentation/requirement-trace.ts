@@ -24,6 +24,20 @@ function pair(implementation: string, verification: string): Pick<TracedRequirem
   return { implementationEvidence: implementation, verificationEvidence: verification };
 }
 
+export function deploymentRequirement(
+  deployment: { provider?: unknown; vercelAllowed?: unknown },
+  production: string,
+): { ok: boolean; provider: string | null } {
+  const named = typeof deployment.provider === "string" && deployment.provider.trim() ? deployment.provider.trim().toLowerCase() : null;
+  const shapeOk = deployment.provider == null || named !== null;
+  const ok =
+    shapeOk &&
+    deployment.vercelAllowed === false &&
+    named !== "vercel" &&
+    (named === null ? production === "NOT_DEPLOYED" : production === "DEPLOYED");
+  return { ok, provider: named };
+}
+
 export async function evaluateRequirementTrace(supabase: GhostClient, projectId: string, cwd: string): Promise<ProbeResult & { requirements: TracedRequirement[] }> {
   const [project, knowledge, blockers, milestones, actions, verification, rules, proposals, conversation, proposalsOnly] = await Promise.all([
     loadProjectDetail(supabase, projectId),
@@ -145,10 +159,191 @@ export async function evaluateRequirementTrace(supabase: GhostClient, projectId:
       continue;
     }
     if (requirement.title === "Provider-independent deployment") {
-      const ok = deployment.provider == null && deployment.vercelAllowed === false && production === "NOT_DEPLOYED";
+      const { ok, provider } = deploymentRequirement(deployment, production);
       traced.push({
         ...base,
-        ...pair("DEC-006; .ghost/state.json deployment", ok ? "provider unset; vercelAllowed false; production NOT_DEPLOYED" : ""),
+        ...pair("DEC-006; .ghost/state.json deployment", ok ? `provider ${provider ?? "unset"}; vercelAllowed false; production ${production}` : ""),
+        failed: !ok,
+      });
+      continue;
+    }
+    if (requirement.title === "Idea Lab operating loop") {
+      const [ideas, strategies, ideaSource, promoteSource] = await Promise.all([
+        supabase.from("ideas").select("id").limit(1),
+        supabase.from("idea_strategies").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/ideas/workflow.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/ideas/promote.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !ideas.error && !strategies.error;
+      const codeOk =
+        ideaSource.includes("canTransitionIdea") &&
+        ideaSource.includes("computeIdeaReadiness") &&
+        promoteSource.includes("promoted_project_id");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/ideas/workflow.ts; src/lib/ideas/promote.ts; ideas; idea_strategies",
+          ok
+            ? `live ideas table ${ideas.error ? "error" : "ok"}; strategies table ${strategies.error ? "error" : "ok"}; promote path present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
+    if (requirement.title === "Product Architect operating loop") {
+      const [architectures, features, architectSource, readinessSource] = await Promise.all([
+        supabase.from("product_architectures").select("id").limit(1),
+        supabase.from("product_features").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/product-architect/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/product-architect/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !architectures.error && !features.error;
+      const codeOk =
+        architectSource.includes("isRequirementAuthoritative") &&
+        readinessSource.includes("computeProductReadiness") &&
+        readinessSource.includes("BUILD_READY");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/product-architect; product_architectures; product_features",
+          ok
+            ? `live product tables ${architectures.error || features.error ? "error" : "ok"}; readiness and truth modules present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
+    if (requirement.title === "System Architecture operating loop") {
+      const [systems, entities, truthSource, workflowSource] = await Promise.all([
+        supabase.from("system_architectures").select("id").limit(1),
+        supabase.from("system_entities").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/system-architecture/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/system-architecture/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !systems.error && !entities.error;
+      const codeOk =
+        truthSource.includes("isArchitectureImplemented") &&
+        workflowSource.includes("computeSystemReadiness") &&
+        workflowSource.includes("validateSchemaDefects") &&
+        workflowSource.includes("ARCHITECTURE_READY");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/system-architecture; system_architectures; system_entities",
+          ok
+            ? `live system tables ${systems.error || entities.error ? "error" : "ok"}; readiness, schema validation, and truth modules present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
+    if (requirement.title === "Build Plan operating loop") {
+      const [plans, packages, truthSource, workflowSource] = await Promise.all([
+        supabase.from("build_plans").select("id").limit(1),
+        supabase.from("work_packages").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/build-plan/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/build-plan/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !plans.error && !packages.error;
+      const codeOk =
+        truthSource.includes("isPackageImplemented") &&
+        workflowSource.includes("computeBuildPlanReadiness") &&
+        workflowSource.includes("detectDependencyCycles") &&
+        workflowSource.includes("BUILD_PLAN_READY");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/build-plan; build_plans; work_packages",
+          ok
+            ? `live build plan tables ${plans.error || packages.error ? "error" : "ok"}; readiness, dependency, and truth modules present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
+    if (requirement.title === "Build Execution operating loop") {
+      const [executions, packageExecutions, truthSource, workflowSource] = await Promise.all([
+        supabase.from("build_executions").select("id").limit(1),
+        supabase.from("work_package_executions").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/build-execution/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/build-execution/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !executions.error && !packageExecutions.error;
+      const codeOk =
+        truthSource.includes("isExecutionImplemented") &&
+        truthSource.includes("isVerified") &&
+        workflowSource.includes("computeExecutionCompletion") &&
+        workflowSource.includes("refreshDerivedPackageStatuses");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/build-execution; build_executions; work_package_executions",
+          ok
+            ? `live build execution tables ${executions.error || packageExecutions.error ? "error" : "ok"}; readiness, completion, and truth modules present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
+    if (requirement.title === "Verification operating loop") {
+      const [programs, cases, truthSource, workflowSource] = await Promise.all([
+        supabase.from("verification_programs").select("id").limit(1),
+        supabase.from("verification_cases").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/verification/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/verification/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !programs.error && !cases.error;
+      const codeOk =
+        truthSource.includes("isProgramVerified") &&
+        truthSource.includes("isDeployed") &&
+        workflowSource.includes("computeVerificationCompletion") &&
+        workflowSource.includes("isBlockingDefect");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/verification; verification_programs; verification_cases",
+          ok
+            ? `live verification tables ${programs.error || cases.error ? "error" : "ok"}; completion and truth modules present`
+            : "",
+        ),
+        failed: !ok,
+      });
+      continue;
+    }
+    if (requirement.title === "Deployment operating loop") {
+      const [releases, deployments, truthSource, workflowSource] = await Promise.all([
+        supabase.from("releases").select("id").limit(1),
+        supabase.from("deployments").select("id").limit(1),
+        readFile(path.join(cwd, "src/lib/deployment-release/truth.ts"), "utf8").catch(() => ""),
+        readFile(path.join(cwd, "src/lib/deployment-release/workflow.ts"), "utf8").catch(() => ""),
+      ]);
+      const tablesOk = !releases.error && !deployments.error;
+      const codeOk =
+        truthSource.includes("isReleaseDeployed") &&
+        truthSource.includes("isProductionVerified") &&
+        workflowSource.includes("computeDeploymentReadiness") &&
+        workflowSource.includes("computeProductionVerification") &&
+        workflowSource.includes("shasMatch");
+      const ok = tablesOk && codeOk;
+      traced.push({
+        ...base,
+        ...pair(
+          "src/lib/deployment-release; releases; deployments",
+          ok
+            ? `live deployment tables ${releases.error || deployments.error ? "error" : "ok"}; readiness, production gate, and truth modules present`
+            : "",
+        ),
         failed: !ok,
       });
       continue;

@@ -1,0 +1,51 @@
+{
+  "at": "2026-11-04T23:50:00Z",
+  "commit": "eaad3d2f2d4440d67a3e44bb3fda30be1113cd87",
+  "short": "eaad3d2",
+  "message": "Add Companies, Team, dual assignment, and Sales Map.",
+  "github": "https://github.com/Ghost-1R/Ghost/commit/eaad3d2f2d4440d67a3e44bb3fda30be1113cd87",
+  "branchesPushed": [
+    "cursor/pilot-04-today-redesign",
+    "ghost-experience",
+    "release/ghost-settings-v1"
+  ],
+  "render": {
+    "service": "srv-datv27vlot8c7392cg80",
+    "url": "https://ghost-nkk0.onrender.com",
+    "health": {
+      "status": "ok",
+      "commit": "eaad3d2f2d4440d67a3e44bb3fda30be1113cd87"
+    },
+    "liveExplicitEnv": {
+      "GHOST_CODEGEN_LIVE_ENABLED": "not set on Render env UI (defaults off; requires =1)",
+      "GHOST_NO_LIVE_PROVIDER_CALLS": "not set on Render env UI"
+    }
+  },
+  "prodDb": {
+    "project": "wzwrrleqfylhuxfbukfu",
+    "present": ["companies", "projects", "profiles", "founder_preferences"],
+    "missing": [
+      "company_memberships",
+      "project_memberships",
+      "team_invitations",
+      "work_assignments",
+      "project_activity_events",
+      "company_orders",
+      "zip_centroids",
+      "company_map_grants",
+      "founder_day_plans",
+      "companies.kind",
+      "companies.is_catalog"
+    ],
+    "backup": "REST snapshot of present tables in this folder",
+    "isolatedRestore": "ghost99f public schema dump restored to throwaway DB; companies-team tables present",
+    "hostedMigrate": "BLOCKED — supabase db dump/login-role 403 Access Control for this account"
+  },
+  "founderUi": {
+    "companies": "loads",
+    "team": "loads",
+    "todayAssignWork": ["Team member", "Ghost AI"]
+  },
+  "teammateIsolationProd": "not verified — memberships tables missing on hosted DB",
+  "teammateIsolationLocal": "pass via verify-e2e.mjs"
+}

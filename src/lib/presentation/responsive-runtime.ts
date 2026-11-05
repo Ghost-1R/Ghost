@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createServerClient } from "@supabase/ssr";
+import { redactSecrets } from "../security/redact";
 import { layoutIssues, type LayoutSample } from "./layout-issues";
 import type { ProbeResult } from "./security-probe";
 
@@ -53,12 +54,9 @@ const LAYOUT_EXPRESSION = `(() => {
     password: Boolean(document.querySelector("input[name=password]") && !hidden(document.querySelector("input[name=password]"))),
     signIn: [...document.querySelectorAll("button")].some((el) => (el.textContent || "").includes("Sign in") && !hidden(el)),
     ask: Boolean(ask && !hidden(ask)),
+    heading: document.querySelector('h1')?.textContent || '',
   };
 })()`;
-
-function redact(value: string): string {
-  return value.replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[redacted]").replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]");
-}
 
 async function chromePath(): Promise<string | null> {
   const { access } = await import("node:fs/promises");
@@ -103,7 +101,7 @@ async function openSocket(url: string): Promise<{ send: (method: string, params?
   };
 }
 
-async function sessionCookies(baseUrl: string, email: string, password: string): Promise<Array<{ name: string; value: string; path: string; httpOnly: boolean; sameSite: "Strict" | "Lax" | "None" }>> {
+export async function sessionCookies(baseUrl: string, email: string, password: string): Promise<Array<{ name: string; value: string; path: string; httpOnly: boolean; sameSite: "Strict" | "Lax" | "None" }>> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
   const publishable = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
   const jar: Array<{ name: string; value: string; options?: { path?: string; httpOnly?: boolean; sameSite?: string | boolean } }> = [];
@@ -186,7 +184,14 @@ export async function evaluateResponsiveSurfaces(input: { baseUrl: string; proje
     const pages = [
       { path: "/login", kind: "login" as const },
       { path: "/dashboard", kind: "app" as const },
+      { path: "/ideas", kind: "app" as const },
       { path: `/projects/${input.projectId}`, kind: "project" as const },
+      { path: `/projects/${input.projectId}/architect`, kind: "project" as const },
+      { path: `/projects/${input.projectId}/architecture`, kind: "project" as const },
+      { path: `/projects/${input.projectId}/build-plan`, kind: "project" as const },
+      { path: `/projects/${input.projectId}/execution`, kind: "project" as const },
+      { path: `/projects/${input.projectId}/verification`, kind: "project" as const },
+      { path: `/projects/${input.projectId}/deploy`, kind: "project" as const },
       { path: "/memory", kind: "app" as const },
       { path: "/patterns", kind: "app" as const },
       { path: "/inspector", kind: "app" as const },
@@ -237,12 +242,16 @@ export async function evaluateResponsiveSurfaces(input: { baseUrl: string; proje
         for (let attempt = 0; attempt < 25; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 200));
           const evaluated = await socket.send("Runtime.evaluate", { expression: LAYOUT_EXPRESSION, returnByValue: true });
-          const value = evaluated.result?.result?.value as Omit<LayoutSample, "viewport" | "path"> | undefined;
-          if (value && value.textLength > 0 && value.landed) {
-            sample = { ...value, viewport: viewport.name, path: page.path, clipped: value.clipped ?? [] };
-            if (value.landed === page.path || (page.kind !== "login" && !value.landed.startsWith("/login"))) {
-              break;
-            }
+          const value = evaluated.result?.result?.value as (Omit<LayoutSample, "viewport" | "path"> & { heading?: string }) | undefined;
+          if (!value || value.textLength === 0 || !value.landed) {
+            continue;
+          }
+          sample = { ...value, viewport: viewport.name, path: page.path, clipped: value.clipped ?? [] };
+          const routed = value.landed === page.path || (page.kind !== "login" && !value.landed.startsWith("/login"));
+          const pastSkeleton = Boolean(value.heading && value.heading !== "Loading");
+          const projectReady = page.kind !== "project" || value.ask;
+          if (routed && pastSkeleton && projectReady) {
+            break;
           }
         }
         if (!sample) {
@@ -255,10 +264,10 @@ export async function evaluateResponsiveSurfaces(input: { baseUrl: string; proje
       }
     }
     const output = [`viewports=mobile,tablet,desktop`, `issues=${issues.length}`, ...issues, ...lines].join("\n");
-    return { status: issues.length === 0 ? "passed" : "failed", exitCode: issues.length === 0 ? 0 : 1, output: redact(output) };
+    return { status: issues.length === 0 ? "passed" : "failed", exitCode: issues.length === 0 ? 0 : 1, output: redactSecrets(output) };
   } catch (error) {
     const message = error instanceof Error ? error.message : "responsive runtime failed";
-    return { status: "blocked", exitCode: 1, output: redact(message) };
+    return { status: "blocked", exitCode: 1, output: redactSecrets(message) };
   } finally {
     socket?.close();
     browserSocket?.close();

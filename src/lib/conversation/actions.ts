@@ -1,22 +1,54 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getModelProvider } from "@/lib/ai/provider";
+import { describeProviderStatus, getModelProvider, ProviderError, resolveModelProvider } from "@/lib/ai/provider";
 import { prepareReply } from "@/lib/ai/reply";
 import type { ConversationTurn } from "@/lib/ai/types";
 import type { ActionState } from "@/lib/action-state";
 import { getSession } from "@/lib/auth/session";
+import { askPathGrounding, classifyFounderAsk } from "@/lib/dashboard/ceo";
+import { classifyCompanionIntent } from "@/lib/companion/intent";
+import { resolveProjectFocus } from "@/lib/companion/focus";
+import { companionIntentGrounding } from "@/lib/companion/grounding";
+import { boundCompanionHistory } from "@/lib/companion/history";
+import { selectCompanionProjectItems } from "@/lib/companion/context";
+import { checkResponseRelevance } from "@/lib/companion/relevance";
+import { companionPersonalityGrounding } from "@/lib/preferences/personality";
+import { loadFounderPreferences } from "@/lib/preferences/store";
 import { assembleGlobalContext, assembleProjectContext } from "@/lib/brain/context";
 import { isSupportedVerified } from "@/lib/brain/verification";
 import { reuseUnansweredUserMessage } from "@/lib/conversation/idempotency";
-import { groundingMetadata, sourcesFromMetadata, withSources, type ConversationSource } from "@/lib/conversation/queries";
+import { groundingMetadata, sourcesFromMetadata, splitAnswer, withSources, type ConversationSource } from "@/lib/conversation/queries";
 import { collectGlobalItems, collectProjectItems, selectGrounding } from "@/lib/ghost-context/assemble";
 import type { ContextItem } from "@/lib/ghost-context/types";
 import { detectMemoryIntent } from "@/lib/ghost-context/memory-intent";
+import { collectIdeaItems } from "@/lib/ideas/context";
+import { loadIdea, loadIdeaEvidence, loadIdeaStrategy, loadIdeaValidations } from "@/lib/ideas/queries";
+import { collectProductArchitectItems } from "@/lib/product-architect/context";
+import {
+  loadProductArchitecture,
+  loadProductFeatures,
+  loadProductQuestions,
+  loadProductRequirements,
+} from "@/lib/product-architect/queries";
+import { computeProductReadiness } from "@/lib/product-architect/workflow";
+import { collectBuildPlanItems } from "@/lib/build-plan/context";
+import { loadBuildPlan, loadBuildPlanBundle } from "@/lib/build-plan/queries";
+import { collectBuildExecutionItems } from "@/lib/build-execution/context";
+import { loadBuildExecution, loadBuildExecutionBundle } from "@/lib/build-execution/queries";
+import { collectVerificationItems } from "@/lib/verification/context";
+import { loadVerificationProgram, loadVerificationBundle } from "@/lib/verification/queries";
+import { collectReleaseItems } from "@/lib/deployment-release/context";
+import { loadLatestRelease, loadReleaseBundle } from "@/lib/deployment-release/queries";
+import { collectSystemArchitectureItems } from "@/lib/system-architecture/context";
+import { loadSystemArchitecture, loadSystemArchitectureBundle } from "@/lib/system-architecture/queries";
 import { explainInspections, inspectionContextItems, inspectionQuestion } from "@/lib/inspector/evidence";
 import { explainPresentation, presentationQuestion } from "@/lib/presentation/explain";
 import { listReviews, presentationRoot } from "@/lib/presentation/ledger";
+import { loadRecordedReview } from "@/lib/presentation/recorded";
 import { hashWorkingTree } from "@/lib/presentation/tree";
+import type { PresentationReview } from "@/lib/presentation/types";
+import { isHostedRuntime, releaseCommit } from "@/lib/inspector/runtime";
 import { defaultRuntimeRoot, listInspections } from "@/lib/inspector/store";
 import { treeStamp } from "@/lib/inspector/status";
 import { resolveAuthorizedProject } from "@/lib/ghost-context/resolve";
@@ -32,6 +64,8 @@ import { loadPatterns } from "@/lib/patterns/library";
 import { repositoryContextItems } from "@/lib/repository/evidence";
 import { readGitState } from "@/lib/repository/local-git";
 import { captureRepositorySnapshot, missingExplicitPaths, shouldAttachRepository } from "@/lib/repository/snapshot";
+import { loadOpenDecisions } from "@/lib/decisions/queries";
+import { loadLatestRepositoryObservation } from "@/lib/repository/association";
 import {
   loadBlockers,
   loadKnowledge,
@@ -60,13 +94,36 @@ async function projectContext(
     return null;
   }
 
-  const [milestones, knowledge, blockers, actions, verification, rules] = await Promise.all([
+  const [
+    milestones,
+    knowledge,
+    blockers,
+    actions,
+    verification,
+    rules,
+    decisions,
+    observation,
+    architecture,
+    systemArchitecture,
+    buildPlan,
+    buildExecution,
+    verificationProgram,
+    latestRelease,
+  ] = await Promise.all([
     loadMilestones(session.supabase, projectId),
     loadKnowledge(session.supabase, projectId),
     loadBlockers(session.supabase, projectId),
     loadNextActions(session.supabase, projectId),
     loadVerification(session.supabase, projectId),
     loadFounderRules(session.supabase),
+    loadOpenDecisions(session.supabase, projectId),
+    loadLatestRepositoryObservation(session.supabase, projectId),
+    loadProductArchitecture(session.supabase, projectId),
+    loadSystemArchitecture(session.supabase, projectId),
+    loadBuildPlan(session.supabase, projectId),
+    loadBuildExecution(session.supabase, projectId),
+    loadVerificationProgram(session.supabase, projectId),
+    loadLatestRelease(session.supabase, projectId),
   ]);
 
   if (
@@ -75,9 +132,86 @@ async function projectContext(
     blockers.status === "error" ||
     actions.status === "error" ||
     verification.status === "error" ||
-    rules.status === "error"
+    rules.status === "error" ||
+    decisions.status === "error" ||
+    observation.status === "error" ||
+    architecture.status === "error" ||
+    systemArchitecture.status === "error" ||
+    buildPlan.status === "error" ||
+    buildExecution.status === "error" ||
+    verificationProgram.status === "error" ||
+    latestRelease.status === "error"
   ) {
     return null;
+  }
+
+  let productItems: Awaited<ReturnType<typeof collectProductArchitectItems>> = [];
+  if (architecture.data) {
+    const [requirements, features, questions] = await Promise.all([
+      loadProductRequirements(session.supabase, architecture.data.id),
+      loadProductFeatures(session.supabase, architecture.data.id),
+      loadProductQuestions(session.supabase, architecture.data.id),
+    ]);
+    if (requirements.status === "ok" && features.status === "ok" && questions.status === "ok") {
+      const readiness = computeProductReadiness({
+        architecture: architecture.data,
+        requirements: requirements.data,
+        features: features.data,
+        openQuestions: questions.data,
+        openCriticalDecisions: decisions.data.filter((decision) => decision.status === "OPEN").length,
+      });
+      productItems = collectProductArchitectItems({
+        question,
+        architecture: architecture.data,
+        requirements: requirements.data,
+        features: features.data,
+        questions: questions.data,
+        readiness,
+      });
+    }
+  }
+
+  let systemItems: ReturnType<typeof collectSystemArchitectureItems> = [];
+  if (systemArchitecture.data) {
+    const bundle = await loadSystemArchitectureBundle(session.supabase, systemArchitecture.data);
+    if (bundle.status === "ok") {
+      systemItems = collectSystemArchitectureItems({ question, bundle: bundle.data });
+    }
+  }
+
+  let buildPlanItems: ReturnType<typeof collectBuildPlanItems> = [];
+  if (buildPlan.data) {
+    const bundle = await loadBuildPlanBundle(session.supabase, buildPlan.data);
+    if (bundle.status === "ok") {
+      buildPlanItems = collectBuildPlanItems({ question, bundle: bundle.data });
+    }
+  }
+
+  let buildExecutionItems: ReturnType<typeof collectBuildExecutionItems> = [];
+  if (buildExecution.data) {
+    const bundle = await loadBuildExecutionBundle(session.supabase, buildExecution.data);
+    if (bundle.status === "ok") {
+      buildExecutionItems = collectBuildExecutionItems({ question, bundle: bundle.data });
+    }
+  }
+
+  let verificationItems: ReturnType<typeof collectVerificationItems> = [];
+  if (verificationProgram.data) {
+    const bundle = await loadVerificationBundle(session.supabase, verificationProgram.data);
+    if (bundle.status === "ok") {
+      verificationItems = collectVerificationItems({ question, bundle: bundle.data });
+    }
+  }
+
+  let releaseItems: ReturnType<typeof collectReleaseItems> = [];
+  if (latestRelease.data) {
+    const bundle = await loadReleaseBundle(session.supabase, latestRelease.data);
+    if (bundle.status === "ok") {
+      releaseItems = collectReleaseItems({ question, bundle: bundle.data });
+    }
+  }
+  if (releaseItems.some((item) => item.type === "truth_boundary")) {
+    verificationItems = verificationItems.filter((item) => !item.id.startsWith("verification-truth-"));
   }
 
   const ghost = assembleProjectContext({
@@ -134,6 +268,7 @@ async function projectContext(
         description: project.data.description,
         status: project.data.status,
         currentMilestone: project.data.currentMilestone,
+        lifecycleStage: project.data.lifecycleStage,
       },
       knowledge: knowledge.data.map((item) => ({
         id: item.id,
@@ -153,6 +288,8 @@ async function projectContext(
         description: action.description,
         status: action.status,
         position: action.position,
+        provenance: action.provenance,
+        requiresDecision: action.requiresDecision,
       })),
       verification: verification.data.map((record) => ({
         id: record.id,
@@ -168,7 +305,21 @@ async function projectContext(
         content: rule.content,
         status: rule.status,
       })),
-    }),
+      decisions: decisions.data.map((decision) => ({
+        id: decision.id,
+        title: decision.title,
+        question: decision.question,
+        status: decision.status,
+        recommendation: decision.recommendation,
+      })),
+      repositoryObservation: observation.data,
+    })
+      .concat(productItems)
+      .concat(systemItems)
+      .concat(buildPlanItems)
+      .concat(buildExecutionItems)
+      .concat(verificationItems)
+      .concat(releaseItems),
   };
 }
 
@@ -184,6 +335,7 @@ export async function sendGhostMessage(
 
   const message = readField(formData, "message");
   const requestedProjectId = readField(formData, "projectId");
+  const requestedIdeaId = readField(formData, "ideaId");
   const requestedConversationId = readField(formData, "conversationId");
 
   if (message.length < 1 || message.length > 4000) {
@@ -192,6 +344,9 @@ export async function sendGhostMessage(
 
   if (requestedProjectId && !UUID_PATTERN.test(requestedProjectId)) {
     return { error: "That project is not visible.", notice: null };
+  }
+  if (requestedIdeaId && !UUID_PATTERN.test(requestedIdeaId)) {
+    return { error: "That idea is not visible.", notice: null };
   }
 
   let visibleProjectId: string | null = null;
@@ -224,10 +379,24 @@ export async function sendGhostMessage(
     return { error: "Ghost could not read your project state.", notice: null };
   }
 
+  const namedProjects = summaries.data.map((project) => ({ id: project.id, name: project.name }));
+  const companionIntent = classifyCompanionIntent(message);
+  const companionFocus = resolveProjectFocus({
+    message,
+    intent: companionIntent,
+    projects: namedProjects,
+    lockedProjectId: visibleProjectId,
+  });
+  const exploratoryProposal =
+    companionFocus.kind === "new_proposal" ||
+    companionIntent === "NEW_IDEA" ||
+    (companionIntent === "PROJECT_DISCOVERY" && companionFocus.kind !== "one" && companionFocus.kind !== "several");
+
+  // Exploratory planning must not inherit a stale project page lock (avoids dumping unrelated Project Brain).
   const resolution = resolveAuthorizedProject({
     message,
-    lockedProjectId: visibleProjectId,
-    projects: summaries.data.map((project) => ({ id: project.id, name: project.name })),
+    lockedProjectId: exploratoryProposal ? null : visibleProjectId,
+    projects: namedProjects,
   });
 
   if (resolution.kind === "ambiguous") {
@@ -245,22 +414,64 @@ export async function sendGhostMessage(
   }
 
   const contextProjectId = resolution.kind === "global" ? null : resolution.id;
-  const loaded = contextProjectId ? await projectContext(session, contextProjectId, message) : null;
-  if (contextProjectId && !loaded) {
+  const loaded = contextProjectId && !exploratoryProposal ? await projectContext(session, contextProjectId, message) : null;
+  if (contextProjectId && !exploratoryProposal && !loaded) {
     return { error: "Ghost could not read that project's records.", notice: null };
   }
+
+  let ideaItems: Awaited<ReturnType<typeof collectIdeaItems>> = [];
+  if (requestedIdeaId && !contextProjectId) {
+    const [idea, validations, evidence, strategy] = await Promise.all([
+      loadIdea(session.supabase, requestedIdeaId),
+      loadIdeaValidations(session.supabase, requestedIdeaId),
+      loadIdeaEvidence(session.supabase, requestedIdeaId),
+      loadIdeaStrategy(session.supabase, requestedIdeaId),
+    ]);
+    if (idea.status === "error") {
+      return { error: idea.message, notice: null };
+    }
+    if (!idea.data) {
+      return { error: "That idea is not visible.", notice: null };
+    }
+    if (validations.status === "ok" && evidence.status === "ok" && strategy.status === "ok") {
+      ideaItems = collectIdeaItems({
+        question: message,
+        idea: idea.data,
+        strategy: strategy.data,
+        validations: validations.data,
+        evidence: evidence.data,
+      });
+    }
+  }
+
+  const companionProjectItems = selectCompanionProjectItems({
+    question: message,
+    intent: companionIntent,
+    focus: companionFocus,
+    projects: summaries.data.map((project) => ({
+      id: project.id,
+      name: project.name,
+      status: project.status,
+      currentMilestone: project.currentMilestone,
+      openBlockers: project.openBlockers,
+      nextAction: project.nextAction,
+    })),
+  });
+  const companionProjectIds = new Set(companionProjectItems.map((item) => item.id));
 
   const context = loaded
     ? loaded.ghost
     : assembleGlobalContext({
-        projects: summaries.data.map((project) => ({
-          id: project.id,
-          name: project.name,
-          status: project.status,
-          currentMilestone: project.currentMilestone,
-          openBlockers: project.openBlockers,
-          nextAction: project.nextAction,
-        })),
+        projects: summaries.data
+          .filter((project) => companionProjectIds.has(project.id))
+          .map((project) => ({
+            id: project.id,
+            name: project.name,
+            status: project.status,
+            currentMilestone: project.currentMilestone,
+            openBlockers: project.openBlockers,
+            nextAction: project.nextAction,
+          })),
         founderRules: rules.data.map((rule) => ({
           id: rule.id,
           title: rule.title,
@@ -271,23 +482,20 @@ export async function sendGhostMessage(
 
   const contextItems = loaded
     ? loaded.items
-    : collectGlobalItems({
-        question: message,
-        projects: summaries.data.map((project) => ({
-          id: project.id,
-          name: project.name,
-          status: project.status,
-          currentMilestone: project.currentMilestone,
-          openBlockers: project.openBlockers,
-          nextAction: project.nextAction,
-        })),
-        founderRules: rules.data.map((rule) => ({
-          id: rule.id,
-          title: rule.title,
-          content: rule.content,
-          status: rule.status,
-        })),
-      });
+    : [
+        ...companionProjectItems,
+        ...collectGlobalItems({
+          question: message,
+          projects: [],
+          founderRules: rules.data.map((rule) => ({
+            id: rule.id,
+            title: rule.title,
+            content: rule.content,
+            status: rule.status,
+          })),
+        }),
+        ...ideaItems,
+      ];
   const projectName = loaded?.projectName ?? null;
 
   let conversationId = requestedConversationId;
@@ -342,7 +550,9 @@ export async function sendGhostMessage(
   }
 
   const turns: ConversationTurn[] = history.data.flatMap((turn) =>
-    turn.role === "user" || turn.role === "assistant" ? [{ role: turn.role, content: turn.content }] : [],
+    turn.role === "user" || turn.role === "assistant"
+      ? [{ role: turn.role, content: turn.role === "assistant" ? splitAnswer(turn.content).answer : turn.content }]
+      : [],
   );
   const retryingFailedRequest = reuseUnansweredUserMessage(turns, message);
   let userMessageId = retryingFailedRequest ? history.data.at(-1)?.id ?? "" : "";
@@ -538,9 +748,16 @@ export async function sendGhostMessage(
   }
 
   if (presentationQuestion(message)) {
-    const current = await hashWorkingTree(process.cwd());
-    const reviews = await listReviews(presentationRoot(), session.user.id).catch(() => []);
-    const latest = reviews.filter((review) => !contextProjectId || review.projectId === contextProjectId).at(-1) ?? null;
+    let latest: PresentationReview | null;
+    let current: { commitSha: string; treeHash: string };
+    if (isHostedRuntime()) {
+      latest = contextProjectId ? await loadRecordedReview(session.supabase, session.user.id, contextProjectId, "production") : null;
+      current = { commitSha: (await releaseCommit()) ?? "", treeHash: latest?.treeHash ?? "" };
+    } else {
+      current = await hashWorkingTree(process.cwd());
+      const reviews = await listReviews(presentationRoot(), session.user.id).catch(() => []);
+      latest = reviews.filter((review) => !contextProjectId || review.projectId === contextProjectId).at(-1) ?? null;
+    }
     const explained = explainPresentation({ review: latest, current });
     return storeAssistant(explained.text, latest ? [{ id: latest.id, type: "presentation", title: explained.title, status: latest.result }] : []);
   }
@@ -577,32 +794,73 @@ export async function sendGhostMessage(
     repositoryItems.push(...repositoryContextItems(message, snapshot, patterns));
   }
 
+  const historyMessages = boundCompanionHistory({
+    messages: turns,
+    intent: companionIntent,
+    focus: companionFocus,
+    projects: namedProjects,
+  });
+
   const grounding = selectGrounding({
     items: [...contextItems, ...repositoryItems, ...inspectionContextItems(message, inspections)],
     messages: turns,
-    projectId: contextProjectId,
+    historyMessages,
+    projectId: exploratoryProposal ? null : contextProjectId,
     productionVerified: loaded?.productionVerified ?? false,
   });
 
+  const askPath = classifyFounderAsk(message);
+  const founderPrefs = await loadFounderPreferences(session.supabase, session.user.id);
+  const personality =
+    founderPrefs.status === "ok" ? companionPersonalityGrounding(founderPrefs.data) : "";
+  const pathAwareGrounding = [
+    grounding.data,
+    companionIntentGrounding(companionIntent, companionFocus),
+    personality,
+    askPathGrounding(askPath, message),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  console.info("ghost.companion.route", {
+    intent: companionIntent,
+    focus: companionFocus.kind,
+    askPath,
+    contextItemCount: grounding.count,
+    exploratoryProposal,
+  });
+
+  const selection = resolveModelProvider();
   let reply: Awaited<ReturnType<typeof prepareReply>>;
   try {
     reply = await prepareReply({
-      requestedProjectId: contextProjectId,
-      visibleProjectId: contextProjectId,
+      requestedProjectId: exploratoryProposal ? null : contextProjectId,
+      visibleProjectId: exploratoryProposal ? null : contextProjectId,
       context,
-      grounding: grounding.data,
+      grounding: pathAwareGrounding,
       messages: grounding.messages.flatMap((turn) =>
         turn.role === "user" || turn.role === "assistant" ? [{ role: turn.role, content: turn.content }] : [],
       ),
-      provider: getModelProvider(),
+      provider: selection.provider,
     });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : "The model provider failed.";
-    const notice = detail.replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]").slice(0, 500);
-    console.info("ghost.model.failure", { notice });
+    const notice =
+      error instanceof ProviderError
+        ? describeProviderStatus({ status: error.status, providerId: error.providerId, model: error.model, detail: error.message })
+        : describeProviderStatus({
+            status: "PROVIDER_UNAVAILABLE",
+            providerId: selection.providerId,
+            model: selection.model,
+            detail: "The model provider failed.",
+          });
+    console.info("ghost.model.failure", {
+      provider: selection.providerId,
+      model: selection.model,
+      status: error instanceof ProviderError ? error.status : "PROVIDER_UNAVAILABLE",
+    });
     return {
       error: null,
-      notice,
+      notice: notice.slice(0, 600),
     };
   }
 
@@ -617,7 +875,12 @@ export async function sendGhostMessage(
     }
     return {
       error: null,
-      notice: reply.reason === "unconfigured" ? reply.notice : "That project is not visible.",
+      notice:
+        reply.reason === "unconfigured"
+          ? selection.status === "NOT_CONFIGURED"
+            ? describeProviderStatus(selection)
+            : reply.notice
+          : "That project is not visible.",
     };
   }
 
@@ -629,14 +892,29 @@ export async function sendGhostMessage(
     });
   }
 
+  const relevance = checkResponseRelevance({
+    question: message,
+    answer: reply.content,
+    intent: companionIntent,
+    focus: companionFocus,
+    projects: namedProjects,
+  });
+  const finalContent = relevance.correctedContent ?? reply.content;
+  if (!relevance.ok) {
+    console.info("ghost.companion.relevance_corrected", {
+      intent: companionIntent,
+      reasons: relevance.reasons,
+    });
+  }
+
   const storedAssistant = await session.supabase.from("ghost_messages").insert({
     conversation_id: conversationId,
     role: "assistant",
-    content: withSources(reply.content, grounding.sources),
+    content: withSources(finalContent, grounding.sources),
     metadata: groundingMetadata({
       provider: reply.provider,
       model: reply.model,
-      projectId: contextProjectId,
+      projectId: exploratoryProposal ? null : contextProjectId,
       contextItemCount: grounding.count,
       sources: grounding.sources,
       usage: reply.usage,

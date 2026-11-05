@@ -1,0 +1,11 @@
+src/lib/allowance/*
+src/lib/codegen/adapter.ts
+src/lib/codegen/privacy.ts
+src/lib/codegen/provider-config.ts
+src/lib/codegen/types.ts
+src/lib/codegen/live-adapters.ts
+src/lib/codegen/pilot03-pipeline.ts
+src/lib/codegen/pilot03.test.ts
+src/lib/codegen/index.ts
+supabase/migrations/20261011210000_project_ai_allowance_v1.sql
+.ghost/pilot-03/*

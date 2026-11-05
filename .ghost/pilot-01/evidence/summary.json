@@ -1,0 +1,15 @@
+{
+  "pilotId": "pilot-01-car-rental-landing",
+  "overall": "READY",
+  "evidenceSha256": "ffdeba36b96d09562d3ad9a127bb2b78bcb75a6b87b51dd0aefc04c8982b1653",
+  "ghostExecution": {
+    "ghostDurableWorkflow": "PREPARED_NOT_DISPATCHED",
+    "ghostIsolatedDockerPilot": "NOT_RUN",
+    "cursorCloudOrDesktopPreparation": "SOURCE_AND_HARNESS"
+  },
+  "dockerRuntime": "NOT_CLAIMED",
+  "databaseRuntime": "NOT_CLAIMED",
+  "written": "C:\\Users\\Badge\\Documents\\ghost-09-9d-db-verify\\.ghost\\pilot-01\\evidence\\pilot-01-harness-ffdeba36b96d.json",
+  "blockers": [],
+  "at": "2026-10-11T03:25:47.747Z"
+}

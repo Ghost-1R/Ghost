@@ -1,0 +1,303 @@
+﻿Γ£ö available cents and display (1.2482ms)
+Γ£ö reserve / reconcile / release and fail closed (3.7369ms)
+Γ£ö privacy fail-closed and no weaker fallback (2.283ms)
+Γ£ö live coding providers stay disabled; mock resolves (0.7926ms)
+Γ£ö unsafe paths and secrets rejected (0.9877ms)
+Γ£ö mock provider generates vehicle comparison proposals (33.501ms)
+Γ£ö supervised workflow requires approval and awaits founder review (37.993ms)
+Γ£ö failure cases fail closed (6.322ms)
+Γ£ö verifyPilot03LiveFounderScope accepts exact openai gpt-5-mini PUBLIC $1 ONE_TIME consumed (4.9273ms)
+Γ£ö verifyPilot03LiveFounderScope refuses mock provider and APPROVED-only auth (1.053ms)
+Γ£ö verifyPilot03LiveFounderScope refuses wrong environment and missing deploy=false (0.3981ms)
+Γ£ö verifyPilot03LiveFounderScope accepts LOCAL_PILOT_04 with 99┬ó remaining allowance ceiling (0.8057ms)
+Γ£ö uncertain billing reasons preserve reservation semantics (0.8703ms)
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'api-contract-params'
+}
+ghost.codegen.openai.usage {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  inputTokens: 10,
+  outputTokens: 20,
+  estimatedCostUsd: 0.000043,
+  durationMs: 26,
+  files: 5
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'live-happy-001'
+}
+ghost.codegen.openai.usage {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  inputTokens: 120,
+  outputTokens: 800,
+  estimatedCostUsd: 0.00163,
+  durationMs: 2,
+  files: 5
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'missing-usage'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'rate-limit'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'malformed'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'empty-content-usage'
+}
+ghost.codegen.openai.empty_content {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  httpStatus: 200,
+  responseId: 'chatcmpl-test-empty',
+  finishReason: 'length',
+  promptTokens: 120,
+  completionTokens: 4000,
+  reasoningTokens: 3990
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'truncated-malformed'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'path-escape'
+}
+Γ£ö OpenAI GPT-5 request uses max_completion_tokens and omits max_tokens/temperature (29.9111ms)
+Γ£ö OpenAI adapter stays disabled by default ΓÇö no HTTP (0.424ms)
+Γ£ö OpenAI HTTP happy path with branded mock fetch + usage reconciliation (29.6955ms)
+Γ£ö rejects non-PUBLIC, missing usage, rate limit, and malformed JSON (2.5919ms)
+Γ£ö insufficient allowance and concurrent open reservation fail closed (1.0736ms)
+Γ£ö auth required; development never grants deployment; official API URL constant (1.0246ms)
+Γ£ö empty visible content preserves usage metadata and is not a free clear failure (0.8777ms)
+Γ£ö finish_reason=length with malformed JSON is TRUNCATED_OUTPUT not MALFORMED_RESPONSE (0.6694ms)
+Γ£ö path escape / secret-bearing output rejected (0.7026ms)
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-624bbe33-a179-45b0-8148-61f257549abc'
+}
+ghost.codegen.openai.usage {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  inputTokens: 200,
+  outputTokens: 800,
+  estimatedCostUsd: 0.00165,
+  durationMs: 26,
+  files: 5
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-92b9d407-2008-4804-a746-3a5ba0dbb90d'
+}
+ghost.codegen.openai.empty_content {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  httpStatus: 200,
+  responseId: 'chatcmpl-empty-length',
+  finishReason: 'length',
+  promptTokens: 100,
+  completionTokens: 4000,
+  reasoningTokens: 3990
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-bf8bac32-e79a-4366-bef1-35589d13817d'
+}
+ghost.codegen.openai.empty_content {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  httpStatus: 200,
+  responseId: null,
+  finishReason: 'length',
+  promptTokens: 50,
+  completionTokens: 12000,
+  reasoningTokens: 12000
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-0ce3110e-58e6-455f-a8c2-78d3e2a2c79f'
+}
+ghost.codegen.openai.empty_content {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  httpStatus: 200,
+  responseId: null,
+  finishReason: 'content_filter',
+  promptTokens: 10,
+  completionTokens: 2,
+  reasoningTokens: null
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-b82a7c75-4c56-4f91-91ce-1a0bc061d956'
+}
+ghost.codegen.openai.usage {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  inputTokens: 40,
+  outputTokens: 400,
+  estimatedCostUsd: 0.00081,
+  durationMs: 0,
+  files: 5
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-36af018c-1b3b-4ef0-9151-ba82892f03dc'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-12088cf4-13e7-457c-a6b7-7509638f4640'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-f8c75949-44c6-4c14-86bf-c4583ec0676b'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-d4c7e2ad-2a32-45f8-86b7-209bdeccef43'
+}
+Γ£ö matrix: successful visible HTML/CSS/JS (28.6132ms)
+Γ£ö matrix: empty content finish_reason=length is EMPTY_PROVIDER_CONTENT (provider) (1.7663ms)
+Γ£ö matrix: empty content reasoning exhausted still preserves usage (1.0693ms)
+Γ£ö matrix: empty content unknown finish reason (0.9399ms)
+Γ£ö matrix: structured JSON success (1.1646ms)
+Γ£ö matrix: malformed JSON without length is MALFORMED_RESPONSE (parser) (0.7704ms)
+Γ£ö matrix: malformed JSON with finish_reason=length is TRUNCATED_OUTPUT (provider) (0.7442ms)
+Γ£ö matrix: output size exceeded (3.3616ms)
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 1,
+  idempotencyKey: 'p4-d4c7e2ad-2a32-45f8-86b7-209bdeccef43'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 2,
+  idempotencyKey: 'p4-d4c7e2ad-2a32-45f8-86b7-209bdeccef43'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-34f559cd-54ed-4b0e-a506-2b3121a0ca2b'
+}
+Γ£ö matrix: rate limit (169.5668ms)
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 1,
+  idempotencyKey: 'p4-34f559cd-54ed-4b0e-a506-2b3121a0ca2b'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 2,
+  idempotencyKey: 'p4-34f559cd-54ed-4b0e-a506-2b3121a0ca2b'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-ccae622c-3cb5-40cb-b01b-9dcc053db205'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-371d28b4-9a19-46d3-abe1-a1bf368663de'
+}
+Γ£ö matrix: provider error 500 (172.058ms)
+Γ£ö matrix: missing usage is UNCERTAIN_BILLING (1.0601ms)
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-84e553f1-4a81-4d1f-b4e2-7b9df2a730fc'
+}
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-9e1c0f7d-d20e-4b2c-9a3e-f26cfff91f44'
+}
+Γ£ö matrix: timeout / aborted after request sent (29.2374ms)
+Γ£ö matrix: unsafe generated path rejected (0.6017ms)
+Γ£ö matrix: secrets in proposed output rejected (0.3324ms)
+Γ£ö matrix: incorrect model not allowlisted (0.1189ms)
+Γ£ö matrix: privacy mismatch RESTRICTED (0.1639ms)
+Γ£ö matrix: deployment cannot be granted from development authorization (0.1454ms)
+ghost.codegen.openai.invoke {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  attempt: 0,
+  idempotencyKey: 'p4-b937b99f-1dd1-4ecb-b7fe-85ab21847889'
+}
+ghost.codegen.openai.usage {
+  provider: 'openai',
+  model: 'gpt-5-mini',
+  inputTokens: 10,
+  outputTokens: 20,
+  estimatedCostUsd: 0.000043,
+  durationMs: 0,
+  files: 5
+}
+Γ£ö matrix: mock provider Pilot 04 paths + MOCK_GENERATION attribution (31.087ms)
+Γ£ö matrix: gpt-5 request includes reasoning_effort=low and raised completion budget (0.9301ms)
+Γ£ö verified coding options include mock and allowlisted models only (2.1713ms)
+Γ£ö unverified provider/model rejected (0.5426ms)
+Γ£ö codegen contract encodes fingerprint fragment with deploy=false and disabled dispatch (1.8032ms)
+Γ£ö mock contract is MOCK_ONLY with zero estimate (0.4601ms)
+Γ£ö evidence attribution separates mock codegen from simulated remote-dev (0.6006ms)
+Γ£ö development-tasks page wires Pilot 03 fields and separates MOCK vs LIVE (1.7462ms)
+Γ£ö actions refuse liveDispatch=1 on mock path and gate separate live entrypoint (0.5729ms)
+Γä╣ tests 48
+Γä╣ suites 0
+Γä╣ pass 48
+Γä╣ fail 0
+Γä╣ cancelled 0
+Γä╣ skipped 0
+Γä╣ todo 0
+Γä╣ duration_ms 832.4074

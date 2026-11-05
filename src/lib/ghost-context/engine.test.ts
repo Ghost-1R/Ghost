@@ -153,6 +153,14 @@ test("project resolution is exact, ambiguous, or unknown", () => {
   });
   assert.equal(ambiguous.kind, "ambiguous");
   assert.equal(resolveAuthorizedProject({ message: "What is blocking us?", lockedProjectId: null, projects }).kind, "global");
+  assert.equal(resolveAuthorizedProject({ message: "Is anything blocking me right now?", lockedProjectId: null, projects }).kind, "global");
+  const visible = [{ id: "ghost", name: "GHOST" }];
+  assert.deepEqual(resolveAuthorizedProject({ message: "Is anything blocking Ghost right now?", lockedProjectId: null, projects: visible }), {
+    kind: "one",
+    id: "ghost",
+  });
+  assert.equal(resolveAuthorizedProject({ message: "What's blocking Ghostwriter today?", lockedProjectId: null, projects: visible }).kind, "unknown");
+  assert.equal(resolveAuthorizedProject({ message: "What's blocking IVOIRE SHOP this week?", lockedProjectId: null, projects: visible }).kind, "unknown");
 });
 
 test("provenance sent to the model omits table names", () => {

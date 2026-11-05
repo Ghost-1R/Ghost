@@ -1,0 +1,53 @@
+{
+  "mode": "MOCK_GENERATION",
+  "note": "Pilot 03 mock pipeline. Not real AI coding. Not Pilot 02 car-rental reuse.",
+  "objective": "Generate an original responsive vehicle comparison component with three fictional rental cars, price comparison, vehicle features, and accessible interactive selection.",
+  "liveCalls": 0,
+  "actualProviderSpendUsd": 0,
+  "checks": [
+    {
+      "name": "HAPPY_PATH",
+      "result": "PASS",
+      "detail": "855abb4c0a2d91d61472ba0eb96feb35c2d6435dcaf1f871a12f8367839592d2"
+    },
+    {
+      "name": "INSUFFICIENT_ALLOWANCE",
+      "result": "PASS",
+      "detail": "INSUFFICIENT_ALLOWANCE"
+    },
+    {
+      "name": "CONCURRENT_RESERVE",
+      "result": "PASS",
+      "detail": "wins=1"
+    },
+    {
+      "name": "MISSING_AUTH",
+      "result": "PASS",
+      "detail": "MISSING_AUTHORIZATION"
+    },
+    {
+      "name": "REVOKED_AUTH",
+      "result": "PASS",
+      "detail": "REVOKED"
+    },
+    {
+      "name": "PROVIDER_FAILURE_RELEASES",
+      "result": "PASS",
+      "detail": "PROVIDER_UNAVAILABLE"
+    }
+  ],
+  "passed": 6,
+  "failed": 0,
+  "docker": {
+    "attempted": true,
+    "real": false,
+    "note": "Docker available for future live trial; mock pipeline validated in Node/unit tests."
+  },
+  "happy": {
+    "materializeSha256": "855abb4c0a2d91d61472ba0eb96feb35c2d6435dcaf1f871a12f8367839592d2",
+    "availableCentsAfter": 2000,
+    "founderReviewStatus": "AWAITING_FOUNDER_REVIEW"
+  },
+  "finalStatus": "PILOT_03_MOCK_PIPELINE_PASS",
+  "evidenceSha256": "481a020958d7790c5efc6bec4804ea0ac67d4f73104fb7ceb0a2862c6e07b8d7"
+}

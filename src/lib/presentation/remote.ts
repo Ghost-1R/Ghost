@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { redactSecrets } from "../security/redact";
 import type { ApprovalRecord, EvidenceRecord, OverrideRecord, PresentationReview } from "./types";
 
 export type RemoteWrite = { status: "blocked"; reason: string } | { status: "rejected"; reason: string } | { status: "written"; id: string };
@@ -33,8 +34,8 @@ function blocked(): RemoteWrite {
   return { status: "blocked", reason: "Service-role secret is not configured." };
 }
 
-function publicReason(message: string): string {
-  return message.replace(/eyJ[A-Za-z0-9_-]{8,}/g, "[redacted]").slice(0, 180);
+export function publicReason(message: string): string {
+  return redactSecrets(message).slice(0, 180);
 }
 
 async function founderOwnsProject(client: SupabaseClient, ownerId: string, projectId: string): Promise<boolean> {

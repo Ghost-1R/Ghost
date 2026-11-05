@@ -1,0 +1,13 @@
+{
+  "live": "0",
+  "noLive": "1",
+  "projectId": "f5397422-1c9d-4ef5-b639-8eee89981f5e",
+  "remoteTaskId": "d72c197e-461a-4c66-8b12-e87de7d82912",
+  "taskId": "bb94ca8d-2fb2-40e8-9e4c-4bf6287bf247",
+  "status": "QUEUED",
+  "checkpointSequence": 0,
+  "lease": null,
+  "authorizationConsumed": true,
+  "workspaceUrl": "http://127.0.0.1:3012/projects/f5397422-1c9d-4ef5-b639-8eee89981f5e/workspace?task=bb94ca8d-2fb2-40e8-9e4c-4bf6287bf247",
+  "todayUrl": "http://127.0.0.1:3012/dashboard"
+}

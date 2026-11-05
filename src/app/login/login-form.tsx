@@ -1,12 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
-import { authenticate } from "@/lib/auth/actions";
+import { authenticate, type LoginState } from "@/lib/auth/actions";
 import { initialActionState } from "@/lib/action-state";
 import { SubmitButton } from "@/components/ui/submit-button";
 
+const initialLoginState: LoginState = { ...initialActionState, email: "", attempt: 0 };
+
 export function LoginForm({ configured }: { configured: boolean }) {
-  const [state, formAction] = useActionState(authenticate, initialActionState);
+  const [state, formAction, pending] = useActionState(authenticate, initialLoginState);
 
   if (!configured) {
     return (
@@ -20,9 +22,10 @@ export function LoginForm({ configured }: { configured: boolean }) {
 
   return (
     <form action={formAction} className="stack">
+      <input type="hidden" name="attempt" value={state.attempt + 1} />
       <label className="field">
         <span>Email</span>
-        <input name="email" type="email" autoComplete="email" required />
+        <input name="email" type="email" autoComplete="email" defaultValue={state.email} required />
       </label>
       <label className="field">
         <span>Password</span>
@@ -36,12 +39,12 @@ export function LoginForm({ configured }: { configured: boolean }) {
         <SubmitButton label="Sign in" name="intent" value="sign-in" />
         <SubmitButton label="Create account" name="intent" value="sign-up" variant="secondary" />
       </div>
-      {state.error ? (
+      {state.error && !pending ? (
         <p className="alert" role="alert">
           {state.error}
         </p>
       ) : null}
-      {state.notice ? (
+      {state.notice && !pending ? (
         <p className="notice" role="status">
           {state.notice}
         </p>

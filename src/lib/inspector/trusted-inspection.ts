@@ -6,13 +6,30 @@ import { customerHandoff } from "@/lib/presentation/gate";
 import { computePresentationReview } from "@/lib/presentation/records";
 import { persistEvidence, persistReview } from "@/lib/presentation/remote";
 import { evaluateRequirementTrace } from "@/lib/presentation/requirement-trace";
-import { evaluateResponsiveSurfaces } from "@/lib/presentation/responsive-runtime";
-import { evaluateConversationRegression, evaluateModelProviderRegression } from "@/lib/presentation/regression-probes";
+import { evaluateProductionHealth } from "@/lib/presentation/production-probe";
+import { evaluateResponsiveSurfaces, sessionCookies } from "@/lib/presentation/responsive-runtime";
+import { isExcludedRepositoryPath } from "@/lib/repository/exclude";
+import { readGitState } from "@/lib/repository/local-git";
+import {
+  evaluateBuildExecutionRegression,
+  evaluateBuildPlanRegression,
+  evaluateConversationRegression,
+  evaluateDeploymentRegression,
+  evaluateIdeaLabRegression,
+  evaluateModelProviderRegression,
+  evaluateProductArchitectRegression,
+  evaluateRepositoryRegression,
+  evaluateSignupRegression,
+  evaluateSystemArchitectureRegression,
+  evaluateVerificationRegression,
+} from "@/lib/presentation/regression-probes";
 import { evaluateSecurityBoundary } from "@/lib/presentation/security-probe";
 import { hashWorkingTree } from "@/lib/presentation/tree";
 import { loadBlockers } from "@/lib/projects/queries";
 import { SAFE_CHECKS } from "./checks";
 import { runSafeCheck } from "./runner";
+import { productionUrl, type InspectionTarget } from "./runtime";
+import { commandWaves, PARALLEL_PROBES, type InspectionProgress } from "./schedule";
 import type { EvidenceCheckType, EvidenceRecord, EvidenceStatus } from "@/lib/presentation/types";
 
 const EVIDENCE_CHECKS: Record<string, EvidenceCheckType> = {
@@ -46,6 +63,7 @@ async function persistCheck(input: {
   durationMs: number;
   output: string;
   status: EvidenceStatus;
+  environment: "local" | "production";
   createdAt: string;
 }): Promise<EvidenceRecord | null> {
   const draft = {
@@ -60,7 +78,7 @@ async function persistCheck(input: {
     exitCode: input.exitCode,
     durationMs: input.durationMs,
     output: input.output,
-    environment: "local" as const,
+    environment: input.environment,
     status: input.status,
     createdAt: input.createdAt,
   };
@@ -82,16 +100,44 @@ export async function executeTrustedInspection(input: {
   ownerId: string;
   projectId: string;
   cwd: string;
+  target?: InspectionTarget;
   supabase: GhostClient;
+  onProgress?: (event: InspectionProgress) => void;
 }): Promise<TrustedInspectionResult> {
+  const runStarted = Date.now();
+  const emit = (event: Omit<InspectionProgress, "elapsedMs">) => {
+    input.onProgress?.({ ...event, elapsedMs: Date.now() - runStarted });
+  };
+  const production = input.target === "production";
+  const environment = production ? ("production" as const) : ("local" as const);
+  const baseUrl = production ? productionUrl() : process.env.GHOST_RESPONSIVE_BASE_URL?.trim() || "http://127.0.0.1:3000";
+  if (!baseUrl) {
+    throw new Error("No production URL is configured for the runner.");
+  }
+  const founderEmail = process.env.GHOST_LOCAL_FOUNDER_EMAIL?.trim() ?? "";
+  const founderPassword = process.env.GHOST_LOCAL_FOUNDER_PASSWORD?.trim() ?? "";
+  emit({ stage: "PREPARING", check: null, status: "running", detail: production ? `Reading the working tree for ${baseUrl}` : "Reading the working tree" });
   const before = await hashWorkingTree(input.cwd);
   const runId = randomUUID();
   const records: EvidenceRecord[] = [];
-  for (const check of SAFE_CHECKS) {
-    const checkType = EVIDENCE_CHECKS[check.id];
-    if (!checkType) {
-      continue;
+  let ledger = Promise.resolve();
+  const enqueue = <T,>(task: () => Promise<T>): Promise<T> => {
+    const run = ledger.then(task, task);
+    ledger = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  };
+  const evidenceIds = SAFE_CHECKS.map((check) => check.id).filter((id) => EVIDENCE_CHECKS[id]);
+
+  async function runCommand(checkId: string) {
+    const check = SAFE_CHECKS.find((item) => item.id === checkId);
+    const checkType = check ? EVIDENCE_CHECKS[check.id] : undefined;
+    if (!check || !checkType) {
+      return;
     }
+    emit({ stage: "RUNNING", check: check.name, status: "running", detail: check.name });
     const started = Date.now();
     const result = await runSafeCheck(check.id, {
       ownerId: input.ownerId,
@@ -99,73 +145,132 @@ export async function executeTrustedInspection(input: {
       cwd: input.cwd,
     });
     if (!result) {
-      continue;
+      return;
     }
     const status: EvidenceStatus | null =
       result.status === "VERIFIED" ? "passed" : result.status === "FAILED" ? "failed" : result.status === "BLOCKED" ? "blocked" : null;
     if (!status) {
-      continue;
+      return;
     }
-    const record = await persistCheck({
-      ownerId: input.ownerId,
-      projectId: input.projectId,
-      runId,
-      checkType,
-      commitSha: before.commitSha,
-      treeHash: before.treeHash,
-      command: (check.command ?? [check.id]).join(" "),
-      exitCode: result.exitCode,
-      durationMs: Math.max(0, Date.now() - started),
-      output: `${result.stdout}\n${result.stderr}\n${result.summary}`,
-      status,
-      createdAt: result.completedAt,
-    });
+    emit({ stage: "COLLECTING_EVIDENCE", check: check.name, status, durationMs: Date.now() - started, detail: check.name });
+    const record = await enqueue(() =>
+      persistCheck({
+        ownerId: input.ownerId,
+        projectId: input.projectId,
+        runId,
+        checkType,
+        commitSha: before.commitSha,
+        treeHash: before.treeHash,
+        command: (check.command ?? [check.id]).join(" "),
+        exitCode: result.exitCode,
+        durationMs: Math.max(0, Date.now() - started),
+        output: `${result.stdout}\n${result.stderr}\n${result.summary}`,
+        status,
+        environment,
+        createdAt: result.completedAt,
+      }),
+    );
     if (record) {
       records.push(record);
     }
   }
 
-  const security = await evaluateSecurityBoundary(input.cwd);
-  const flows = await evaluateCustomerFlows(input.supabase, input.projectId, input.cwd);
-  const responsive = await evaluateResponsiveSurfaces({
-    baseUrl: process.env.GHOST_RESPONSIVE_BASE_URL?.trim() || "http://127.0.0.1:3000",
-    projectId: input.projectId,
-    email: process.env.GHOST_LOCAL_FOUNDER_EMAIL?.trim() ?? "",
-    password: process.env.GHOST_LOCAL_FOUNDER_PASSWORD?.trim() ?? "",
-  });
-  const conversationRegression = await evaluateConversationRegression(input.supabase, input.projectId);
-  const providerRegression = await evaluateModelProviderRegression();
-  const requirements = await evaluateRequirementTrace(input.supabase, input.projectId, input.cwd);
-  for (const probe of [
-    { checkType: "security" as const, command: "security-boundary", ...security },
-    { checkType: "customer_flows" as const, command: "customer-flows", ...flows },
-    { checkType: "responsive" as const, command: "responsive-viewports", ...responsive },
-    { checkType: "regression" as const, command: "conversation-migration-regression", ...conversationRegression },
-    { checkType: "regression" as const, command: "model-provider-regression", ...providerRegression },
-    { checkType: "requirements" as const, command: "requirement-trace", status: requirements.status, exitCode: requirements.exitCode, output: requirements.output },
-  ]) {
-    const record = await persistCheck({
-      ownerId: input.ownerId,
-      projectId: input.projectId,
-      runId,
-      checkType: probe.checkType,
-      commitSha: before.commitSha,
-      treeHash: before.treeHash,
-      command: probe.command,
-      exitCode: probe.exitCode,
-      durationMs: 1,
-      output: probe.output,
-      status: probe.status,
-      createdAt: new Date().toISOString(),
-    });
+  for (const wave of commandWaves(evidenceIds)) {
+    await Promise.all(wave.map((checkId) => runCommand(checkId)));
+  }
+
+  async function runProbe<T extends { status: EvidenceStatus; exitCode: number | null; output: string }>(
+    checkType: EvidenceCheckType,
+    command: string,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    emit({ stage: "VERIFYING", check: command, status: "running", detail: command });
+    const started = Date.now();
+    const result = await run();
+    const record = await enqueue(() =>
+      persistCheck({
+        ownerId: input.ownerId,
+        projectId: input.projectId,
+        runId,
+        checkType,
+        commitSha: before.commitSha,
+        treeHash: before.treeHash,
+        command,
+        exitCode: result.exitCode,
+        durationMs: Math.max(0, Date.now() - started),
+        output: result.output,
+        status: result.status,
+        environment,
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    emit({ stage: "VERIFYING", check: command, status: result.status, durationMs: Date.now() - started, detail: command });
     if (record) {
       records.push(record);
     }
+    return result;
   }
+
+  const crossUserProbes = async () => {
+    await runProbe("security", PARALLEL_PROBES[0], () => evaluateSecurityBoundary(input.cwd));
+    await runProbe("regression", PARALLEL_PROBES[3], () => evaluateConversationRegression(input.supabase, input.projectId));
+  };
+
+  const productionProbe = async () => {
+    if (!production) {
+      return;
+    }
+    const git = await readGitState(input.cwd);
+    const runnerClean = git.commit === before.commitSha && git.changedFiles.every((file) => isExcludedRepositoryPath(file));
+    await runProbe("prod_health", PARALLEL_PROBES[6], () =>
+      evaluateProductionHealth({
+        baseUrl,
+        runnerCommit: before.commitSha,
+        runnerClean,
+        projectId: input.projectId,
+        cookieHeader: async () =>
+          (await sessionCookies(baseUrl, founderEmail, founderPassword)).map((cookie) => `${cookie.name}=${cookie.value}`).join("; "),
+        secrets: [
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+          process.env.GROQ_API_KEY,
+          process.env.OPENAI_API_KEY,
+          process.env.XAI_API_KEY,
+          process.env.ANTHROPIC_API_KEY,
+          founderPassword,
+        ].filter((value): value is string => Boolean(value?.trim())),
+      }),
+    );
+  };
+
+  const [, , responsive, , requirements] = await Promise.all([
+    crossUserProbes(),
+    runProbe("customer_flows", PARALLEL_PROBES[1], () => evaluateCustomerFlows(input.supabase, input.projectId, input.cwd)),
+    runProbe("responsive", PARALLEL_PROBES[2], () =>
+      evaluateResponsiveSurfaces({
+        baseUrl,
+        projectId: input.projectId,
+        email: founderEmail,
+        password: founderPassword,
+      }),
+    ),
+    runProbe("regression", PARALLEL_PROBES[4], () => evaluateModelProviderRegression()),
+    runProbe("requirements", PARALLEL_PROBES[5], () => evaluateRequirementTrace(input.supabase, input.projectId, input.cwd)),
+    productionProbe(),
+    runProbe("regression", PARALLEL_PROBES[7], () => evaluateRepositoryRegression(input.cwd)),
+    runProbe("regression", PARALLEL_PROBES[8], () => evaluateSignupRegression(input.supabase, input.projectId)),
+    runProbe("regression", PARALLEL_PROBES[9], () => evaluateIdeaLabRegression(input.supabase)),
+    runProbe("regression", PARALLEL_PROBES[10], () => evaluateProductArchitectRegression(input.supabase)),
+    runProbe("regression", PARALLEL_PROBES[11], () => evaluateSystemArchitectureRegression(input.supabase)),
+    runProbe("regression", PARALLEL_PROBES[12], () => evaluateBuildPlanRegression(input.supabase)),
+    runProbe("regression", PARALLEL_PROBES[13], () => evaluateBuildExecutionRegression(input.supabase)),
+    runProbe("regression", PARALLEL_PROBES[14], () => evaluateVerificationRegression(input.supabase)),
+    runProbe("regression", PARALLEL_PROBES[15], () => evaluateDeploymentRegression(input.supabase)),
+  ]);
 
   const after = await hashWorkingTree(input.cwd);
   const stable = before.commitSha === after.commitSha && before.treeHash === after.treeHash;
   if (!stable) {
+    emit({ stage: "FAILED", check: null, status: "failed", detail: "The tree changed during inspection, so this evidence is not fresh." });
     return {
       error: "The tree changed during inspection, so this evidence is not fresh.",
       treeBefore: before.treeHash,
@@ -184,8 +289,8 @@ export async function executeTrustedInspection(input: {
     projectId: input.projectId,
     commitSha: before.commitSha,
     treeHash: before.treeHash,
-    environment: "local",
-    presentingProduction: false,
+    environment,
+    presentingProduction: production,
     evidence: records,
     requirements: requirements.requirements,
     resolvedBugs: blockers.status === "ok" ? blockers.data.filter((item) => item.status === "RESOLVED").map((item) => ({ title: item.title })) : [],
@@ -198,12 +303,18 @@ export async function executeTrustedInspection(input: {
     completedRequirements: review.traceability.filter((row) => row.status === "PASS").map((row) => row.requirement),
     flows: ["sign-in", "project brain", "conversation", "memory", "inspector", "presentation"],
     responsive: responsive.status === "passed" ? ["mobile", "tablet", "desktop"] : [],
-    deployment: null,
+    deployment: production ? baseUrl : null,
     limitations: review.traceability.filter((row) => row.status === "FUTURE_SCOPE").map((row) => `Future scope: ${row.requirement}`),
     demo: ["Sign in and open the GHOST project."],
   });
   await appendReview(presentationRoot(), review);
   await persistReview(review);
+  emit({
+    stage: "COMPLETE",
+    check: null,
+    status: null,
+    detail: `Presentation result: ${review.result}`,
+  });
   return {
     error: null,
     treeBefore: before.treeHash,

@@ -1,0 +1,84 @@
+{
+  "isolation": {
+    "hostPort": "55432",
+    "networks": [
+      "supabase_network_ghost99f"
+    ],
+    "ghostPort": "54322"
+  },
+  "results": [
+    {
+      "name": "ISOLATION",
+      "result": "PASS",
+      "detail": "{\"hostPort\":\"55432\",\"networks\":[\"supabase_network_ghost99f\"],\"ghostPort\":\"54322\"}"
+    },
+    {
+      "name": "MISSING_AUTH_REJECTED",
+      "result": "PASS",
+      "detail": "ERROR:  agent task authorization_id does not reference an existing authorization\nCONTEXT:  PL/pgSQL function private.assert_agent_task_matches_authorization() line 35 at RAISE"
+    },
+    {
+      "name": "REVOKED_REJECTED",
+      "result": "PASS",
+      "detail": "ERROR:  agent task cannot bind to revoked, rejected, or expired authorization\nCONTEXT:  PL/pgSQL function private.assert_agent_task_matches_authorization() line 77 at RAISE"
+    },
+    {
+      "name": "REJECTED_REJECTED",
+      "result": "PASS",
+      "detail": "ERROR:  agent task cannot bind to revoked, rejected, or expired authorization\nCONTEXT:  PL/pgSQL function private.assert_agent_task_matches_authorization() line 77 at RAISE"
+    },
+    {
+      "name": "EXPIRED_STATUS_REJECTED",
+      "result": "PASS",
+      "detail": "ERROR:  agent task cannot bind to revoked, rejected, or expired authorization\nCONTEXT:  PL/pgSQL function private.assert_agent_task_matches_authorization() line 77 at RAISE"
+    },
+    {
+      "name": "TIME_EXPIRED_REJECTED",
+      "result": "PASS",
+      "detail": "ERROR:  agent task cannot bind to time-expired authorization\nCONTEXT:  PL/pgSQL function private.assert_agent_task_matches_authorization() line 82 at RAISE"
+    },
+    {
+      "name": "PENDING_REJECTED",
+      "result": "PASS",
+      "detail": "ERROR:  agent task can only bind to APPROVED or CONSUMED authorization\nCONTEXT:  PL/pgSQL function private.assert_agent_task_matches_authorization() line 87 at RAISE"
+    },
+    {
+      "name": "APPROVED_ACCEPTED",
+      "result": "PASS",
+      "detail": "task=f5dbcc88-3970-47bd-9035-f06ec74878d5"
+    },
+    {
+      "name": "CONSUMED_ACCEPTED",
+      "result": "PASS",
+      "detail": "task=f611fd56-1aca-463c-9b52-c2bc58a0b9c4"
+    },
+    {
+      "name": "SCOPE_MISMATCH_REJECTED",
+      "result": "PASS",
+      "detail": "ERROR:  agent task binding does not match authorization identity (owner/project/action/scope/environment/fingerprint)\nCONTEXT:  PL/pgSQL function private.assert_agent_task_matches_authorization() line 46 at RAISE"
+    },
+    {
+      "name": "DEPLOYMENT_FROM_DEV_REJECTED",
+      "result": "PASS",
+      "detail": "ERROR:  agent task authorization_kind does not match action_type class\nCONTEXT:  PL/pgSQL function private.assert_agent_task_matches_authorization() line 69 at RAISE"
+    },
+    {
+      "name": "UPDATE_BINDING_BLOCKED",
+      "result": "PASS",
+      "detail": "ERROR:  agent task authorization binding fields cannot be rewritten\nCONTEXT:  PL/pgSQL function private.guard_agent_task_authorization_binding() line 14 at RAISE"
+    },
+    {
+      "name": "CHECKPOINT_AFTER_CONSUMED_BIND",
+      "result": "PASS",
+      "detail": "checkpoint=18ba0411-b16f-4244-94a4-76d67f00def8"
+    },
+    {
+      "name": "CROSS_ACCOUNT_ISOLATION",
+      "result": "PASS",
+      "detail": "rows=0"
+    }
+  ],
+  "passed": 14,
+  "failed": 0,
+  "at": "2026-10-11T03:24:29.891Z"
+}

@@ -15,6 +15,13 @@ type CompanyResult = { ok: true; companyId: string } | { ok: false; error: strin
 async function ensureCompany(
   session: Extract<Awaited<ReturnType<typeof getSession>>, { status: "authenticated" }>,
 ): Promise<CompanyResult> {
+  const { ensureCatalogCompanies } = await import("@/lib/companies/catalog");
+  const catalog = await ensureCatalogCompanies(session.supabase, session.user.id);
+  if (catalog.status === "ok") {
+    const internal = catalog.companies.find((company) => company.slug === "internal");
+    if (internal) return { ok: true, companyId: internal.id };
+  }
+
   const { data: existing, error: selectError } = await session.supabase
     .from("companies")
     .select("id")
@@ -31,22 +38,7 @@ async function ensureCompany(
     return { ok: true, companyId: existing.id };
   }
 
-  const { data: created, error: insertError } = await session.supabase
-    .from("companies")
-    .insert({
-      owner_id: session.user.id,
-      name: "Workspace",
-      slug: "workspace",
-      description: "Default founder workspace created with the first project.",
-    })
-    .select("id")
-    .single();
-
-  if (insertError || !created?.id) {
-    return { ok: false, error: insertError?.message ?? "Workspace was not created." };
-  }
-
-  return { ok: true, companyId: created.id };
+  return { ok: false, error: catalog.status === "error" ? catalog.error : "Workspace was not created." };
 }
 
 export async function createProject(

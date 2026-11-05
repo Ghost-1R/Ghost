@@ -1,0 +1,142 @@
+{
+  "finalStatus": "PILOT_02_EXECUTED_AWAITING_FOUNDER_REVIEW",
+  "disposableDbVerified": {
+    "hostPort": "55432",
+    "apiPort": "54331",
+    "ghostPort": "54322",
+    "volume": "supabase_db_ghost99f"
+  },
+  "authorizationStatusBefore": "APPROVED|uses=0|reuse=ONE_TIME|action=agent_task.develop|env=LOCAL_PILOT|owner=adcc741f-1570-472f-9bf4-ef44028f57fc|project=da4946e5-2afc-497c-8302-05738f803d18|fp=4ee06168d3cc4470cb71093a6c830612ecc5f27840ffd080c4b96f8efad40993|exp_ok=true|revoked=false|consumed=false",
+  "taskStatusBefore": "AWAITING_APPROVAL|owner=adcc741f-1570-472f-9bf4-ef44028f57fc|project=da4946e5-2afc-497c-8302-05738f803d18|auth=b549744a-a3ad-4694-ba23-89bc040091ea|agent=null",
+  "authorizationStatusAfter": "CONSUMED|uses=1|consumed=true",
+  "taskStatusAfter": "AWAITING_FOUNDER_REVIEW|agent=2ba221e5-1d2f-4c75-9183-ddf53afcc18d",
+  "agentStatusAfter": "SUCCEEDED|consumed=true|ckpt=1",
+  "approvalConsumption": {
+    "atQueue": true,
+    "authStatus": "CONSUMED",
+    "claimReconsume": false,
+    "secondQueueBlocked": true
+  },
+  "taskId": "1513be21-f47b-4092-8ce4-8e14c538557b",
+  "authorizationId": "b549744a-a3ad-4694-ba23-89bc040091ea",
+  "agentTaskId": "2ba221e5-1d2f-4c75-9183-ddf53afcc18d",
+  "durableStateTransitions": [
+    {
+      "at": "2026-10-11T13:51:04.074Z",
+      "label": "AUTH_VERIFIED",
+      "detail": "APPROVED uses=0 ONE_TIME develop LOCAL_PILOT"
+    },
+    {
+      "at": "2026-10-11T13:51:04.075Z",
+      "label": "TASK_VERIFIED",
+      "detail": "AWAITING_APPROVAL unbound"
+    },
+    {
+      "at": "2026-10-11T13:51:04.746Z",
+      "label": "QUEUED",
+      "detail": "agent=2ba221e5-1d2f-4c75-9183-ddf53afcc18d auth=CONSUMED"
+    },
+    {
+      "at": "2026-10-11T13:51:04.768Z",
+      "label": "CLAIMED",
+      "detail": "agent=2ba221e5-1d2f-4c75-9183-ddf53afcc18d shouldConsume=false"
+    },
+    {
+      "at": "2026-10-11T13:51:04.833Z",
+      "label": "REMOTE_RUNNING",
+      "detail": "RUNNING"
+    },
+    {
+      "at": "2026-10-11T13:51:04.852Z",
+      "label": "CHECKPOINT",
+      "detail": "seq=1 id=89a9be0b-6503-4060-9421-c08b09c68207"
+    },
+    {
+      "at": "2026-10-11T13:51:12.649Z",
+      "label": "DOCKER_DONE",
+      "detail": "real=true ok=true validate:PASS:exit=0:timeout=false,build:PASS:exit=0:timeout=false,test:PASS:exit=0:timeout=false,testFail:PASS:exit=1:timeout=false,timeout:PASS:exit=null:timeout=true"
+    },
+    {
+      "at": "2026-10-11T13:51:12.728Z",
+      "label": "AGENT_SUCCEEDED",
+      "detail": "SUCCEEDED"
+    },
+    {
+      "at": "2026-10-11T13:51:12.792Z",
+      "label": "AWAITING_FOUNDER_REVIEW",
+      "detail": "AWAITING_FOUNDER_REVIEW"
+    },
+    {
+      "at": "2026-10-11T13:51:12.822Z",
+      "label": "SECOND_QUEUE_BLOCKED",
+      "detail": "INVALID_STATUS"
+    }
+  ],
+  "dockerExecution": {
+    "realContainerExecution": true,
+    "image": "node:22-alpine",
+    "imageDigest": "node@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402",
+    "scenarios": [
+      {
+        "scenario": "validate",
+        "classification": "PASS",
+        "exitCode": 0,
+        "timedOut": false,
+        "containerName": "ghost-p02-validate-7eb72e62",
+        "durationMs": 912
+      },
+      {
+        "scenario": "build",
+        "classification": "PASS",
+        "exitCode": 0,
+        "timedOut": false,
+        "containerName": "ghost-p02-build-8f3a556d",
+        "durationMs": 587
+      },
+      {
+        "scenario": "test",
+        "classification": "PASS",
+        "exitCode": 0,
+        "timedOut": false,
+        "containerName": "ghost-p02-test-6c732cca",
+        "durationMs": 788
+      },
+      {
+        "scenario": "testFail",
+        "classification": "PASS",
+        "exitCode": 1,
+        "timedOut": false,
+        "containerName": "ghost-p02-testFail-85b80c3a",
+        "durationMs": 857
+      },
+      {
+        "scenario": "timeout",
+        "classification": "PASS",
+        "exitCode": null,
+        "timedOut": true,
+        "containerName": "ghost-p02-timeout-41321e03",
+        "durationMs": 3019
+      }
+    ],
+    "fixtureSha256": "24989f6b14b498678dd4db1afe113a8e87d4f610f9d92709cbc4483e9acf4b2c",
+    "attribution": {
+      "carRentalSample": "CURSOR_PREPARED",
+      "validationFixture": "GHOST_RESTRICTED_RUNNER",
+      "autonomousCodeGeneration": "NOT_IMPLEMENTED"
+    }
+  },
+  "actualCarRentalValidation": "PASS",
+  "checkpoints": [
+    {
+      "id": "89a9be0b-6503-4060-9421-c08b09c68207",
+      "sequence": 1,
+      "label": "car-rental-docker-validate"
+    }
+  ],
+  "founderReviewStatus": "AWAITING_FOUNDER_REVIEW",
+  "productionUnchanged": true,
+  "evidenceHashes": {
+    "resumeReportSha256": "ed2ab9d34f493c9d192008e3322dbe012b1a614008ff75decfe1f955c814ed32",
+    "fixtureContentSha256": "24989f6b14b498678dd4db1afe113a8e87d4f610f9d92709cbc4483e9acf4b2c"
+  }
+}

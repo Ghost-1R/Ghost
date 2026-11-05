@@ -44,3 +44,31 @@ next-env.d.ts
 # Local inspector and approval records. These are owner-scoped runtime evidence, not project truth.
 .ghost/runtime/
 .ghost/presentation/
+.ghost/v7-prod-closure.mts
+.ghost/v8-prod-closure.mts
+.ghost/v8-schema-verify.mts
+.ghost/v8-closure-run.mts
+.ghost/v9-prod-closure.mts
+.ghost/v9-schema-verify.mts
+.ghost/v9-closure-run.mts
+.ghost/v10-prod-closure.mts
+.ghost/v10-schema-verify.mts
+.ghost/v10-closure-run.mts
+.ghost/v11-prod-closure.mts
+.ghost/v11-schema-verify.mts
+.ghost/v11-closure-run.mts
+
+# Editor-local settings (not project truth; keeps inspector tree clean).
+.cursor/
+
+# Local visual QA artifacts
+.ghost/qa/
+
+# Local Approval Center acceptance credentials / pilot ledgers (never commit secrets)
+.ghost/browser-approval-user.json
+.ghost/pilot/
+
+
+# Pilot 02 disposable founder UI login (local only)
+.ghost/pilot-02/founder-ui-login.local.json
+

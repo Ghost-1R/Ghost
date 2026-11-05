@@ -1,0 +1,26 @@
+{
+  "workspacePath": "C:\\Users\\Badge\\AppData\\Local\\Temp\\ghost-codegen-mock-pilot\\36e453dd-4977-4f3b-a2af-6ea9cb29c609\\92d68c0f-5e9a-424e-825c-dc35b3018ab3\\88d3e909-2867-4266-841d-111ed0c16783",
+  "contentSha256": "bc403d16ae04d5181a8ab22655582e9e71cf38539c839eb9194e5465c58aa414",
+  "files": [
+    {
+      "relativePath": "generated/vehicle-comparison/index.html",
+      "sha256": "8aa47bcf1cf36cb403e1c20938db1438a71c6ce752ebf69b9c310ff3cc29cd66",
+      "bytes": 517
+    },
+    {
+      "relativePath": "generated/vehicle-comparison/styles.css",
+      "sha256": "44e5f0456e6d296b2bc4ae5f4ded16ffb57f44f2cbe36802489eaf5828a8fd9f",
+      "bytes": 622
+    },
+    {
+      "relativePath": "generated/vehicle-comparison/app.js",
+      "sha256": "86c2c164e11d553b844ff8084f94d88342dcb2bfa6ab01a0ffc9b5dd9afd19d4",
+      "bytes": 600
+    },
+    {
+      "relativePath": "generated/vehicle-comparison/test.mjs",
+      "sha256": "fc58422f40ec785280a9be558d6294d2ab5cffc0b26136fb61111d4d6776904e",
+      "bytes": 418
+    }
+  ]
+}

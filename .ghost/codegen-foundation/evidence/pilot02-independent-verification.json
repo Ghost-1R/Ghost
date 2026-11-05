@@ -1,0 +1,172 @@
+{
+  "build": "PILOT_02_INDEPENDENT_EVIDENCE_REVIEW",
+  "at": "2026-10-11T14:02:35.229Z",
+  "milestone": "PILOT_02_EVIDENCE_VERIFIED_AWAITING_FOUNDER",
+  "founderReviewStatus": "AWAITING_FOUNDER_REVIEW",
+  "autoAccepted": false,
+  "expectedReportHash": "ed2ab9d34f493c9d192008e3322dbe012b1a614008ff75decfe1f955c814ed32",
+  "summaryEvidenceHash": "ed2ab9d34f493c9d192008e3322dbe012b1a614008ff75decfe1f955c814ed32",
+  "ids": {
+    "AUTH_ID": "b549744a-a3ad-4694-ba23-89bc040091ea",
+    "TASK_ID": "1513be21-f47b-4092-8ce4-8e14c538557b",
+    "AGENT_ID": "2ba221e5-1d2f-4c75-9183-ddf53afcc18d",
+    "OWNER_ID": "adcc741f-1570-472f-9bf4-ef44028f57fc",
+    "PROJECT_ID": "da4946e5-2afc-497c-8302-05738f803d18"
+  },
+  "dbSnapshots": {
+    "auth": "CONSUMED|1|adcc741f-1570-472f-9bf4-ef44028f57fc|da4946e5-2afc-497c-8302-05738f803d18|agent_task.develop|LOCAL_PILOT|ONE_TIME|true",
+    "task": "AWAITING_FOUNDER_REVIEW|adcc741f-1570-472f-9bf4-ef44028f57fc|da4946e5-2afc-497c-8302-05738f803d18|b549744a-a3ad-4694-ba23-89bc040091ea|2ba221e5-1d2f-4c75-9183-ddf53afcc18d",
+    "agent": "SUCCEEDED|true|1|b549744a-a3ad-4694-ba23-89bc040091ea|adcc741f-1570-472f-9bf4-ef44028f57fc|da4946e5-2afc-497c-8302-05738f803d18",
+    "ckpt": "1|1"
+  },
+  "checks": [
+    {
+      "name": "DISPOSABLE_DB",
+      "result": "PASS",
+      "detail": "ghost99f=55432 ghost=54322"
+    },
+    {
+      "name": "SUMMARY_HASH_MATCH",
+      "result": "PASS",
+      "detail": "ed2ab9d34f493c9d192008e3322dbe012b1a614008ff75decfe1f955c814ed32"
+    },
+    {
+      "name": "REPORT_TASK_ID",
+      "result": "PASS",
+      "detail": "1513be21-f47b-4092-8ce4-8e14c538557b"
+    },
+    {
+      "name": "REPORT_AUTH_ID",
+      "result": "PASS",
+      "detail": "b549744a-a3ad-4694-ba23-89bc040091ea"
+    },
+    {
+      "name": "REPORT_AGENT_ID",
+      "result": "PASS",
+      "detail": "2ba221e5-1d2f-4c75-9183-ddf53afcc18d"
+    },
+    {
+      "name": "REPORT_FINAL",
+      "result": "PASS",
+      "detail": "PILOT_02_EXECUTED_AWAITING_FOUNDER_REVIEW"
+    },
+    {
+      "name": "REPORT_NO_AUTO_ACCEPT",
+      "result": "PASS",
+      "detail": "AWAITING_FOUNDER_REVIEW"
+    },
+    {
+      "name": "REPORT_DOCKER_REAL",
+      "result": "PASS",
+      "detail": "true"
+    },
+    {
+      "name": "REPORT_VALIDATION",
+      "result": "PASS",
+      "detail": "PASS"
+    },
+    {
+      "name": "REPORT_CONSUMPTION",
+      "result": "PASS",
+      "detail": "{\"atQueue\":true,\"authStatus\":\"CONSUMED\",\"claimReconsume\":false,\"secondQueueBlocked\":true}"
+    },
+    {
+      "name": "REPORT_SECOND_QUEUE",
+      "result": "PASS",
+      "detail": "second queue blocked"
+    },
+    {
+      "name": "REPORT_PRODUCTION",
+      "result": "PASS",
+      "detail": "true"
+    },
+    {
+      "name": "SCENARIO_validate",
+      "result": "PASS",
+      "detail": "PASS exit=0 timeout=false"
+    },
+    {
+      "name": "SCENARIO_build",
+      "result": "PASS",
+      "detail": "PASS exit=0 timeout=false"
+    },
+    {
+      "name": "SCENARIO_test",
+      "result": "PASS",
+      "detail": "PASS exit=0 timeout=false"
+    },
+    {
+      "name": "SCENARIO_testFail",
+      "result": "PASS",
+      "detail": "PASS exit=1 timeout=false"
+    },
+    {
+      "name": "SCENARIO_timeout",
+      "result": "PASS",
+      "detail": "PASS exit=null timeout=true"
+    },
+    {
+      "name": "TIMEOUT_HANDLED",
+      "result": "PASS",
+      "detail": "timeout scenario timedOut=true"
+    },
+    {
+      "name": "INTENTIONAL_FAIL",
+      "result": "PASS",
+      "detail": "testFail exit 1"
+    },
+    {
+      "name": "DOCKER_LOG_REAL",
+      "result": "PASS",
+      "detail": "true"
+    },
+    {
+      "name": "DOCKER_ATTR_CURSOR",
+      "result": "PASS",
+      "detail": "CURSOR_PREPARED"
+    },
+    {
+      "name": "DOCKER_ATTR_NO_AUTOGEN",
+      "result": "PASS",
+      "detail": "NOT_IMPLEMENTED"
+    },
+    {
+      "name": "DB_AUTH_CONSUMED",
+      "result": "PASS",
+      "detail": "CONSUMED|1|adcc741f-1570-472f-9bf4-ef44028f57fc|da4946e5-2afc-497c-8302-05738f803d18|agent_task.develop|LOCAL_PILOT|ONE_TIME|true"
+    },
+    {
+      "name": "DB_TASK_REVIEW",
+      "result": "PASS",
+      "detail": "AWAITING_FOUNDER_REVIEW|adcc741f-1570-472f-9bf4-ef44028f57fc|da4946e5-2afc-497c-8302-05738f803d18|b549744a-a3ad-4694-ba23-89bc040091ea|2ba221e5-1d2f-4c75-9183-ddf53afcc18d"
+    },
+    {
+      "name": "DB_AGENT_BOUND",
+      "result": "PASS",
+      "detail": "SUCCEEDED|true|1|b549744a-a3ad-4694-ba23-89bc040091ea|adcc741f-1570-472f-9bf4-ef44028f57fc|da4946e5-2afc-497c-8302-05738f803d18"
+    },
+    {
+      "name": "DB_CHECKPOINT",
+      "result": "PASS",
+      "detail": "1|1"
+    },
+    {
+      "name": "ONE_TIME_REUSE_BLOCKED",
+      "result": "PASS",
+      "detail": "Command failed: docker exec -i supabase_db_ghost99f psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -t -A -c \n    insert into public.agent_tasks (\n      id, owner_id, project_id, status, authorization_id, authorization_kind, action_type, action_scope,\n      environment_label, scope_fingerprint, i"
+    },
+    {
+      "name": "FOUNDER_MD_NOT_VERIFIED",
+      "result": "PASS",
+      "detail": "review remains open"
+    },
+    {
+      "name": "NO_DEPLOYMENT_CLAIM",
+      "result": "PASS",
+      "detail": "no deployment claims"
+    }
+  ],
+  "passed": 29,
+  "failed": 0,
+  "verificationSha256": "d30590b2e3b7aed7c852490c4140da148161787e4a961c3592a096ad7cf345ca"
+}
