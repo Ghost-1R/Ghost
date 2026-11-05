@@ -60,13 +60,7 @@
 }
 .city a { color: #a7eaf4; text-decoration: underline; }
 .hint, .room p { color: #c7cde3; }
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  align-items: start;
-  gap: 16px;
-}
-.map, .room {
+.room {
   min-width: 0;
   padding: 16px;
   border: 1px solid #363e5e;
@@ -74,35 +68,75 @@
   background: #181e33;
   overflow-wrap: anywhere;
 }
-.sectionHead { margin-top: 0; }
-.blocks {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(135px, 100%), 1fr));
-  gap: 10px;
-  padding: 12px;
-  border-radius: 12px;
-  background: repeating-linear-gradient(90deg, transparent 0 23px, #29324e 24px 25px), #12192d;
-}
-.blocks button {
-  display: grid;
-  gap: 4px;
-  text-align: left;
-}
-.blocks button[aria-pressed="true"] {
-  border-color: #8cf0e5;
+.sceneNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 .scene {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   aspect-ratio: 1672 / 941;
+  max-height: 65vh;
   border-radius: 16px;
-  background: #181e33 url("/underworld/city.webp") center / cover no-repeat;
+  background: #181e33;
 }
-.scene:is([data-view="planning"], [data-view="gym"], [data-view="restaurant"]) {
-  background-image: url("/underworld/views.webp");
-  background-size: 200% 200%;
+.sceneArt {
+  position: absolute;
+  inset: 0;
+  background: url("/underworld/views.webp") left top / 200% 200% no-repeat;
+  animation: camera-arrival 350ms ease-out both;
 }
-.scene[data-view="planning"] { background-position: right top; }
-.scene[data-view="gym"] { background-position: left bottom; }
-.scene[data-view="restaurant"] { background-position: right bottom; }
+.sceneArt[data-view="planning"] { background-position: right top; }
+.sceneArt[data-view="gym"] { background-position: left bottom; }
+.sceneArt[data-view="restaurant"] { background-position: right bottom; }
+.sceneArt:is([data-view="engineering"], [data-view="review"], [data-view="team"], [data-view="homes"]) {
+  background-image: url("/underworld/departments.webp");
+}
+.sceneArt[data-view="review"] { background-position: right top; }
+.sceneArt[data-view="team"] { background-position: left bottom; }
+.sceneArt[data-view="homes"] { background-position: right bottom; }
+.scene[data-shift="home"] .sceneArt { filter: brightness(.8) saturate(.9); }
+.sceneCaption {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #101427;
+}
+.sceneCaption span { color: #c7cde3; font-size: .875rem; }
+.sceneCrew {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  animation: crew-arrival 550ms ease-out both;
+}
+.sceneCrew span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #101427;
+  border: 1px solid #8cf0e5;
+}
+@keyframes camera-arrival {
+  from { opacity: .5; transform: scale(1.025); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes crew-arrival {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sceneArt, .sceneCrew { animation: none; }
+}
+:global(html[data-reduce-motion="1"]) :is(.sceneArt, .sceneCrew) { animation: none; }
 .links {
   display: flex;
   flex-wrap: wrap;
@@ -112,4 +146,140 @@
 .work { display: grid; gap: 8px; }
 .work button { display: grid; text-align: left; gap: 4px; }
 .work span { color: #c7cde3; text-transform: capitalize; }
-@media (max-width: 760px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.deskFloor {
+  display: grid;
+  gap: 10px;
+  margin-block: 12px;
+}
+.deskGrid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.deskCard {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #363e5e;
+  border-radius: 14px;
+  background: #12182c;
+}
+.deskCard[data-occupied="false"] {
+  opacity: 0.88;
+}
+.deskMeta {
+  display: grid;
+  gap: 2px;
+}
+.deskMeta span {
+  color: #c7cde3;
+  font-size: 0.9rem;
+}
+.monitor {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #5a6490;
+  background: linear-gradient(180deg, #1a223c, #10162a);
+  text-align: left;
+}
+.monitor[data-asleep="true"] {
+  border-color: #3a425f;
+  background: #0d1220;
+}
+.monitorScreen {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-height: 84px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #070b16;
+  border: 1px solid #2c3450;
+  color: #d7def5;
+}
+.monitor[data-asleep="true"] .monitorScreen {
+  background: #05070f;
+  color: #6d7694;
+}
+.monitorTitle {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.monitorIdle {
+  color: #9aa3c2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+.monitorCue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #c7cde3;
+  font-size: 0.85rem;
+}
+.monitorCue[data-activity="active"]::before,
+.monitor[data-activity="active"] .monitorScreen {
+  box-shadow: inset 0 0 0 1px #5ee0c4;
+}
+.monitorCue[data-activity="active"]::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #5ee0c4;
+  animation: monitor-pulse 1.2s ease-in-out infinite;
+}
+.monitorCue[data-activity="blocked"],
+.monitorCue[data-activity="awaiting_approval"] {
+  color: #ffd2a6;
+}
+.monitorCue[data-activity="blocked"]::before,
+.monitorCue[data-activity="awaiting_approval"]::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #ffb86b;
+}
+.monitorHint {
+  color: #a7eaf4;
+  font-size: 0.8rem;
+}
+.monitorPanel {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #545d80;
+  border-radius: 16px;
+  background: #181e33;
+  overflow-wrap: anywhere;
+}
+.monitorPanelHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 10px;
+}
+.monitorDetail {
+  display: grid;
+  gap: 8px;
+}
+@keyframes monitor-pulse {
+  from { opacity: 0.45; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .monitorCue[data-activity="active"]::before { animation: none; }
+}
+:global(html[data-reduce-motion="1"]) .monitorCue[data-activity="active"]::before {
+  animation: none;
+}
