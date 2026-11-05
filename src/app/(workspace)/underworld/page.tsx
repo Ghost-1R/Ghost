@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth/session";
 import { getAccessContext } from "@/lib/access/session-access";
 import { listAgentTasksForProject } from "@/lib/agent-runtime/queries";
 import { ASSIGNMENT_COLUMNS, ASSIGNMENT_STATUS_LABEL, mapAssignmentRow } from "@/lib/assignments/types";
+import { loadBuildPlan } from "@/lib/build-plan/queries";
 import { loadNextActions } from "@/lib/projects/queries";
 import { loose } from "@/lib/db/loose";
 import { UnderworldCity, type CityWork } from "@/components/underworld/city";
@@ -26,18 +27,30 @@ export default async function UnderworldPage({ searchParams }: {
   const work: CityWork[] = [];
   let warning = error ? "Projects could not be loaded." : "";
   if (selected) {
-    const [assignments, runs, plan] = await Promise.all([
+    const [assignments, runs, plan, buildPlan] = await Promise.all([
       loose(supabase).from("work_assignments").select(ASSIGNMENT_COLUMNS)
         .eq("project_id", selected.id).in("company_id", access.ownedCompanyIds)
         .order("updated_at", { ascending: false }).limit(50),
       listAgentTasksForProject(supabase, user.id, selected.id),
       loadNextActions(supabase, selected.id),
+      loadBuildPlan(supabase, selected.id),
     ]);
-    if (assignments.error || runs.status === "error" || plan.status === "error") {
+    if (assignments.error || runs.status === "error" || plan.status === "error" || buildPlan.status === "error") {
       warning = "Some work records are unavailable. Open Worker for saved runs.";
     }
     const tasks = runs.status === "ok" ? runs.data : [];
     const linked = new Set<string>();
+    if (buildPlan.status === "ok" && buildPlan.data) {
+      work.push({
+        id: buildPlan.data.id,
+        title: "Build plan",
+        department: "planning",
+        status: buildPlan.data.status.toLowerCase().replaceAll("_", " "),
+        note: buildPlan.data.summary,
+        updated: buildPlan.data.updatedAt,
+        href: `/projects/${selected.id}/build-plan`,
+      });
+    }
     for (const action of plan.status === "ok" ? plan.data : []) {
       work.push({
         id: action.id,

@@ -5,13 +5,13 @@ import { useState } from "react";
 import styles from "./city.module.css";
 
 const buildings = [
-  { id: "planning", name: "Planning", mark: "01", color: "violet", type: "Department" },
-  { id: "engineering", name: "Engineering", mark: "02", color: "cyan", type: "Department" },
-  { id: "review", name: "Quality Review", mark: "03", color: "green", type: "Department" },
-  { id: "team", name: "Team Office", mark: "04", color: "blue", type: "Department" },
-  { id: "gym", name: "The Gym", mark: "05", color: "coral", type: "After hours" },
-  { id: "restaurant", name: "Night Market", mark: "06", color: "amber", type: "Restaurant" },
-  { id: "homes", name: "Residences", mark: "07", color: "rose", type: "After hours" },
+  { id: "planning", name: "Planning", type: "Department" },
+  { id: "engineering", name: "Engineering", type: "Department" },
+  { id: "review", name: "Quality Review", type: "Department" },
+  { id: "team", name: "Team Office", type: "Department" },
+  { id: "gym", name: "The Gym", type: "After hours" },
+  { id: "restaurant", name: "Night Market", type: "Restaurant" },
+  { id: "homes", name: "Residences", type: "After hours" },
 ] as const;
 
 const crew = [
@@ -45,6 +45,7 @@ export function UnderworldCity({ work, projectId }: { work: CityWork[]; projectI
     (shift === "work" ? member.office : shift === "after" ? member.after : "homes") === location);
   const visibleWork = building ? work.filter((entry) => entry.department === building.id) : work;
   const selected = work.find((entry) => entry.id === desk);
+  const scene = ["planning", "gym", "restaurant"].includes(location) ? location : "street";
   const handoff = selected?.handoff ? work.find((entry) => entry.id === selected.handoff) : undefined;
   const outgoing = selected ? work.filter((entry) => entry.handoff === selected.id) : [];
 
@@ -59,7 +60,7 @@ export function UnderworldCity({ work, projectId }: { work: CityWork[]; projectI
       <header className={styles.hero}>
         <p className={styles.kicker}>GHOST / WORLD VIEW</p>
         <h1>Underworld</h1>
-        <p>Explore the city, follow the crew, or trace a real assignment.</p>
+        <p>Follow the crew or open the records behind the work.</p>
         <div className={styles.controls}>
           <div role="group" aria-label="Simulated city time">
             {([["work", "On shift"], ["after", "After work"], ["home", "Night"]] as const).map(([id, label]) => (
@@ -76,18 +77,17 @@ export function UnderworldCity({ work, projectId }: { work: CityWork[]; projectI
         <p className={styles.hint}>City routines are simulated. Assignment status comes from saved Ghost records.</p>
       </header>
 
+      <div className={styles.scene} data-view={scene} aria-label={building?.name ?? "Underworld street view"} role="img" />
       <div className={styles.layout}>
         <section className={styles.map} aria-label="City map">
           <div className={styles.sectionHead}>
-            <h2>City map</h2>
+            <h2>Explore the city</h2>
             <button type="button" onClick={() => openRoom("city")}>City overview</button>
           </div>
           <div className={styles.blocks}>
             {buildings.map((entry) => (
-              <button key={entry.id} type="button" data-color={entry.color}
+              <button key={entry.id} type="button"
                 aria-pressed={location === entry.id} onClick={() => openRoom(entry.id)}>
-                <span className={styles.tower} aria-hidden="true"><i /><i /><i /></span>
-                <small>{entry.mark} / {entry.type}</small>
                 <strong>{entry.name}</strong>
                 <span className={styles.hint}>
                   {crew.filter((member) => (shift === "work" ? member.office : shift === "after" ? member.after : "homes") === entry.id)
@@ -112,9 +112,14 @@ export function UnderworldCity({ work, projectId }: { work: CityWork[]; projectI
               ))}
             </div>
           )}
-          {location === "planning" && projectId && <Link href={`/projects/${projectId}`}>Open project plan</Link>}
+          {projectId && (
+            <div className={styles.links}>
+              <Link href={`/projects/${projectId}/build-plan`}>Open build plan</Link>
+              <Link href={`/underworld/watch?project=${projectId}`}>Review risks</Link>
+            </div>
+          )}
           <h3>{building ? "Department records" : "Saved work"}</h3>
-          {visibleWork.length === 0 && <p>No saved assignments or runs in this view.</p>}
+          {visibleWork.length === 0 && <p>No work records in this view yet.</p>}
           <div className={styles.work}>
             {visibleWork.map((entry) => (
               <button key={entry.id} type="button" aria-pressed={desk === entry.id} onClick={() => setDesk(entry.id)}>

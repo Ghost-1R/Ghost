@@ -85,43 +85,31 @@
 }
 .blocks button {
   display: grid;
-  align-content: end;
-  justify-items: start;
-  min-height: 142px;
-  gap: 3px;
+  gap: 4px;
   text-align: left;
-  --light: #bcb5ff;
 }
-.blocks [data-color="cyan"] { --light: #77e7ff; }
-.blocks [data-color="green"] { --light: #99edb3; }
-.blocks [data-color="blue"] { --light: #8fb9ff; }
-.blocks [data-color="coral"] { --light: #ffa98c; }
-.blocks [data-color="amber"] { --light: #ffdf89; }
-.blocks [data-color="rose"] { --light: #f5a5cc; }
-.blocks button[aria-pressed="true"] { border-color: var(--light); }
-.tower {
-  width: 58px;
-  height: 49px;
-  margin: 12px 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  align-items: end;
-  gap: 5px;
-  transform: skewY(-10deg);
-  transition: transform 180ms ease;
+.blocks button[aria-pressed="true"] {
+  border-color: #8cf0e5;
 }
-.tower i {
-  height: 72%;
-  background: repeating-linear-gradient(0deg, #222943 0 4px, var(--light) 5px 7px);
-  box-shadow: 5px 2px #101427;
-  border: 1px solid var(--light);
+.scene {
+  aspect-ratio: 1672 / 941;
+  border-radius: 16px;
+  background: #181e33 url("/underworld/city.webp") center / cover no-repeat;
 }
-.tower i:nth-child(2) { height: 100%; }
-.tower i:nth-child(3) { height: 52%; }
-.blocks button:hover .tower { transform: translateY(-4px) skewY(-10deg); }
+.scene:is([data-view="planning"], [data-view="gym"], [data-view="restaurant"]) {
+  background-image: url("/underworld/views.webp");
+  background-size: 200% 200%;
+}
+.scene[data-view="planning"] { background-position: right top; }
+.scene[data-view="gym"] { background-position: left bottom; }
+.scene[data-view="restaurant"] { background-position: right bottom; }
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block: 10px;
+}
 .work { display: grid; gap: 8px; }
 .work button { display: grid; text-align: left; gap: 4px; }
 .work span { color: #c7cde3; text-transform: capitalize; }
 @media (max-width: 760px) { .layout { grid-template-columns: minmax(0, 1fr); } }
-@media (prefers-reduced-motion: reduce) { .tower { transition: none; } }
-:global([data-reduce-motion="1"]) .tower { transition: none; }

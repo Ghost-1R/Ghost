@@ -47,7 +47,7 @@ function buildHref(basePath: string, summary: MapSummary, overrides: Record<stri
 
 export function SalesMapView({ summary, basePath }: Props) {
   const router = useRouter();
-  const [tilted, setTilted] = useState(true);
+  const [tilted, setTilted] = useState(false);
   const [geoMessage, setGeoMessage] = useState<string | null>(null);
   const { aggregates, filters, sync } = summary;
 
@@ -133,6 +133,9 @@ export function SalesMapView({ summary, basePath }: Props) {
           </span>
         ) : null}
       </div>
+      {!sync?.lastSyncedAt && !summary.hasTestData && (
+        <p className="notice">Sales coverage is unverified until order data syncs. The map cannot establish that sales are zero.</p>
+      )}
       <p className="quiet">
         Aggregates only: totals by state and ZIP. No street addresses, names, or order details are
         shown.
