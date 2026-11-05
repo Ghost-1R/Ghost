@@ -35,6 +35,11 @@ import {
 import { prioritizeTodayActions } from "@/lib/operations/today";
 import { loadOpenDecisions } from "@/lib/decisions/queries";
 import { loadProjectSummaries } from "@/lib/projects/queries";
+import { listShiftJobsForOwner } from "@/lib/underworld-shifts/queries";
+import {
+  projectShiftJobsToActivity,
+  projectShiftJobsToTodayActions,
+} from "@/lib/underworld-shifts/surface";
 
 export const metadata: Metadata = {
   title: "Today",
@@ -64,7 +69,7 @@ export default async function DashboardPage() {
   const greeting = companionGreeting(profile.data?.display_name);
   const planDate = founderPlanDate(FOUNDER_TZ);
 
-  const [projects, conversation, today, openDecisions, agentTaskSurface, savedPlan] =
+  const [projects, conversation, today, openDecisions, agentTaskSurface, savedPlan, shiftJobs] =
     await Promise.all([
       loadProjectSummaries(session.supabase),
       loadLatestConversation(session.supabase, null),
@@ -72,6 +77,7 @@ export default async function DashboardPage() {
       loadOpenDecisions(session.supabase),
       loadAgentTaskSurface(session.supabase, { limit: 24 }),
       loadSavedDayPlan(session.supabase, session.user.id, planDate),
+      listShiftJobsForOwner(session.supabase, session.user.id, 24),
     ]);
 
   const access = await getAccessContext(session.supabase, session.user.id, session.user.email);
@@ -89,11 +95,18 @@ export default async function DashboardPage() {
   const assignWork = await loadAssignPanelData(session.supabase).catch(() => null);
   const decisionList = openDecisions.status === "ok" ? openDecisions.data : [];
   const agentTaskRows = agentTaskSurface.status === "ok" ? agentTaskSurface.data : [];
+  const shiftJobRows = (shiftJobs.status === "ok" ? shiftJobs.data : []).map((job) => ({
+    ...job,
+    projectName:
+      projectList.find((project) => project.id === job.projectId)?.name ??
+      projectNames.get(job.projectId) ??
+      "Project",
+  }));
   const todayList = prioritizeTodayActions([
     ...(today.status === "ok" ? today.data : []),
     ...projectAgentTasksToTodayActions(agentTaskRows),
+    ...projectShiftJobsToTodayActions(shiftJobRows),
   ]);
-
   const decisionSeeds: OpenDecisionSeed[] = decisionList.map((decision) => ({
     id: decision.id,
     projectId: decision.projectId,
@@ -232,6 +245,7 @@ export default async function DashboardPage() {
   const activityItems = [
     ...(recentActivity.status === "ok" ? recentActivity.data : []),
     ...projectAgentTasksToActivity(agentTaskRows),
+    ...projectShiftJobsToActivity(shiftJobRows),
   ]
     .sort((left, right) => right.at.localeCompare(left.at))
     .slice(0, 18);

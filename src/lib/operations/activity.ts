@@ -14,7 +14,8 @@ export type ActivityItem = {
     | "verification"
     | "deployment"
     | "agent_task"
-    | "development_task";
+    | "development_task"
+    | "underworld_shift";
   title: string;
   detail: string;
   at: string;

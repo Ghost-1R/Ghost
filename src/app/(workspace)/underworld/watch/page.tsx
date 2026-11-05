@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAccessContext } from "@/lib/access/session-access";
 import { getSession } from "@/lib/auth/session";
 import { loadBlockers, loadVerification } from "@/lib/projects/queries";
+import { listShiftJobsForProject } from "@/lib/underworld-shifts/queries";
 
 export const metadata = { title: "Watch Room" };
 
@@ -26,6 +27,7 @@ export default async function WatchRoom({ searchParams }: {
     loadVerification(supabase, selected.id),
     supabase.from("build_plan_risks").select("id, description, severity, mitigation")
       .eq("project_id", selected.id).order("human_id"),
+    listShiftJobsForProject(supabase, selected.id, 8),
   ]) : null;
 
   return (
@@ -75,6 +77,27 @@ export default async function WatchRoom({ searchParams }: {
                 <li key={item.id}><strong>{item.state.replaceAll("_", " ")}</strong> · {item.category} · {item.target}</li>
               ))}</ul>
             ) : <p>No verification evidence recorded.</p>}
+          </section>
+          <section>
+            <h3>Shift reviews</h3>
+            {review[3].status === "error" ? (
+              <p>Shift job records unavailable.</p>
+            ) : review[3].data.length ? (
+              <ul>
+                {review[3].data.map((job) => (
+                  <li key={job.id}>
+                    <strong>{job.status.replaceAll("_", " ")}</strong>
+                    {job.checkpointLabel ? ` · ${job.checkpointLabel}` : ""}
+                    {job.reviewSummary ? <p>{job.reviewSummary}</p> : null}
+                    {job.evidence.map((link) => (
+                      <Link key={link.href} href={link.href}>{link.label}</Link>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No shift reviews recorded yet.</p>
+            )}
           </section>
         </>
       )}

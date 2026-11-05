@@ -7,7 +7,11 @@ import { ASSIGNMENT_COLUMNS, ASSIGNMENT_STATUS_LABEL, mapAssignmentRow } from "@
 import { loadBuildPlan } from "@/lib/build-plan/queries";
 import { loadNextActions } from "@/lib/projects/queries";
 import { loose } from "@/lib/db/loose";
+import { listShiftJobsForProject } from "@/lib/underworld-shifts/queries";
+import { isWithinShift } from "@/lib/underworld-shifts/schedule";
+import type { UnderworldShiftJob } from "@/lib/underworld-shifts/types";
 import { UnderworldCity, type CityWork } from "@/components/underworld/city";
+import { ShiftRunnerPanel } from "@/components/underworld/shift-runner-panel";
 
 export const metadata = { title: "Underworld" };
 
@@ -21,20 +25,23 @@ export default async function UnderworldPage({ searchParams }: {
   if (!access.ownedCompanyIds.length) redirect("/dashboard");
 
   const { data: projects, error } = await supabase.from("projects")
-    .select("id, name").in("company_id", access.ownedCompanyIds).order("name");
+    .select("id, name, company_id").in("company_id", access.ownedCompanyIds).order("name");
   const { project } = await searchParams;
   const selected = projects?.find((row) => row.id === project) ?? projects?.[0];
   const work: CityWork[] = [];
   let warning = error ? "Projects could not be loaded." : "";
+  let shiftJobs: UnderworldShiftJob[] = [];
   if (selected) {
-    const [assignments, runs, plan, buildPlan] = await Promise.all([
+    const [assignments, runs, plan, buildPlan, shifts] = await Promise.all([
       loose(supabase).from("work_assignments").select(ASSIGNMENT_COLUMNS)
         .eq("project_id", selected.id).in("company_id", access.ownedCompanyIds)
         .order("updated_at", { ascending: false }).limit(50),
       listAgentTasksForProject(supabase, user.id, selected.id),
       loadNextActions(supabase, selected.id),
       loadBuildPlan(supabase, selected.id),
+      listShiftJobsForProject(supabase, selected.id, 12),
     ]);
+    if (shifts.status === "ok") shiftJobs = shifts.data;
     if (assignments.error || runs.status === "error" || plan.status === "error" || buildPlan.status === "error") {
       warning = "Some work records are unavailable. Open Worker for saved runs.";
     }
@@ -109,6 +116,15 @@ export default async function UnderworldPage({ searchParams }: {
       )}
       {warning && <p role="status">{warning}</p>}
       <UnderworldCity key={selected?.id} work={work} projectId={selected?.id} />
+      {selected && (
+        <ShiftRunnerPanel
+          companyId={selected.company_id}
+          projectId={selected.id}
+          projectName={selected.name}
+          jobs={shiftJobs ?? []}
+          withinShift={isWithinShift()}
+        />
+      )}
     </div>
   );
 }
