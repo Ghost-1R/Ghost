@@ -7,7 +7,7 @@
 - Start: `npm run dev -- -p 3012 -H 127.0.0.1` with `.env.local` → disposable ghost99f (`54331`)
 - Optional: `GHOST_CEO_NAME=CEO JITTA` (local owner aliases also map to CEO JITTA)
 - Branch: `ghost-ceo-command`
-- Tip: see `git rev-parse HEAD` after push
+- Tip: `06e5e2b` on `ghost-ceo-command`
 - Screenshots: `ceo-command-desktop.png`, `ceo-command-desktop-phase3.png`, `ceo-command-phone-390.png`
 
 ## One-minute walkthrough
