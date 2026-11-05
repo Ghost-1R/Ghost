@@ -72,3 +72,7 @@ next-env.d.ts
 # Pilot 02 disposable founder UI login (local only)
 .ghost/pilot-02/founder-ui-login.local.json
 
+
+# local disposable login helpers (never commit)
+.ghost/**/pr9-local-login.json
+

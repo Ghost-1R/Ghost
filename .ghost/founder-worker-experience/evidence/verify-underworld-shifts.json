@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "live": "0",
+  "supabaseUrl": "http://127.0.0.1:54331",
+  "jobId": "f5e77e77-073a-4587-bac9-b844d05f9163",
+  "completedStatus": "COMPLETE",
+  "reviewSummary": "Build plan review for PR9 Watch Project. Plan status PLANNING. 1 high/critical risk(s). 0 verification gap(s). Read-only: no project records were changed. Consequential follow-ups require founder approval.",
+  "evidence": [
+    {
+      "href": "/projects/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1/build-plan",
+      "label": "Open build plan"
+    },
+    {
+      "href": "/underworld/watch?project=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+      "label": "Watch Room"
+    },
+    {
+      "href": "/projects/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1/build-plan#plan-e1c98540-5dea-494d-b2b2-60d237a153d0",
+      "label": "Build plan record"
+    }
+  ],
+  "resultFingerprint": "4570535cb0b9002bbc8802840715e36fd9697a9ea3fbba1f837bdfab54954e73",
+  "duplicateCompleteRows": 1,
+  "restartClaimed": 0,
+  "midStatus": "WORKING",
+  "midCheckpoint": 1,
+  "afterBoundaryStatus": "QUEUED",
+  "afterBoundaryCheckpoint": 1,
+  "outsideClaimed": 0,
+  "outsideCheckpointed": 1,
+  "outsideDetail": [
+    "Shift boundary checkpoint 9a712acb at step 1; resume next shift.",
+    "Outside shift window: no new claims."
+  ],
+  "anonConfigured": true,
+  "hash": "6ee37881cca0"
+}

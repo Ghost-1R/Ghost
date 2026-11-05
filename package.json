@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "worker": "tsx src/lib/agent-runtime/worker-main.ts",
+    "test:underworld-shifts": "tsx --test src/lib/underworld-shifts/*.test.ts",
     "lint": "eslint",
     "typegen": "next typegen",
     "typecheck": "next typegen && tsc --noEmit",

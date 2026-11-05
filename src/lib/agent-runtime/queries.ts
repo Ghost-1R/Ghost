@@ -53,8 +53,15 @@ function db(supabase: GhostClient): SupabaseClient {
 }
 
 function isMissingTable(message: string): boolean {
-  return /agent_tasks|agent_task_events|agent_task_checkpoints|schema cache|does not exist/i.test(
-    message,
+  return (
+    /could not find the table['\s].*(agent_tasks|agent_task_events|agent_task_checkpoints)/i.test(
+      message,
+    ) ||
+    /relation ['"]?(public\.)?(agent_tasks|agent_task_events|agent_task_checkpoints)['"]? does not exist/i.test(
+      message,
+    ) ||
+    (/schema cache/i.test(message) &&
+      /agent_tasks|agent_task_events|agent_task_checkpoints/i.test(message))
   );
 }
 
