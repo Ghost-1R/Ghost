@@ -82,6 +82,7 @@ export default async function UnderworldPage({ searchParams }: {
 
   return (
     <div className="stack">
+      <Link href="/underworld/watch">Watch Room</Link>
       {selected && (
         <form action="/underworld" method="get" className="meta">
           <label htmlFor="city-project">Project</label>
@@ -90,6 +91,7 @@ export default async function UnderworldPage({ searchParams }: {
           </select>
           <button className="button-secondary" type="submit">Open project</button>
           <Link href={`/projects/${selected.id}`}>Assign work</Link>
+          <Link href={`/projects/${selected.id}/build-plan`}>Build plan</Link>
         </form>
       )}
       {warning && <p role="status">{warning}</p>}

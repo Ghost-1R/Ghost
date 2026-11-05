@@ -8,6 +8,7 @@ import { SoftNavLink, StaggerBoard, StaggerCard } from "@/components/today/motio
 import { EmptyState, ErrorState } from "@/components/ui/panel";
 import { isModelConfigured } from "@/lib/ai/provider";
 import { loadAssignPanelData } from "@/lib/assignments/queries";
+import { getAccessContext } from "@/lib/access/session-access";
 import { getSession } from "@/lib/auth/session";
 import { loadLatestConversation } from "@/lib/conversation/queries";
 import {
@@ -72,6 +73,16 @@ export default async function DashboardPage() {
       loadAgentTaskSurface(session.supabase, { limit: 24 }),
       loadSavedDayPlan(session.supabase, session.user.id, planDate),
     ]);
+
+  const access = await getAccessContext(session.supabase, session.user.id, session.user.email);
+  const ownedProjects = access.ownedCompanyIds.length
+    ? await session.supabase.from("projects").select("id, name").in("company_id", access.ownedCompanyIds)
+    : null;
+  const projectNames = new Map((ownedProjects?.data ?? []).map((project) => [project.id, project.name]));
+  const buildPlans = projectNames.size
+    ? await session.supabase.from("build_plans").select("id, project_id, status")
+        .in("project_id", [...projectNames.keys()]).order("updated_at", { ascending: false }).limit(8)
+    : null;
 
   const projectList = projects.status === "ok" ? projects.data : [];
   // Team / Ghost AI assignment options; resolves to empty lists when the schema is not applied.
@@ -238,6 +249,23 @@ export default async function DashboardPage() {
           </p>
         </div>
       </header>
+
+      {ownedProjects && (
+        <section className="stack">
+          <h2>Underworld plans</h2>
+          <Link href="/underworld/watch">Open Watch Room</Link>
+          {ownedProjects.error || buildPlans?.error ? <p>Build plans could not be loaded.</p> : buildPlans?.data?.length ? (
+            <ul>
+              {buildPlans.data.map((plan) => (
+                <li key={plan.id}>
+                  <Link href={`/projects/${plan.project_id}/build-plan`}>{projectNames.get(plan.project_id)}</Link>
+                  {" · "}{plan.status.replaceAll("_", " ")}
+                </li>
+              ))}
+            </ul>
+          ) : <p>No build plans recorded for your companies.</p>}
+        </section>
+      )}
 
       <TodayDayBoard
         actions={todayList}
